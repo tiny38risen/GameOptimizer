@@ -1,0 +1,5 @@
+# Patch Summary - RG ID and Static Gate Scope Fix
+
+- Renamed ApplyGuard Transaction Gate from RG-5 to RG-6 to avoid collision with the existing RG-5 target-missing scenario.
+- Documented that the ApplyGuard static checker is a conservative auxiliary gate, not a full control-flow ordering proof.
+- Added the same limitation note to ApplyGuardRegressionMatrix.md and the static checker source comment.

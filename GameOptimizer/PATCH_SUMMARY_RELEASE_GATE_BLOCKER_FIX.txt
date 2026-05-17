@@ -1,0 +1,7 @@
+Release Gate Blocker Fix
+
+- main.cpp expected access now uses explicit Assign -> Check -> Bind variables before use.
+- targetProcessId is bound once after ProcessFinder success and reused for topology/background/thread tracker initialization.
+- watchdog command buffer and observed thread buffer remain explicitly bound before iteration/logging.
+- --max-runtime-seconds rejects signed, zero, malformed, and overflow-like inputs; values above 86400 seconds are clamped.
+- runtime timeout no longer flips gRunning from the polling loop; it arms gRuntimeTimeoutRequested and the watchdog flips gRunning only at the cycle-end rollback-safe point after policy dispatch completion.

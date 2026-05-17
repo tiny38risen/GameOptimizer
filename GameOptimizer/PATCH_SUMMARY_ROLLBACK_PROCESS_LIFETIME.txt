@@ -1,0 +1,14 @@
+PATCH: Background process rollback lifetime hardening
+
+Files changed:
+- RollbackManager.cpp
+
+Changes:
+1. Added process liveness classification for background rollback.
+2. Treat process exit / non-openable / identity-changed background rollback entries as stale rollback entries, not fatal shutdown failure.
+3. If SetProcessAffinityMask or SetPriorityClass fails during background rollback, re-check process liveness and creation-time identity before returning a fatal error.
+4. Kept true rollback failures fatal only when the same live process is still identifiable and the restore API still fails.
+5. Removed remaining expected operator-> usage in rollback audit path by binding after check.
+
+Rationale:
+Background processes may exit or change identity between BG_RESTRICT_UP and shutdown rollback. This must not fail the whole GameOptimizer shutdown when the original process is no longer safely restorable.

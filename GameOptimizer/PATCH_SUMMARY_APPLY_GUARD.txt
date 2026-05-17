@@ -1,0 +1,21 @@
+ApplyGuard patch summary
+
+Files added:
+- ApplyGuard.h
+- ApplyGuard.cpp
+- ApplyGuardDesign.md
+
+Files modified:
+- SchedulerController.cpp
+- BackgroundController.cpp
+- RollbackManager.h
+- RollbackManager.cpp
+- GameOptimizer.vcxproj
+- GameOptimizer.vcxproj.filters
+
+Behavior changes:
+- Main-thread policy apply now has an explicit rollback-safe transaction boundary.
+- Background process restriction now has an explicit rollback-safe transaction boundary.
+- Partial priority-apply failures trigger immediate rollback through ApplyGuard.
+- Pre-mutation affinity failures discard only newly-created rollback state and preserve pre-existing rollback entries.
+- Process rollback state existence is queryable through RollbackManager::hasProcessState().

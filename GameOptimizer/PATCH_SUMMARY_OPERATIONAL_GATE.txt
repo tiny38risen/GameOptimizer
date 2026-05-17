@@ -1,0 +1,15 @@
+[PATCH] Operational Gate
+
+Changed files:
+- main.cpp
+- ReleaseRegressionMatrix.md
+- OperationalSafetyRunbook.md
+- run_release_gate_smoke.bat
+- BUILD_MANIFEST.txt
+
+Summary:
+- Added --max-runtime-seconds for bounded automated smoke runs.
+- Fixed confirmed-main logging branch typo in logDecisionState.
+- Added release regression matrix.
+- Added operational safety runbook.
+- Added smoke batch runner for dry-run, soft-apply, and apply modes.

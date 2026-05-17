@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="GameOptimizer/GameOptimizer.vcxproj" Id="8c5c6e24-8073-4179-ac18-16f218f0494b" />
+</Solution>

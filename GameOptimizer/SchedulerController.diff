@@ -1,0 +1,20 @@
+--- /mnt/data/SchedulerController.cpp	2026-05-05 07:35:22.215836625 +0000
++++ /mnt/data/already_applied_policy_skip_patch/SchedulerController.cpp	2026-05-05 07:43:05.568951124 +0000
+@@ -237,6 +237,17 @@
+         return std::unexpected(originalState.error());
+     }
+ 
++    if (matchesPolicy(*originalState, policy))
++    {
++        Logger::info(
++            "main-thread policy skipped for TID {} (reason=already_applied, group={}, affinity=0x{:X}, priority={})",
++            threadId,
++            static_cast<unsigned int>(originalState->processorGroup),
++            static_cast<unsigned long long>(originalState->affinityMask),
++            originalState->priority);
++        return {};
++    }
++
+     const bool hadExistingRollbackState = rollbackManager_.hasThreadState(threadId);
+     if (!hadExistingRollbackState)
+     {

@@ -1,0 +1,15 @@
+# Background restriction filter for GameOptimizer
+# Format: key=process.exe
+#
+# deny/restrict entries are the ONLY processes that can be restricted in --apply mode.
+# allow/protect entries are always skipped even if they also appear in deny.
+
+# Browser / launcher examples
+deny=chrome.exe
+deny=steamwebhelper.exe
+deny=NexonPlug.exe
+
+# Explicitly protect anything you never want touched
+protect=devenv.exe
+protect=explorer.exe
+protect=svchost.exe

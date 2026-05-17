@@ -1,0 +1,16 @@
+PATCH: strict background rollback identity classification
+
+Scope:
+- RollbackManager.cpp
+
+Changes:
+- Removed transient-error shortcut for SetProcessAffinityMask / SetPriorityClass rollback failures.
+- SetProcessAffinityMask failure now performs identity verification before deciding fatal vs stale.
+- SetPriorityClass failure now performs identity verification before deciding fatal vs stale.
+- Non-fatal rollback skip is only used when the process is no longer active or creation time differs.
+- Same PID + same creation time + live process keeps rollback failure fatal.
+- Initial process open failure is non-fatal only for ProcessOpenFailed; AccessDenied remains fatal.
+
+Policy:
+- stale identity: release rollback entry without failing shutdown
+- same identity live restore failure: return ProcessAffinityApplyFailed / ProcessPriorityApplyFailed

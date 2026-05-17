@@ -1,0 +1,25 @@
+PATCH SUMMARY — Concurrency + Hot-Path State Fix
+
+1. LatencyMetricsCollector cached RTT jitter data race removed.
+   - cachedRttJitterMs_ changed from double to std::atomic<double>.
+   - collect() now uses load(std::memory_order_relaxed) and does not lock rttMutex_.
+   - pushRttSample() still uses rttMutex_ for the RTT ring buffer, then publishes the cached jitter with store(std::memory_order_relaxed).
+
+2. ThreadTracker hot-path unordered_map allocation removed.
+   - samples_ changed from std::unordered_map<DWORD, ThreadSample> to std::array<ThreadSample, 1024>.
+   - Runtime insert/erase paths were replaced with fixed-slot find/create/deactivate logic.
+   - Removed std::unordered_set active-thread collection from observeOnce().
+   - Missing threads are deactivated by per-cycle seenInCycle flags.
+
+3. main.cpp shutdown memory order verified and expected consumption hardened.
+   - gRunning.store(false, std::memory_order_release) is used at all write sites.
+   - gRunning.load(std::memory_order_acquire) remains paired with those release stores.
+   - LatencyDecisionLayer::evaluate() result is explicitly checked before dereferencing; failure now continues the watchdog loop instead of exiting the loop body abruptly.
+
+4. IPv4 formatting raw pointer hazard removed.
+   - formatIpv4Address() now returns a bounded Ipv4Text wrapper.
+   - Logger calls pass std::string_view from Ipv4Text::view(), not temporary .data() C-string pointers.
+   - The invalid IPv4 fallback is length-bounded and does not depend on null-termination.
+
+Notes:
+- getTopThreads() still returns std::vector<ThreadInfo> by interface contract. This patch removes the hidden unordered_map churn from the core tracking state; changing getTopThreads() to a fixed output buffer would require a broader caller/test interface patch.

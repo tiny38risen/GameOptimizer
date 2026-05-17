@@ -1,0 +1,33 @@
+Patch: next design stabilization pass
+
+Scope:
+- BackgroundController logging
+- AppliedPolicyTracker rearm cooldown
+- ThreadTracker display top-N path
+- LatencyDecisionLayer cooldown log unit
+- Test / release measurement documentation
+
+Changes:
+1. Background logging noise reduction
+   - Added BackgroundFilterConfig::logSkippedProcessDetails.
+   - --background-detail-log now enables both per-process restricted logs and per-process skipped logs.
+   - Default apply-mode output keeps only summary plus real failure logs.
+
+2. Policy feedback rearm cooldown
+   - Added AppliedPolicyTrackerConfig::rearmCooldown, default 30 seconds.
+   - Same command cannot immediately rearm after pass, inconclusive, or rollback-request completion.
+   - Suppressed rearm is logged once with remaining cooldown.
+
+3. ThreadTracker top-N output cost reduction
+   - Replaced getTopThreads() std::vector return with fixed ThreadInfoBuffer.
+   - Removed reserve/sort/resize allocation path.
+   - Uses bounded top-N insertion with capacity 8.
+
+4. Cooldown log unit fix
+   - LatencyDecisionLayer now reports cooldown values in milliseconds using duration_cast.
+
+5. Documentation
+   - Added integration and release measurement checklist files.
+
+Validation note:
+- This environment cannot run MSVC/Win32 build. Build in Visual Studio 2022 x64 Debug and Release with /W4 /WX.

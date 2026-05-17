@@ -1,0 +1,17 @@
+[PATCH SUMMARY] State Lifetime + ICMP Rate Limiting
+
+1. ThreadTracker.cpp
+   - Kept the mandatory O(N) reset at the beginning of ThreadTracker::update().
+   - Added an explicit state-lifetime comment to resetMultiSampleAccumulators().
+   - The reset zeroes accumulatedDelta100ns, accumulatedDeltaCount, and hasWindowBaseline for every active ThreadSample before a new multi-sampling window starts.
+   - This prevents per-watchdog idle gaps from being folded into avg-sample-cpu.
+
+2. LatencyMetricsCollector.cpp
+   - Reworked ICMP failure logging into state-transition style output.
+   - Failure #1: INFO once.
+   - Failure #2..#4: silent.
+   - Failure #5: self-healing path logs the state transition.
+   - This prevents polling-based log spam during network loss.
+
+3. Build note
+   - Not compiled in this Linux sandbox because the project targets Win32/MSVC.

@@ -1,0 +1,24 @@
+Patch: release gate logging overhead pass
+
+Scope:
+- main.cpp runtime diagnostic logging
+- release validation documentation
+
+Changes:
+1. Thread detail logging is now opt-in.
+   - Added --thread-detail-log.
+   - Default watchdog loop skips getTopThreads(), avoiding display-only top-N work in normal Release runs.
+
+2. Thread detail log interval is configurable.
+   - Added --thread-log-interval <cycles>.
+   - Invalid or zero values are rejected without exceptions and fall back to 1.
+
+3. Runtime usage text updated.
+   - Usage now documents --thread-detail-log and --thread-log-interval.
+
+4. Release gate checklist extended.
+   - Added concrete run commands for compact mode and diagnostic mode.
+   - Added acceptance checks for absence/presence of top-thread rows.
+
+Validation note:
+- This environment cannot run MSVC/Win32 build. Build in Visual Studio 2022 x64 Debug and Release with /W4 /WX.

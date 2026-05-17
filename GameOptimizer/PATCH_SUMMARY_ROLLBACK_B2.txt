@@ -1,0 +1,17 @@
+Patch: RollbackManager B2 Cleanup
+
+Scope:
+- RollbackManager.cpp
+- Release Gate static check verification
+
+Changes:
+1. Replaced remaining post-check expected value reads with explicit bind variables.
+2. Removed repeated *currentCreationTime / *verifiedCreationTime usage after checks.
+3. Bound queried creation-time values once and reused named locals.
+4. Converted rollback optional state reads to value copy before rollback dispatch.
+5. Removed stale optional dereference pattern in isSameIdentity.
+6. Fixed rollback state saved log argument mismatch in saveAppliedState.
+
+Validation:
+- python3 run_release_gate_static_checks.py
+- Result: [PASS] release gate static checks passed
