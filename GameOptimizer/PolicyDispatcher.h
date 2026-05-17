@@ -11,6 +11,7 @@
 #include "PolicyCommand.h"
 
 class BackgroundController;
+class NetworkInterruptController;
 class SchedulerController;
 class ThreadTracker;
 struct BackgroundRestrictionPolicy;
@@ -22,7 +23,8 @@ public:
         SchedulerController& schedulerController,
         ThreadTracker& threadTracker,
         BackgroundController& backgroundController,
-        const BackgroundRestrictionPolicy& backgroundPolicy) noexcept;
+        const BackgroundRestrictionPolicy& backgroundPolicy,
+        NetworkInterruptController* networkInterruptController = nullptr) noexcept;
 
     [[nodiscard]] std::expected<void, ErrorCode> dispatch(PolicyCommand command) noexcept;
 
@@ -31,4 +33,5 @@ private:
     ThreadTracker& threadTracker_;
     BackgroundController& backgroundController_;
     const BackgroundRestrictionPolicy& backgroundPolicy_;
+    NetworkInterruptController* networkInterruptController_ = nullptr;
 };

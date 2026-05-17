@@ -29,6 +29,8 @@
 #include "IcmpHandle.h"
 #include "LatencyDecisionLayer.h"
 
+class NetworkInterruptController;
+
 struct LatencyMetricsCollectorConfig
 {
     // Accepts either an IPv4 literal such as L"8.8.8.8" or a DNS host name.
@@ -38,6 +40,7 @@ struct LatencyMetricsCollectorConfig
     std::chrono::milliseconds icmpSampleInterval = std::chrono::milliseconds(1000);
     std::size_t rttWindowSize = 10;
     bool interruptAffinitySupported = false;
+    NetworkInterruptController* networkInterruptController = nullptr;
 };
 
 class LatencyMetricsCollector

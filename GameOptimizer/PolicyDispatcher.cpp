@@ -9,6 +9,7 @@
 
 #include "BackgroundController.h"
 #include "Logger.h"
+#include "NetworkInterruptController.h"
 #include "SchedulerController.h"
 #include "ThreadTracker.h"
 
@@ -16,11 +17,13 @@ PolicyDispatcher::PolicyDispatcher(
     SchedulerController& schedulerController,
     ThreadTracker& threadTracker,
     BackgroundController& backgroundController,
-    const BackgroundRestrictionPolicy& backgroundPolicy) noexcept
+    const BackgroundRestrictionPolicy& backgroundPolicy,
+    NetworkInterruptController* networkInterruptController) noexcept
     : schedulerController_(schedulerController),
       threadTracker_(threadTracker),
       backgroundController_(backgroundController),
-      backgroundPolicy_(backgroundPolicy)
+      backgroundPolicy_(backgroundPolicy),
+      networkInterruptController_(networkInterruptController)
 {
 }
 
@@ -54,8 +57,12 @@ std::expected<void, ErrorCode> PolicyDispatcher::dispatch(PolicyCommand command)
     }
 
     case PolicyCommand::IrqRepin:
-        Logger::warn("IRQ_REPIN command is recognized but network/interrupt module is not connected yet");
-        return {};
+        if (networkInterruptController_ == nullptr)
+        {
+            Logger::warn("IRQ_REPIN command ignored: network/interrupt controller is not connected");
+            return {};
+        }
+        return networkInterruptController_->handleIrqRepin();
 
     case PolicyCommand::None:
         return {};

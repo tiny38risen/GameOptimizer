@@ -1,4 +1,4 @@
-// Build: cl /std:c++latest /O2 /W4 /WX /permissive- main.cpp ProcessFinder.cpp ThreadTracker.cpp TopologyAnalyzer.cpp RollbackManager.cpp SchedulerController.cpp TrackingWatchdog.cpp PolicyDispatcher.cpp LatencyDecisionLayer.cpp LatencyMetricsCollector.cpp AppliedPolicyTracker.cpp BackgroundController.cpp RuntimeValidationMonitor.cpp ApplyGuard.cpp
+// Build: cl /std:c++latest /O2 /W4 /WX /permissive- main.cpp ProcessFinder.cpp ThreadTracker.cpp TopologyAnalyzer.cpp RollbackManager.cpp SchedulerController.cpp TrackingWatchdog.cpp PolicyDispatcher.cpp LatencyDecisionLayer.cpp LatencyMetricsCollector.cpp NetworkInterruptController.cpp AppliedPolicyTracker.cpp BackgroundController.cpp RuntimeValidationMonitor.cpp ApplyGuard.cpp
 // MODULE: main
 // ERROR-POLICY: expected
 // Reason: application boundary converts expected errors into user-facing logs.
@@ -31,6 +31,7 @@
 #include "LatencyDecisionLayer.h"
 #include "LatencyMetricsCollector.h"
 #include "Logger.h"
+#include "NetworkInterruptController.h"
 #include "PolicyDispatcher.h"
 #include "ProcessFinder.h"
 #include "RollbackManager.h"
@@ -668,11 +669,14 @@ int wmain(int argc, wchar_t* argv[])
             backgroundFilterConfig.restrictionTargetProcessNames.size());
     }
     BackgroundController backgroundController(rollbackManager, schedulerMode, backgroundFilterConfig);
+    NetworkInterruptController networkInterruptController;
+    (void)networkInterruptController.initialize();
     PolicyDispatcher policyDispatcher(
         schedulerController,
         threadTracker,
         backgroundController,
-        backgroundPolicy);
+        backgroundPolicy,
+        &networkInterruptController);
     LatencyDecisionLayer latencyDecisionLayer;
     AppliedPolicyTracker appliedPolicyTracker;
     RuntimeValidationMonitor runtimeValidationMonitor;
@@ -681,7 +685,8 @@ int wmain(int argc, wchar_t* argv[])
         .icmpTimeout = std::chrono::milliseconds(50),
         .icmpSampleInterval = std::chrono::milliseconds(1000),
         .rttWindowSize = 10,
-        .interruptAffinitySupported = false});
+        .interruptAffinitySupported = false,
+        .networkInterruptController = &networkInterruptController});
     if (!latencyMetricsCollector.start())
     {
         Logger::error("startup failed: latency metrics sensor start failed");

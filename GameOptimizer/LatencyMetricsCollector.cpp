@@ -29,6 +29,7 @@
 #include <utility>
 
 #include "Logger.h"
+#include "NetworkInterruptController.h"
 
 #pragma comment(lib, "Iphlpapi.lib")
 #pragma comment(lib, "Ws2_32.lib")
@@ -155,12 +156,15 @@ void LatencyMetricsCollector::join() noexcept
 RuntimeMetrics LatencyMetricsCollector::collect(int threadMigrationCount) noexcept
 {
     const double cachedJitter = cachedRttJitterMs_.load(std::memory_order_relaxed);
+    const bool interruptAffinitySupported = config_.networkInterruptController != nullptr
+        ? config_.networkInterruptController->isInterruptAffinitySupported()
+        : config_.interruptAffinitySupported;
 
     const RuntimeMetrics metrics{
         .rttJitterMs = cachedJitter,
         .dpcSpikeCount = estimateDpcSpikeCount(),
         .threadMigrationCount = threadMigrationCount,
-        .interruptAffinitySupported = config_.interruptAffinitySupported};
+        .interruptAffinitySupported = interruptAffinitySupported};
 
     Logger::info(
         "latency metrics: rtt_jitter={:.3f} ms, dpc_spikes={}, thread_migrations={}, irq_supported={}",
@@ -522,8 +526,11 @@ double LatencyMetricsCollector::calculateRttJitterMsLocked() const noexcept
 
 int LatencyMetricsCollector::estimateDpcSpikeCount() noexcept
 {
-    // Phase-2 placeholder.
-    // Real DPC monitoring requires an ETW/PDH-backed module. Returning zero keeps
-    // IRQ_REPIN disabled until the network/interrupt module owns this metric.
-    return 0;
+    if (config_.networkInterruptController == nullptr)
+    {
+        constexpr int kNoDpcSpikes = 0;
+        return kNoDpcSpikes;
+    }
+
+    return config_.networkInterruptController->sampleDpcSpikeCount();
 }

@@ -50,6 +50,16 @@ if errorlevel 1 (
     echo [PASS] BackgroundControllerSafetyTests passed
 )
 
+set /a TEST_COUNT+=1
+echo [INFO] running NetworkInterruptControllerTests...
+build_tests\NetworkInterruptControllerTests.exe
+if errorlevel 1 (
+    echo [FAIL] NetworkInterruptControllerTests failed
+    set /a FAILURE_COUNT+=1
+) else (
+    echo [PASS] NetworkInterruptControllerTests passed
+)
+
 echo.
 echo [INFO] regression summary: total=%TEST_COUNT%, failed=%FAILURE_COUNT%
 

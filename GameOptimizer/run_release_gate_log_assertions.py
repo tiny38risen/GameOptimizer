@@ -5,6 +5,16 @@ import pathlib
 import re
 
 
+def read_log_text(path: pathlib.Path) -> str:
+    data = path.read_bytes()
+    for encoding in ("utf-8-sig", "utf-16", "utf-16-le"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("utf-8", errors="replace")
+
+
 def contains(text: str, needle: str) -> bool:
     return needle.lower() in text.lower()
 
@@ -128,7 +138,7 @@ def main() -> int:
     parser.add_argument("log_file", type=pathlib.Path)
     args = parser.parse_args()
 
-    log_text = args.log_file.read_text(encoding="utf-8", errors="replace")
+    log_text = read_log_text(args.log_file)
     failures = validate(args.mode, log_text)
     if failures:
         for failure in failures:
