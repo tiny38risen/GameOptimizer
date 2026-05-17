@@ -94,6 +94,10 @@ def validate(mode: str, log_text: str) -> list[str]:
         failures.append("shutdown rollback failed")
     if re.search(r"\[ERROR\].*rollback failed", log_text, re.IGNORECASE):
         failures.append("rollback error log found")
+    if contains(log_text, "runtime validation result: FAILED"):
+        failures.append("runtime validation failed")
+    if re.search(r"\[ERROR\].*runtime validation", log_text, re.IGNORECASE):
+        failures.append("runtime validation error log found")
     if contains(log_text, "continue statement"):
         failures.append("compiler-style continue error text found")
 

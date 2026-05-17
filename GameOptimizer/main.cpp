@@ -786,6 +786,7 @@ int wmain(int argc, wchar_t* argv[])
     latencyMetricsCollector.join();
 
     runtimeValidationMonitor.logSummary();
+    const bool runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();
 
     const auto rollbackResult = schedulerController.rollbackAll();
     if (!rollbackResult)
@@ -795,5 +796,11 @@ int wmain(int argc, wchar_t* argv[])
     }
 
     Logger::info("shutdown completed cleanly");
+    if (runtimeValidationFailed)
+    {
+        Logger::error("shutdown completed with runtime validation failure");
+        return 1;
+    }
+
     return 0;
 }
