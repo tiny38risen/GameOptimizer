@@ -62,12 +62,35 @@ namespace
 
         std::remove("background_controller_safety_test_filter.txt");
     }
+
+    void testProcessorGroupPolicyBlocksProcessWideRestriction()
+    {
+        RollbackManager rollbackManager;
+        BackgroundController controller(rollbackManager, SchedulerMode::Apply);
+
+        const auto result = controller.applyRestriction(BackgroundRestrictionPolicy{
+            .targetProcessId = 1,
+            .gameAffinityMask = 0x1,
+            .processorGroup = 1});
+
+        REQUIRE(result.has_value(),
+            "unsupported processor group policy should return a non-fatal summary");
+
+        if (result)
+        {
+            REQUIRE(result->blockedByUnsupportedProcessorGroup,
+                "unsupported processor group policy must be visible in the summary");
+            REQUIRE(result->restrictedProcessCount == 0,
+                "unsupported processor group policy must not restrict processes");
+        }
+    }
 }
 
 int main()
 {
     testEmptyConfigRequiresExplicitTargetsByDefault();
     testFilterFileLoadsDenyAndProtectEntries();
+    testProcessorGroupPolicyBlocksProcessWideRestriction();
 
     if (g_failureCount == 0)
     {

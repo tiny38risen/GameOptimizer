@@ -70,6 +70,7 @@ struct BackgroundRestrictionSummary
     std::size_t userProtectedProcessSkipCount = 0;
     std::size_t notInDenylistSkipCount = 0;
     bool blockedByMissingDenylist = false;
+    bool blockedByUnsupportedProcessorGroup = false;
 };
 
 class BackgroundController

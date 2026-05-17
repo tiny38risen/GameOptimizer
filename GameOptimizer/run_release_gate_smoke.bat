@@ -13,26 +13,35 @@ set LOG_DIR=release_gate_logs
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
 set PYTHON_CMD=
-where python >nul 2>nul
-if not errorlevel 1 (
-    set PYTHON_CMD=python
+set BUNDLED_PYTHON=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe
+if exist "%BUNDLED_PYTHON%" (
+    set PYTHON_CMD="%BUNDLED_PYTHON%"
+)
+if "%PYTHON_CMD%"=="" (
+    where python >nul 2>nul
+    if not errorlevel 1 (
+        python --version >nul 2>nul
+        if not errorlevel 1 (
+            set PYTHON_CMD=python
+        )
+    )
 )
 if "%PYTHON_CMD%"=="" (
     where python3 >nul 2>nul
     if not errorlevel 1 (
-        set PYTHON_CMD=python3
+        python3 --version >nul 2>nul
+        if not errorlevel 1 (
+            set PYTHON_CMD=python3
+        )
     )
 )
 if "%PYTHON_CMD%"=="" (
     where py >nul 2>nul
     if not errorlevel 1 (
-        set PYTHON_CMD=py -3
-    )
-)
-if "%PYTHON_CMD%"=="" (
-    set BUNDLED_PYTHON=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe
-    if exist "%BUNDLED_PYTHON%" (
-        set PYTHON_CMD="%BUNDLED_PYTHON%"
+        py -3 --version >nul 2>nul
+        if not errorlevel 1 (
+            set PYTHON_CMD=py -3
+        )
     )
 )
 if "%PYTHON_CMD%"=="" (

@@ -345,6 +345,16 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
         return std::unexpected(ErrorCode::InvalidArgument);
     }
 
+    if (policy.processorGroup != 0)
+    {
+        BackgroundRestrictionSummary summary{};
+        summary.blockedByUnsupportedProcessorGroup = true;
+        Logger::warn(
+            "background restriction blocked: processor group {} is selected, but process-wide SetProcessAffinityMask is only safe for group 0 policies",
+            static_cast<unsigned int>(policy.processorGroup));
+        return summary;
+    }
+
     if (isRestrictionCooldownActive())
     {
         const auto elapsed = std::chrono::steady_clock::now() - lastRestrictionTime_;
@@ -553,14 +563,15 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
     }
 
     Logger::info(
-        "background restriction summary: scanned={}, candidates={}, restricted={}, skipped={}, protected_skipped={}, user_protected_skipped={}, not_in_denylist_skipped={}",
+        "background restriction summary: scanned={}, candidates={}, restricted={}, skipped={}, protected_skipped={}, user_protected_skipped={}, not_in_denylist_skipped={}, blocked_group_policy={}",
         summary.scannedProcessCount,
         summary.candidateProcessCount,
         summary.restrictedProcessCount,
         summary.skippedProcessCount,
         summary.protectedProcessSkipCount,
         summary.userProtectedProcessSkipCount,
-        summary.notInDenylistSkipCount);
+        summary.notInDenylistSkipCount,
+        summary.blockedByUnsupportedProcessorGroup);
 
     return summary;
 }

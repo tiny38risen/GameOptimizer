@@ -278,6 +278,36 @@ def check_apply_guard_transaction_patterns() -> list[str]:
             failures.append(f"[FAIL] ApplyGuard transaction gate: {message}")
     return failures
 
+
+def check_dpc_monitoring_is_not_placeholder() -> list[str]:
+    text = (ROOT / "LatencyMetricsCollector.cpp").read_text(encoding="utf-8", errors="replace")
+    body = extract_function_body(text, "LatencyMetricsCollector::estimateDpcSpikeCount")
+    if body is None:
+        return ["[FAIL] DPC release gate: estimateDpcSpikeCount function body not found"]
+
+    if re.search(r"Phase-2\s+placeholder|Returning\s+zero\s+keeps|return\s+0\s*;", body, re.IGNORECASE):
+        return [
+            "[FAIL] DPC release gate: estimateDpcSpikeCount is still a placeholder; "
+            "implement real DPC monitoring before approving a release"
+        ]
+
+    return []
+
+
+def check_background_processor_group_policy_is_explicit() -> list[str]:
+    text = (ROOT / "BackgroundController.cpp").read_text(encoding="utf-8", errors="replace")
+    required_markers = [
+        "processorGroup",
+        "blockedByUnsupportedProcessorGroup",
+        "background restriction blocked: processor group",
+    ]
+    failures: list[str] = []
+    for marker in required_markers:
+        if marker not in text:
+            failures.append(
+                f"[FAIL] BackgroundController processor-group gate: missing explicit policy marker: {marker}")
+    return failures
+
 def main() -> int:
     failures: list[str] = []
 
@@ -290,6 +320,8 @@ def main() -> int:
         failures.extend(check_expected_access(path))
 
     failures.extend(check_apply_guard_transaction_patterns())
+    failures.extend(check_dpc_monitoring_is_not_placeholder())
+    failures.extend(check_background_processor_group_policy_is_explicit())
 
     if failures:
         for failure in failures:
