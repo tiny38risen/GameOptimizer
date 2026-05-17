@@ -12,8 +12,10 @@
 #endif
 
 #include <Windows.h>
+#include <array>
 #include <atomic>
 #include <chrono>
+#include <expected>
 #include <limits>
 #include <optional>
 #include <cstdint>
@@ -38,6 +40,7 @@
 #include "ThreadTracker.h"
 #include "TopologyAnalyzer.h"
 #include "TrackingWatchdog.h"
+#include "WinHandle.h"
 
 namespace
 {
@@ -428,6 +431,77 @@ namespace
         }
     }
 
+    [[nodiscard]] DWORD_PTR lowestSetBit(DWORD_PTR mask) noexcept
+    {
+        return mask & (~mask + 1);
+    }
+
+    [[nodiscard]] DWORD_PTR takeLowestBits(DWORD_PTR mask, int count) noexcept
+    {
+        DWORD_PTR result = 0;
+        for (int i = 0; i < count && mask != 0; ++i)
+        {
+            const DWORD_PTR bit = lowestSetBit(mask);
+            result |= bit;
+            mask &= ~bit;
+        }
+
+        return result;
+    }
+
+    [[nodiscard]] WORD queryFirstProcessGroup(HANDLE processHandle) noexcept
+    {
+        USHORT groupCount = 0;
+        if (GetProcessGroupAffinity(processHandle, &groupCount, nullptr) ||
+            GetLastError() != ERROR_INSUFFICIENT_BUFFER ||
+            groupCount == 0)
+        {
+            return 0;
+        }
+
+        std::array<USHORT, 64> groups{};
+        if (groupCount > groups.size())
+        {
+            return 0;
+        }
+
+        if (!GetProcessGroupAffinity(processHandle, &groupCount, groups.data()) || groupCount == 0)
+        {
+            return 0;
+        }
+
+        return groups.front();
+    }
+
+    [[nodiscard]] std::expected<SchedulerPolicy, ErrorCode>
+    buildProcessAffinityFallbackPolicy(DWORD processId) noexcept
+    {
+        HANDLE rawHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
+        if (rawHandle == nullptr)
+        {
+            return std::unexpected(ErrorCode::ProcessOpenFailed);
+        }
+
+        WinHandle processHandle(rawHandle);
+        DWORD_PTR processMask = 0;
+        DWORD_PTR systemMask = 0;
+        if (!GetProcessAffinityMask(processHandle.get(), &processMask, &systemMask) || processMask == 0)
+        {
+            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
+        }
+
+        const DWORD_PTR fallbackMask = takeLowestBits(processMask & systemMask, 2);
+        if (fallbackMask == 0)
+        {
+            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
+        }
+
+        return SchedulerPolicy{
+            .affinityMask = fallbackMask,
+            .processorGroup = queryFirstProcessGroup(processHandle.get()),
+            .threadPriority = THREAD_PRIORITY_ABOVE_NORMAL};
+    }
+
 }
 
 int wmain(int argc, wchar_t* argv[])
@@ -536,8 +610,25 @@ int wmain(int argc, wchar_t* argv[])
     else
     {
         Logger::warn(
-            "topology analyzer unavailable: {}; soft-apply cannot validate scheduler policy until a non-zero mask is available",
+            "topology analyzer unavailable: {}; attempting process-affinity fallback policy",
             toString(topologyResult.error()));
+
+        const auto fallbackPolicy = buildProcessAffinityFallbackPolicy(targetProcessId);
+        if (fallbackPolicy)
+        {
+            const auto& fallback = *fallbackPolicy;
+            mainThreadPolicy = fallback;
+            Logger::warn(
+                "topology fallback policy selected from process affinity: group={}, affinity=0x{:X}",
+                static_cast<unsigned int>(mainThreadPolicy.processorGroup),
+                static_cast<unsigned long long>(mainThreadPolicy.affinityMask));
+        }
+        else
+        {
+            Logger::error(
+                "topology fallback policy unavailable: {}; scheduler/background policies will remain disabled until a valid mask is available",
+                toString(fallbackPolicy.error()));
+        }
     }
 
     BackgroundRestrictionPolicy backgroundPolicy{
