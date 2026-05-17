@@ -1,4 +1,4 @@
-// Build: cl /std:c++latest /O2 /W4 /WX /permissive- main.cpp ProcessFinder.cpp ThreadTracker.cpp TopologyAnalyzer.cpp RollbackManager.cpp SchedulerController.cpp TrackingWatchdog.cpp PolicyDispatcher.cpp LatencyDecisionLayer.cpp BackgroundController.cpp
+// Build: cl /std:c++latest /O2 /W4 /WX /permissive- main.cpp ProcessFinder.cpp ThreadTracker.cpp TopologyAnalyzer.cpp RollbackManager.cpp SchedulerController.cpp TrackingWatchdog.cpp PolicyDispatcher.cpp LatencyDecisionLayer.cpp LatencyMetricsCollector.cpp AppliedPolicyTracker.cpp BackgroundController.cpp RuntimeValidationMonitor.cpp ApplyGuard.cpp
 // MODULE: main
 // ERROR-POLICY: expected
 // Reason: application boundary converts expected errors into user-facing logs.
@@ -32,6 +32,7 @@
 #include "PolicyDispatcher.h"
 #include "ProcessFinder.h"
 #include "RollbackManager.h"
+#include "RuntimeValidationMonitor.h"
 #include "SchedulerController.h"
 #include "ThreadInfo.h"
 #include "ThreadTracker.h"
@@ -583,6 +584,7 @@ int wmain(int argc, wchar_t* argv[])
         backgroundPolicy);
     LatencyDecisionLayer latencyDecisionLayer;
     AppliedPolicyTracker appliedPolicyTracker;
+    RuntimeValidationMonitor runtimeValidationMonitor;
     LatencyMetricsCollector latencyMetricsCollector(LatencyMetricsCollectorConfig{
         .icmpTargetIpv4 = latencyPingTarget,
         .icmpTimeout = std::chrono::milliseconds(50),
@@ -661,9 +663,23 @@ int wmain(int argc, wchar_t* argv[])
                 threadTracker.consumeThreadMigrationCount());
             runtimeMetrics.timestamp = std::chrono::steady_clock::now();
 
+            RuntimeValidationSample validationSample{};
+            validationSample.metrics = runtimeMetrics;
+            validationSample.mainThreadDetected = mainThreadId.has_value();
+            validationSample.mainThreadPolicyApplied =
+                mainThreadId.has_value() &&
+                lastAppliedThreadId.has_value() &&
+                *lastAppliedThreadId == *mainThreadId;
+
             const auto feedbackCommands = appliedPolicyTracker.evaluate(runtimeMetrics, runtimeMetrics.timestamp);
             for (PolicyCommand command : feedbackCommands)
             {
+                ++validationSample.feedbackCommandCount;
+                if (command == PolicyCommand::Rollback)
+                {
+                    validationSample.rollbackRequested = true;
+                }
+
                 const auto dispatchResult = policyDispatcher.dispatch(command);
                 const bool dispatchSucceeded = dispatchResult.has_value();
                 appliedPolicyTracker.recordDispatchResult(
@@ -674,6 +690,7 @@ int wmain(int argc, wchar_t* argv[])
 
                 if (!dispatchResult)
                 {
+                    ++validationSample.dispatchFailureCount;
                     Logger::error(
                         "policy feedback command dispatch failed (command={}): {}",
                         toString(command),
@@ -684,6 +701,7 @@ int wmain(int argc, wchar_t* argv[])
                 if (command == PolicyCommand::Rollback)
                 {
                     Logger::error("policy feedback requested rollback; shutting down watchdog loop");
+                    runtimeValidationMonitor.observe(validationSample);
                     gRunning.store(false, std::memory_order_release);
                     return;
                 }
@@ -701,6 +719,12 @@ int wmain(int argc, wchar_t* argv[])
             const auto& commands = *commandsResult;
             for (PolicyCommand command : commands)
             {
+                ++validationSample.decisionCommandCount;
+                if (command == PolicyCommand::Rollback)
+                {
+                    validationSample.rollbackRequested = true;
+                }
+
                 const auto dispatchResult = policyDispatcher.dispatch(command);
                 const bool dispatchSucceeded = dispatchResult.has_value();
                 appliedPolicyTracker.recordDispatchResult(
@@ -711,12 +735,15 @@ int wmain(int argc, wchar_t* argv[])
 
                 if (!dispatchResult)
                 {
+                    ++validationSample.dispatchFailureCount;
                     Logger::error(
                         "policy command dispatch failed (command={}): {}",
                         toString(command),
                         toString(dispatchResult.error()));
                 }
             }
+
+            runtimeValidationMonitor.observe(validationSample);
 
             if (gRuntimeTimeoutRequested.load(std::memory_order_acquire))
             {
@@ -757,6 +784,8 @@ int wmain(int argc, wchar_t* argv[])
     latencyMetricsCollector.requestStop();
     watchdog.join();
     latencyMetricsCollector.join();
+
+    runtimeValidationMonitor.logSummary();
 
     const auto rollbackResult = schedulerController.rollbackAll();
     if (!rollbackResult)

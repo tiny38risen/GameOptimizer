@@ -20,6 +20,36 @@ if errorlevel 1 (
     echo [PASS] LatencyDecisionLayerTests passed
 )
 
+set /a TEST_COUNT+=1
+echo [INFO] running AppliedPolicyTrackerTests...
+build_tests\AppliedPolicyTrackerTests.exe
+if errorlevel 1 (
+    echo [FAIL] AppliedPolicyTrackerTests failed
+    set /a FAILURE_COUNT+=1
+) else (
+    echo [PASS] AppliedPolicyTrackerTests passed
+)
+
+set /a TEST_COUNT+=1
+echo [INFO] running RuntimeValidationMonitorTests...
+build_tests\RuntimeValidationMonitorTests.exe
+if errorlevel 1 (
+    echo [FAIL] RuntimeValidationMonitorTests failed
+    set /a FAILURE_COUNT+=1
+) else (
+    echo [PASS] RuntimeValidationMonitorTests passed
+)
+
+set /a TEST_COUNT+=1
+echo [INFO] running BackgroundControllerSafetyTests...
+build_tests\BackgroundControllerSafetyTests.exe
+if errorlevel 1 (
+    echo [FAIL] BackgroundControllerSafetyTests failed
+    set /a FAILURE_COUNT+=1
+) else (
+    echo [PASS] BackgroundControllerSafetyTests passed
+)
+
 echo.
 echo [INFO] regression summary: total=%TEST_COUNT%, failed=%FAILURE_COUNT%
 

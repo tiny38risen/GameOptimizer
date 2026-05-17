@@ -12,7 +12,7 @@ set OUT_DIR=build_tests
 if not exist "%OUT_DIR%" mkdir "%OUT_DIR%"
 
 echo [INFO] building LatencyDecisionLayerTests...
-cl /nologo /std:c++latest /W4 /WX /permissive- ^
+cl /nologo /std:c++latest /EHsc /W4 /WX /permissive- ^
     LatencyDecisionLayerTests.cpp LatencyDecisionLayer.cpp ^
     /Fe:%OUT_DIR%\LatencyDecisionLayerTests.exe ^
     /Fo:%OUT_DIR%\
@@ -22,5 +22,38 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [PASS] build completed: %OUT_DIR%\LatencyDecisionLayerTests.exe
+echo [INFO] building AppliedPolicyTrackerTests...
+cl /nologo /std:c++latest /EHsc /W4 /WX /permissive- ^
+    AppliedPolicyTrackerTests.cpp AppliedPolicyTracker.cpp ^
+    /Fe:%OUT_DIR%\AppliedPolicyTrackerTests.exe ^
+    /Fo:%OUT_DIR%\
+
+if errorlevel 1 (
+    echo [FAIL] build failed
+    exit /b 1
+)
+
+echo [INFO] building RuntimeValidationMonitorTests...
+cl /nologo /std:c++latest /EHsc /W4 /WX /permissive- ^
+    RuntimeValidationMonitorTests.cpp RuntimeValidationMonitor.cpp ^
+    /Fe:%OUT_DIR%\RuntimeValidationMonitorTests.exe ^
+    /Fo:%OUT_DIR%\
+
+if errorlevel 1 (
+    echo [FAIL] build failed
+    exit /b 1
+)
+
+echo [INFO] building BackgroundControllerSafetyTests...
+cl /nologo /std:c++latest /EHsc /W4 /WX /permissive- ^
+    BackgroundControllerSafetyTests.cpp BackgroundController.cpp RollbackManager.cpp ApplyGuard.cpp ^
+    /Fe:%OUT_DIR%\BackgroundControllerSafetyTests.exe ^
+    /Fo:%OUT_DIR%\
+
+if errorlevel 1 (
+    echo [FAIL] build failed
+    exit /b 1
+)
+
+echo [PASS] all test builds completed in %OUT_DIR%
 exit /b 0
