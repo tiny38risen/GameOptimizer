@@ -5,6 +5,9 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parent
 SOURCE_EXTENSIONS = {".cpp", ".h", ".hpp", ".cxx", ".hxx"}
+PROJECT_FILE = ROOT / "GameOptimizer.vcxproj"
+BUILD_TESTS_FILE = ROOT / "build_decision_layer_tests.bat"
+REGRESSION_TESTS_FILE = ROOT / "run_regression_tests.bat"
 
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"const\s+DWORD\s+targetProcessId\s*=\s*\*processId\s*;", "targetProcessId bind missing"),
@@ -308,6 +311,107 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
                 f"[FAIL] BackgroundController processor-group gate: missing explicit policy marker: {marker}")
     return failures
 
+
+def check_cpp20_runtime_contracts() -> list[str]:
+    failures: list[str] = []
+
+    for path in iter_source_files():
+        raw_text = path.read_text(encoding="utf-8", errors="replace")
+        text = strip_comments_and_strings(raw_text)
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if re.search(r"\bstd::thread\b", line):
+                failures.append(
+                    f"[FAIL] C++ runtime gate: {path.name}:{line_number}: std::thread is forbidden; use std::jthread")
+            if re.search(r"\bstd::this_thread\s*::\s*sleep_for\s*\(", line):
+                failures.append(
+                    f"[FAIL] C++ runtime gate: {path.name}:{line_number}: sleep_for polling is forbidden; use stop-aware wait")
+
+    return failures
+
+
+def check_project_language_contracts() -> list[str]:
+    failures: list[str] = []
+    text = PROJECT_FILE.read_text(encoding="utf-8", errors="replace")
+
+    toolsets = re.findall(r"<PlatformToolset>([^<]+)</PlatformToolset>", text)
+    if not toolsets:
+        failures.append("[FAIL] MSVC toolset gate: no PlatformToolset entries found")
+    for toolset in toolsets:
+        if toolset != "v143":
+            failures.append(
+                f"[FAIL] MSVC toolset gate: PlatformToolset must be v143, found {toolset}")
+
+    standards = re.findall(r"<LanguageStandard>([^<]+)</LanguageStandard>", text)
+    if not standards:
+        failures.append("[FAIL] MSVC language gate: no LanguageStandard entries found")
+    for standard in standards:
+        if standard != "stdcpplatest":
+            failures.append(
+                f"[FAIL] MSVC language gate: LanguageStandard must be stdcpplatest, found {standard}")
+
+    return failures
+
+
+def check_timer_input_module_registration() -> list[str]:
+    failures: list[str] = []
+    required_files = [
+        ROOT / "TimerResolutionController.h",
+        ROOT / "TimerResolutionController.cpp",
+        ROOT / "InputLatencyController.h",
+        ROOT / "InputLatencyController.cpp",
+        ROOT / "TimerInputControllerTests.cpp",
+    ]
+    for path in required_files:
+        if not path.exists():
+            failures.append(f"[FAIL] Timer/Input gate: required file missing: {path.name}")
+
+    project_text = PROJECT_FILE.read_text(encoding="utf-8", errors="replace")
+    build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
+    regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
+    main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
+
+    required_project_entries = [
+        "TimerResolutionController.cpp",
+        "TimerResolutionController.h",
+        "InputLatencyController.cpp",
+        "InputLatencyController.h",
+        "TimerInputControllerTests.cpp",
+    ]
+    for entry in required_project_entries:
+        if entry not in project_text:
+            failures.append(f"[FAIL] Timer/Input gate: project registration missing: {entry}")
+
+    required_build_markers = [
+        "building TimerInputControllerTests",
+        "TimerInputControllerTests.cpp TimerResolutionController.cpp InputLatencyController.cpp",
+        "TimerInputControllerTests.exe",
+    ]
+    for marker in required_build_markers:
+        if marker not in build_text:
+            failures.append(f"[FAIL] Timer/Input gate: build script registration missing: {marker}")
+
+    required_regression_markers = [
+        "running TimerInputControllerTests",
+        "build_tests\\TimerInputControllerTests.exe",
+        "TimerInputControllerTests passed",
+    ]
+    for marker in required_regression_markers:
+        if marker not in regression_text:
+            failures.append(f"[FAIL] Timer/Input gate: regression script registration missing: {marker}")
+
+    required_main_markers = [
+        '#include "TimerResolutionController.h"',
+        '#include "InputLatencyController.h"',
+        "TimerResolutionController timerResolutionController",
+        "InputLatencyController inputLatencyController",
+        "timerResolutionController.rollback()",
+    ]
+    for marker in required_main_markers:
+        if marker not in main_text:
+            failures.append(f"[FAIL] Timer/Input gate: runtime integration missing: {marker}")
+
+    return failures
+
 def main() -> int:
     failures: list[str] = []
 
@@ -322,6 +426,9 @@ def main() -> int:
     failures.extend(check_apply_guard_transaction_patterns())
     failures.extend(check_dpc_monitoring_is_not_placeholder())
     failures.extend(check_background_processor_group_policy_is_explicit())
+    failures.extend(check_cpp20_runtime_contracts())
+    failures.extend(check_project_language_contracts())
+    failures.extend(check_timer_input_module_registration())
 
     if failures:
         for failure in failures:
