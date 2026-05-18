@@ -65,6 +65,11 @@ namespace
 
     void testProcessorGroupPolicyBlocksProcessWideRestriction()
     {
+        REQUIRE(BackgroundController::supportsProcessWideRestrictionForGroup(0),
+            "group 0 must remain supported for process-wide restriction");
+        REQUIRE(!BackgroundController::supportsProcessWideRestrictionForGroup(1),
+            "group 1+ must be blocked until a group-aware background policy exists");
+
         RollbackManager rollbackManager;
         BackgroundController controller(rollbackManager, SchedulerMode::Apply);
 

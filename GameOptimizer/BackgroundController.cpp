@@ -337,6 +337,14 @@ bool BackgroundController::isRestrictionCooldownActive() const noexcept
     return std::chrono::steady_clock::now() - lastRestrictionTime_ < kBackgroundRestrictionCooldown;
 }
 
+bool BackgroundController::supportsProcessWideRestrictionForGroup(WORD processorGroup) noexcept
+{
+    // SetProcessAffinityMask operates on the process default group. For multi-group
+    // HEDT systems, non-zero group policies must stay monitoring-only until a
+    // group-aware per-thread/process strategy is implemented.
+    return processorGroup == 0;
+}
+
 std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::applyRestriction(
     const BackgroundRestrictionPolicy& policy) noexcept
 {
@@ -345,7 +353,7 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
         return std::unexpected(ErrorCode::InvalidArgument);
     }
 
-    if (policy.processorGroup != 0)
+    if (!supportsProcessWideRestrictionForGroup(policy.processorGroup))
     {
         BackgroundRestrictionSummary summary{};
         summary.blockedByUnsupportedProcessorGroup = true;

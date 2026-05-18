@@ -25,6 +25,8 @@ Current scope:
 13. ThreadTracker multi-sampling accepts stop_token cancellation between samples.
 14. TopologyAnalyzer parses Win32 topology buffers through span-bounded record walking.
 15. Logger formatting templates are concept-constrained before std::vformat dispatch.
+16. TopologyAnalyzer exposes a deterministic process-affinity fallback helper so HEDT/processor-group behavior can be regression-tested without 64+ core hardware.
+17. BackgroundController blocks process-wide restriction for processor group 1+ and records the limitation as a non-fatal summary flag.
 
 Validation:
 1. Run run_regression_tests.bat from an x64 Native Tools Command Prompt for VS.

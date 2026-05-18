@@ -444,24 +444,6 @@ namespace
         }
     }
 
-    [[nodiscard]] DWORD_PTR lowestSetBit(DWORD_PTR mask) noexcept
-    {
-        return mask & (~mask + 1);
-    }
-
-    [[nodiscard]] DWORD_PTR takeLowestBits(DWORD_PTR mask, int count) noexcept
-    {
-        DWORD_PTR result = 0;
-        for (int i = 0; i < count && mask != 0; ++i)
-        {
-            const DWORD_PTR bit = lowestSetBit(mask);
-            result |= bit;
-            mask &= ~bit;
-        }
-
-        return result;
-    }
-
     [[nodiscard]] WORD queryFirstProcessGroup(HANDLE processHandle) noexcept
     {
         USHORT groupCount = 0;
@@ -503,15 +485,20 @@ namespace
             return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
         }
 
-        const DWORD_PTR fallbackMask = takeLowestBits(processMask & systemMask, 2);
-        if (fallbackMask == 0)
+        const WORD processorGroup = queryFirstProcessGroup(processHandle.get());
+        const auto fallbackTopology = TopologyAnalyzer::buildProcessAffinityFallbackMask(
+            processMask,
+            systemMask,
+            processorGroup);
+        if (!fallbackTopology)
         {
-            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
+            return std::unexpected(fallbackTopology.error());
         }
 
+        const TopologyResult& topology = fallbackTopology.value();
         return SchedulerPolicy{
-            .affinityMask = fallbackMask,
-            .processorGroup = queryFirstProcessGroup(processHandle.get()),
+            .affinityMask = topology.validatedMask,
+            .processorGroup = topology.processorGroup,
             .threadPriority = THREAD_PRIORITY_ABOVE_NORMAL};
     }
 

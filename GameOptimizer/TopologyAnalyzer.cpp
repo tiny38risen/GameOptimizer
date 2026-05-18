@@ -409,6 +409,38 @@ int TopologyAnalyzer::countSetBits(DWORD_PTR mask) noexcept
     return count;
 }
 
+std::expected<TopologyResult, ErrorCode> TopologyAnalyzer::buildProcessAffinityFallbackMask(
+    DWORD_PTR processMask,
+    DWORD_PTR systemMask,
+    WORD processorGroup) noexcept
+{
+    const DWORD_PTR availableMask = processMask & systemMask;
+    const DWORD_PTR selectedMask = takeLowestBits(availableMask, 2);
+    if (selectedMask == 0)
+    {
+        return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
+    }
+
+    const DWORD_PTR primaryMask = lowestSetBit(selectedMask);
+    DWORD_PTR fallbackMask = selectedMask & ~primaryMask;
+    const int selectedCount = countSetBits(selectedMask);
+    if (selectedCount == 1)
+    {
+        fallbackMask = 0;
+    }
+
+    return TopologyResult{
+        .primaryMask = primaryMask,
+        .fallbackMask = fallbackMask,
+        .validatedMask = selectedMask,
+        .processorGroup = processorGroup,
+        .sameL3Cache = false,
+        .smtClean = false,
+        .l3SizeKnown = false,
+        .l3ScoreFallback = true,
+        .selectedLogicalCoreCount = selectedCount};
+}
+
 std::expected<TopologyResult, ErrorCode>
 TopologyAnalyzer::buildMainThreadMask(DWORD processId) noexcept
 {

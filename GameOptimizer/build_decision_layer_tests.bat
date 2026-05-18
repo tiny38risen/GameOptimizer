@@ -55,6 +55,17 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [INFO] building TopologyAnalyzerTests...
+cl /nologo /std:c++latest /EHsc /W4 /WX /permissive- ^
+    TopologyAnalyzerTests.cpp TopologyAnalyzer.cpp ^
+    /Fe:%OUT_DIR%\TopologyAnalyzerTests.exe ^
+    /Fo:%OUT_DIR%\
+
+if errorlevel 1 (
+    echo [FAIL] build failed
+    exit /b 1
+)
+
 echo [INFO] building NetworkInterruptControllerTests...
 cl /nologo /std:c++latest /EHsc /W4 /WX /permissive- ^
     NetworkInterruptControllerTests.cpp NetworkInterruptController.cpp PolicyDispatcher.cpp BackgroundController.cpp RollbackManager.cpp ApplyGuard.cpp SchedulerController.cpp ThreadTracker.cpp ^

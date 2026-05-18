@@ -37,6 +37,12 @@ public:
     [[nodiscard]] static std::expected<TopologyResult, ErrorCode>
     buildMainThreadMask(DWORD processId) noexcept;
 
+    [[nodiscard]] static std::expected<TopologyResult, ErrorCode>
+    buildProcessAffinityFallbackMask(
+        DWORD_PTR processMask,
+        DWORD_PTR systemMask,
+        WORD processorGroup) noexcept;
+
 private:
     [[nodiscard]] static DWORD_PTR lowestSetBit(DWORD_PTR mask) noexcept;
     [[nodiscard]] static DWORD_PTR takeLowestBits(DWORD_PTR mask, int count) noexcept;
