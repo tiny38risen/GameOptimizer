@@ -11,11 +11,23 @@
 #include "ErrorCode.h"
 #include "SchedulerController.h"
 
+enum class RawInputDetectionPath
+{
+    NotAttempted,
+    LocalProcessRegisteredDevices,
+    RemoteProcessUnsupported
+};
+
 struct InputLatencyStatus
 {
     bool rawInputDetected = false;
+    bool detectionAttempted = false;
+    bool remoteDetectionSupported = false;
+    bool fallbackMonitoringOnly = false;
+    bool pinningBlockedUntilConcreteTid = false;
     bool inputThreadPinned = false;
     DWORD inputThreadId = 0;
+    RawInputDetectionPath detectionPath = RawInputDetectionPath::NotAttempted;
 };
 
 class InputLatencyController
@@ -26,8 +38,11 @@ public:
     [[nodiscard]] std::expected<InputLatencyStatus, ErrorCode>
     detectAndApply(DWORD processId, const SchedulerPolicy& policy) noexcept;
 
+    [[nodiscard]] static bool isInputThreadPinningAllowed(const InputLatencyStatus& status) noexcept;
+
 private:
-    [[nodiscard]] bool detectRawInputUsage(DWORD processId) noexcept;
+    [[nodiscard]] InputLatencyStatus detectRawInputUsage(DWORD processId) noexcept;
+    [[nodiscard]] static bool detectLocalRawInputRegistration() noexcept;
 
 private:
     SchedulerMode mode_ = SchedulerMode::DryRun;

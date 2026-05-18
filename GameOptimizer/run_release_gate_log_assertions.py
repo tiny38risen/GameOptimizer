@@ -95,6 +95,34 @@ def validate_background_stale_matching(log_text: str) -> list[str]:
     return failures
 
 
+def validate_timeline_monotonicity(log_text: str) -> list[str]:
+    failures: list[str] = []
+    cycles = [
+        int(match.group(1))
+        for match in re.finditer(r"runtime validation sample:\s*cycle=(\d+)", log_text, re.IGNORECASE)
+    ]
+    if not cycles:
+        return ["runtime validation sample timeline missing"]
+
+    for previous, current in zip(cycles, cycles[1:]):
+        if current <= previous:
+            failures.append(
+                f"runtime validation sample timeline is not monotonic: cycle {previous} followed by {current}")
+            break
+
+    summary_match = re.search(r"runtime validation summary:\s*cycles=(\d+)", log_text, re.IGNORECASE)
+    if not summary_match:
+        failures.append("runtime validation summary missing")
+        return failures
+
+    summary_cycles = int(summary_match.group(1))
+    if summary_cycles != cycles[-1]:
+        failures.append(
+            f"runtime validation summary cycle count {summary_cycles} does not match last sample cycle {cycles[-1]}")
+
+    return failures
+
+
 def validate(mode: str, log_text: str) -> list[str]:
     failures: list[str] = []
 
@@ -129,12 +157,17 @@ def validate(mode: str, log_text: str) -> list[str]:
     if mode == "timeout":
         failures.extend(validate_timeout_sequence(log_text))
 
+    if mode == "soak":
+        if not contains(log_text, "runtime validation result: PASSED_OR_INCONCLUSIVE"):
+            failures.append("soak mode missing runtime validation pass/inconclusive summary")
+        failures.extend(validate_timeline_monotonicity(log_text))
+
     return failures
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate GameOptimizer Release Gate logs.")
-    parser.add_argument("--mode", required=True, choices=["dry-run", "soft-apply", "apply", "timeout"])
+    parser.add_argument("--mode", required=True, choices=["dry-run", "soft-apply", "apply", "timeout", "soak"])
     parser.add_argument("log_file", type=pathlib.Path)
     args = parser.parse_args()
 

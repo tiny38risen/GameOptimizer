@@ -42,7 +42,7 @@ namespace
         REQUIRE(controller.rollback().has_value(), "dry-run timer rollback should be a no-op success");
     }
 
-    void testInputFallbackWhenRawInputNotDetected()
+    void testLocalRawInputDetectionPathIsNonFatal()
     {
         InputLatencyController controller(SchedulerMode::DryRun);
         const auto result = controller.detectAndApply(GetCurrentProcessId(), SchedulerPolicy{
@@ -50,20 +50,63 @@ namespace
             .processorGroup = 0,
             .threadPriority = THREAD_PRIORITY_ABOVE_NORMAL});
 
-        REQUIRE(result.has_value(), "Raw Input miss must be a non-fatal fallback");
+        REQUIRE(result.has_value(), "local Raw Input detection path must be non-fatal");
         if (result)
         {
-            REQUIRE(!result->rawInputDetected, "current remote Raw Input detector should report not detected");
-            REQUIRE(!result->inputThreadPinned, "input thread pinning must not run without Raw Input detection");
-            REQUIRE(result->inputThreadId == 0, "input thread id must remain empty without detection");
+            REQUIRE(result->detectionAttempted, "local Raw Input detection must be marked as attempted");
+            REQUIRE(result->remoteDetectionSupported, "same-process Raw Input registration query should be supported");
+            REQUIRE(result->detectionPath == RawInputDetectionPath::LocalProcessRegisteredDevices,
+                "same-process Raw Input detection must use registered-device query path");
+            REQUIRE(!result->inputThreadPinned, "input thread pinning must not run from detection alone");
         }
+    }
+
+    void testRemoteRawInputDetectionFallsBack()
+    {
+        InputLatencyController controller(SchedulerMode::DryRun);
+        const DWORD remoteLikePid = GetCurrentProcessId() + 1;
+        const auto result = controller.detectAndApply(remoteLikePid, SchedulerPolicy{
+            .affinityMask = 0x1,
+            .processorGroup = 0,
+            .threadPriority = THREAD_PRIORITY_ABOVE_NORMAL});
+
+        REQUIRE(result.has_value(), "unsupported remote Raw Input detection must be a non-fatal fallback");
+        if (result)
+        {
+            REQUIRE(result->detectionAttempted, "remote Raw Input detection must be marked as attempted");
+            REQUIRE(!result->rawInputDetected, "remote Raw Input detector must not claim unsupported detection");
+            REQUIRE(!result->remoteDetectionSupported, "remote Raw Input detection must be explicitly unsupported");
+            REQUIRE(result->fallbackMonitoringOnly, "remote Raw Input miss must switch to monitoring-only fallback");
+            REQUIRE(result->detectionPath == RawInputDetectionPath::RemoteProcessUnsupported,
+                "remote Raw Input detection must record the unsupported path");
+            REQUIRE(!result->inputThreadPinned, "input thread pinning must not run without detection");
+            REQUIRE(result->inputThreadId == 0, "input thread id must remain empty without concrete detection");
+        }
+    }
+
+    void testInputPinningRequiresConcreteThreadId()
+    {
+        REQUIRE(!InputLatencyController::isInputThreadPinningAllowed(InputLatencyStatus{
+            .rawInputDetected = false,
+            .inputThreadId = 99}),
+            "pinning must require Raw Input detection");
+        REQUIRE(!InputLatencyController::isInputThreadPinningAllowed(InputLatencyStatus{
+            .rawInputDetected = true,
+            .inputThreadId = 0}),
+            "pinning must require a concrete input TID");
+        REQUIRE(InputLatencyController::isInputThreadPinningAllowed(InputLatencyStatus{
+            .rawInputDetected = true,
+            .inputThreadId = 99}),
+            "pinning should become eligible only after Raw Input and concrete TID are both available");
     }
 }
 
 int main()
 {
     testTimerDryRunDoesNotApply();
-    testInputFallbackWhenRawInputNotDetected();
+    testLocalRawInputDetectionPathIsNonFatal();
+    testRemoteRawInputDetectionFallsBack();
+    testInputPinningRequiresConcreteThreadId();
 
     if (g_failureCount == 0)
     {

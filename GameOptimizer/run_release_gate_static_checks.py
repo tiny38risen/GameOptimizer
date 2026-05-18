@@ -8,6 +8,8 @@ SOURCE_EXTENSIONS = {".cpp", ".h", ".hpp", ".cxx", ".hxx"}
 PROJECT_FILE = ROOT / "GameOptimizer.vcxproj"
 BUILD_TESTS_FILE = ROOT / "build_decision_layer_tests.bat"
 REGRESSION_TESTS_FILE = ROOT / "run_regression_tests.bat"
+LONG_SOAK_PRESETS_FILE = ROOT / "run_long_soak_presets.bat"
+SOAK_HANG_DETECTION_FILE = ROOT / "run_soak_with_hang_detection.py"
 
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"const\s+DWORD\s+targetProcessId\s*=\s*\*processId\s*;", "targetProcessId bind missing"),
@@ -410,7 +412,95 @@ def check_timer_input_module_registration() -> list[str]:
         if marker not in main_text:
             failures.append(f"[FAIL] Timer/Input gate: runtime integration missing: {marker}")
 
+    input_latency_text = (ROOT / "InputLatencyController.cpp").read_text(encoding="utf-8", errors="replace")
+    required_input_markers = [
+        "RawInputDetectionPath::LocalProcessRegisteredDevices",
+        "RawInputDetectionPath::RemoteProcessUnsupported",
+        "GetRegisteredRawInputDevices",
+        "isInputThreadPinningAllowed",
+        "status.rawInputDetected && status.inputThreadId != 0",
+        "fallbackMonitoringOnly",
+    ]
+    for marker in required_input_markers:
+        if marker not in input_latency_text:
+            failures.append(f"[FAIL] Timer/Input gate: Raw Input fallback contract missing: {marker}")
+
     return failures
+
+
+def check_long_soak_automation_contract() -> list[str]:
+    failures: list[str] = []
+    required_files = [
+        LONG_SOAK_PRESETS_FILE,
+        SOAK_HANG_DETECTION_FILE,
+    ]
+    for path in required_files:
+        if not path.exists():
+            failures.append(f"[FAIL] Long soak gate: required file missing: {path.name}")
+
+    if LONG_SOAK_PRESETS_FILE.exists():
+        soak_text = LONG_SOAK_PRESETS_FILE.read_text(encoding="utf-8", errors="replace")
+        required_soak_markers = [
+            "30m",
+            "60m",
+            "run_soak_with_hang_detection.py",
+            "--mode soak",
+            "--max-runtime-seconds 1800",
+            "--max-runtime-seconds 3600",
+        ]
+        for marker in required_soak_markers:
+            if marker not in soak_text:
+                failures.append(f"[FAIL] Long soak gate: preset script missing marker: {marker}")
+
+    if SOAK_HANG_DETECTION_FILE.exists():
+        hang_text = SOAK_HANG_DETECTION_FILE.read_text(encoding="utf-8", errors="replace")
+        required_hang_markers = [
+            "--idle-timeout-seconds",
+            "process.kill()",
+            "no process output",
+            "exceeded wall timeout",
+        ]
+        for marker in required_hang_markers:
+            if marker not in hang_text:
+                failures.append(f"[FAIL] Long soak gate: hang detection missing marker: {marker}")
+
+    assertions_text = (ROOT / "run_release_gate_log_assertions.py").read_text(encoding="utf-8", errors="replace")
+    required_assertion_markers = [
+        "validate_timeline_monotonicity",
+        "\"soak\"",
+        "runtime validation sample:",
+        "runtime validation summary:",
+    ]
+    for marker in required_assertion_markers:
+        if marker not in assertions_text:
+            failures.append(f"[FAIL] Long soak gate: log assertions missing marker: {marker}")
+
+    return failures
+
+
+def check_runtime_validation_failure_exit_code_contract() -> list[str]:
+    main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
+    ordered_markers = [
+        "const bool runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();",
+        "if (runtimeValidationFailed)",
+        'Logger::error("shutdown completed with runtime validation failure");',
+        "return 1;",
+    ]
+    failures: list[str] = []
+    search_from = 0
+    for marker in ordered_markers:
+        index = main_text.find(marker, search_from)
+        if index < 0:
+            failures.append(f"[FAIL] Runtime validation exit-code gate: missing ordered marker: {marker}")
+            continue
+        search_from = index + len(marker)
+
+    assertions_text = (ROOT / "run_release_gate_log_assertions.py").read_text(encoding="utf-8", errors="replace")
+    if "runtime validation result: FAILED" not in assertions_text:
+        failures.append("[FAIL] Runtime validation exit-code gate: log assertion must reject FAILED result")
+
+    return failures
+
 
 def main() -> int:
     failures: list[str] = []
@@ -429,6 +519,8 @@ def main() -> int:
     failures.extend(check_cpp20_runtime_contracts())
     failures.extend(check_project_language_contracts())
     failures.extend(check_timer_input_module_registration())
+    failures.extend(check_long_soak_automation_contract())
+    failures.extend(check_runtime_validation_failure_exit_code_contract())
 
     if failures:
         for failure in failures:

@@ -7,6 +7,8 @@
 
 #include "Logger.h"
 
+#include <vector>
+
 InputLatencyController::InputLatencyController(SchedulerMode mode) noexcept
     : mode_(mode)
 {
@@ -22,30 +24,85 @@ std::expected<InputLatencyStatus, ErrorCode> InputLatencyController::detectAndAp
     }
 
     status_ = {};
-    status_.rawInputDetected = detectRawInputUsage(processId);
+    status_ = detectRawInputUsage(processId);
 
     if (!status_.rawInputDetected)
     {
+        status_.fallbackMonitoringOnly = true;
         Logger::warn(
             "Raw Input usage was not detected for PID {}; input thread pinning disabled, timer/scheduler fallback remains active",
             processId);
         return status_;
     }
 
-    // Remote Raw Input registration does not expose a stable public mapping to
-    // an input handling thread. Keep this path gated until detection can provide
-    // a concrete thread identity.
+    if (!isInputThreadPinningAllowed(status_))
+    {
+        status_.pinningBlockedUntilConcreteTid = true;
+        status_.fallbackMonitoringOnly = true;
+        Logger::warn(
+            "Raw Input detected for PID {}, but no concrete input thread identity is available; input thread pinning skipped",
+            processId);
+        return status_;
+    }
+
+    // Pinning remains intentionally gated. The only allowed path is Raw Input
+    // detected plus a concrete input TID; detection currently never fabricates
+    // that TID from window ownership or GUI-thread heuristics.
     Logger::warn(
-        "Raw Input detected for PID {}, but no input thread identity is available; input thread pinning skipped",
-        processId);
+        "Raw Input detected for PID {} with input TID {}, but input pinning is not wired to SchedulerController yet",
+        processId,
+        status_.inputThreadId);
     return status_;
 }
 
-bool InputLatencyController::detectRawInputUsage(DWORD processId) noexcept
+bool InputLatencyController::isInputThreadPinningAllowed(const InputLatencyStatus& status) noexcept
 {
-    (void)processId;
+    return status.rawInputDetected && status.inputThreadId != 0;
+}
+
+InputLatencyStatus InputLatencyController::detectRawInputUsage(DWORD processId) noexcept
+{
+    InputLatencyStatus status{};
+    status.detectionAttempted = true;
+
+    if (processId == GetCurrentProcessId())
+    {
+        status.detectionPath = RawInputDetectionPath::LocalProcessRegisteredDevices;
+        status.remoteDetectionSupported = true;
+        status.rawInputDetected = detectLocalRawInputRegistration();
+        if (status.rawInputDetected)
+        {
+            Logger::info(
+                "Raw Input local-process registration detected for PID {}; concrete input TID is still unavailable",
+                processId);
+            status.pinningBlockedUntilConcreteTid = true;
+            status.fallbackMonitoringOnly = true;
+        }
+        else
+        {
+            Logger::warn(
+                "Raw Input local-process registration not found for PID {}; using fallback input policy",
+                processId);
+        }
+
+        if (mode_ == SchedulerMode::DryRun)
+        {
+            Logger::info("dry-run: would pin an input thread only after Raw Input and a concrete input TID are detected");
+        }
+        else if (mode_ == SchedulerMode::SoftApply)
+        {
+            Logger::info("soft-apply: input thread pinning validation skipped until a concrete input TID is detected");
+        }
+
+        return status;
+    }
+
+    status.detectionPath = RawInputDetectionPath::RemoteProcessUnsupported;
+    status.remoteDetectionSupported = false;
+    status.fallbackMonitoringOnly = true;
     Logger::warn(
-        "Raw Input remote-process detection is unavailable through the current public Win32 path; using fallback input policy");
+        "Raw Input remote-process detection is unavailable through the current public Win32 path for PID {}; using fallback input policy",
+        processId);
 
     if (mode_ == SchedulerMode::DryRun)
     {
@@ -53,8 +110,47 @@ bool InputLatencyController::detectRawInputUsage(DWORD processId) noexcept
     }
     else if (mode_ == SchedulerMode::SoftApply)
     {
-        Logger::info("soft-apply: input thread pinning validation skipped because Raw Input was not detected");
+        Logger::info("soft-apply: input thread pinning validation skipped because remote Raw Input detection is unsupported");
     }
 
-    return false;
+    return status;
+}
+
+bool InputLatencyController::detectLocalRawInputRegistration() noexcept
+{
+    UINT deviceCount = 0;
+    const UINT querySize = sizeof(RAWINPUTDEVICE);
+    const UINT initialResult = GetRegisteredRawInputDevices(nullptr, &deviceCount, querySize);
+    if (initialResult == static_cast<UINT>(-1))
+    {
+        Logger::warn("Raw Input local registration query failed while reading device count");
+        return false;
+    }
+
+    if (deviceCount == 0)
+    {
+        return false;
+    }
+
+    try
+    {
+        std::vector<RAWINPUTDEVICE> devices(deviceCount);
+        UINT writableDeviceCount = deviceCount;
+        const UINT readCount = GetRegisteredRawInputDevices(
+            devices.data(),
+            &writableDeviceCount,
+            querySize);
+        if (readCount == static_cast<UINT>(-1))
+        {
+            Logger::warn("Raw Input local registration query failed while reading registered devices");
+            return false;
+        }
+
+        return readCount > 0;
+    }
+    catch (...)
+    {
+        Logger::warn("Raw Input local registration query failed due to allocation/runtime error");
+        return false;
+    }
 }

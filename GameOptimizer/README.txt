@@ -19,7 +19,7 @@ Current scope:
 7. NetworkInterruptController samples DPC rate through PDH and keeps unsupported interrupt-affinity environments in monitoring-only mode.
 8. PolicyDispatcher routes IRQ_REPIN to NetworkInterruptController; unsupported interrupt-affinity control is a non-fatal WARN path.
 9. TimerResolutionController requests NtSetTimerResolution only in apply mode and releases it during shutdown rollback.
-10. InputLatencyController records Raw Input detection misses as WARN/fallback and keeps input thread pinning disabled unless Raw Input and a concrete input TID are detected.
+10. InputLatencyController queries same-process Raw Input registrations when possible, records remote-process detection as unsupported WARN/fallback, and keeps input thread pinning disabled unless Raw Input and a concrete input TID are detected.
 11. RuntimeValidationMonitor records runtime health samples and shutdown summaries.
 12. TrackingWatchdog and LatencyMetricsCollector use std::jthread/std::stop_token plus interruptible condition-variable waits instead of fixed sleep polling.
 13. ThreadTracker multi-sampling accepts stop_token cancellation between samples.
@@ -27,11 +27,13 @@ Current scope:
 15. Logger formatting templates are concept-constrained before std::vformat dispatch.
 16. TopologyAnalyzer exposes a deterministic process-affinity fallback helper so HEDT/processor-group behavior can be regression-tested without 64+ core hardware.
 17. BackgroundController blocks process-wide restriction for processor group 1+ and records the limitation as a non-fatal summary flag.
+18. Long soak presets provide 30-minute dry-run and 60-minute soft-apply runs with hang detection, runtime timeline monotonicity checks, and runtime validation failure exit-code gating.
 
 Validation:
 1. Run run_regression_tests.bat from an x64 Native Tools Command Prompt for VS.
 2. Run run_release_gate_static_checks.py before merging.
 3. Run run_release_gate_smoke.bat <target.exe> from the directory containing GameOptimizer.exe for smoke validation.
+4. Run run_long_soak_presets.bat <target.exe> [30m|60m|both] from the directory containing GameOptimizer.exe for extended soak validation.
 
 Important:
 Apply mode can modify target thread scheduling and configured background process scheduling until shutdown rollback. Use --dry-run first, then soft-apply, then --apply only with a reviewed background filter.
