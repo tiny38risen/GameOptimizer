@@ -67,5 +67,16 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [INFO] building TimerInputControllerTests...
+cl /nologo /std:c++latest /EHsc /W4 /WX /permissive- ^
+    TimerInputControllerTests.cpp TimerResolutionController.cpp InputLatencyController.cpp ^
+    /Fe:%OUT_DIR%\TimerInputControllerTests.exe ^
+    /Fo:%OUT_DIR%\
+
+if errorlevel 1 (
+    echo [FAIL] build failed
+    exit /b 1
+)
+
 echo [PASS] all test builds completed in %OUT_DIR%
 exit /b 0

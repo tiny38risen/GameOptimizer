@@ -527,11 +527,21 @@ void ThreadTracker::finalizeMultiSample() noexcept
 
 std::expected<void, ErrorCode> ThreadTracker::update() noexcept
 {
+    return update(std::stop_token{});
+}
+
+std::expected<void, ErrorCode> ThreadTracker::update(std::stop_token stopToken) noexcept
+{
     resetMultiSampleAccumulators();
 
     const int sampleCount = config_.sampleCount;
     for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
     {
+        if (stopToken.stop_requested())
+        {
+            return {};
+        }
+
         auto observeResult = observeOnce();
         if (!observeResult)
         {
@@ -545,13 +555,47 @@ std::expected<void, ErrorCode> ThreadTracker::update() noexcept
 
         if (sampleIndex + 1 < sampleCount)
         {
-            std::this_thread::sleep_for(config_.sampleInterval);
+            if (!waitForNextSample(stopToken, config_.sampleInterval))
+            {
+                return {};
+            }
         }
     }
 
     finalizeMultiSample();
     updateCandidateState(std::chrono::steady_clock::now());
     return {};
+}
+
+bool ThreadTracker::waitForNextSample(
+    std::stop_token stopToken,
+    std::chrono::milliseconds interval) noexcept
+{
+    if (interval.count() <= 0)
+    {
+        return !stopToken.stop_requested();
+    }
+
+    try
+    {
+        std::mutex waitMutex;
+        std::condition_variable_any condition;
+        std::unique_lock lock(waitMutex);
+        condition.wait_for(
+            lock,
+            stopToken,
+            interval,
+            []() noexcept
+            {
+                return false;
+            });
+    }
+    catch (...)
+    {
+        return false;
+    }
+
+    return !stopToken.stop_requested();
 }
 
 std::expected<ThreadInfoBuffer, ErrorCode>

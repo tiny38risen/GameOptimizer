@@ -6,12 +6,19 @@
 
 #pragma once
 
+#include <concepts>
 #include <cstdio>
 #include <format>
 #include <mutex>
 #include <print>
 #include <string>
 #include <string_view>
+
+template <typename... Args>
+concept LogFormattable = requires(std::string_view formatText, const Args&... args)
+{
+    std::vformat(formatText, std::make_format_args(args...));
+};
 
 class Logger
 {
@@ -22,6 +29,7 @@ public:
     }
 
     template <typename... Args>
+        requires LogFormattable<Args...>
     static void info(std::string_view formatText, const Args&... args) noexcept
     {
         writeFormatted(stdout, "[INFO]  ", formatText, args...);
@@ -33,6 +41,7 @@ public:
     }
 
     template <typename... Args>
+        requires LogFormattable<Args...>
     static void warn(std::string_view formatText, const Args&... args) noexcept
     {
         writeFormatted(stdout, "[WARN]  ", formatText, args...);
@@ -44,6 +53,7 @@ public:
     }
 
     template <typename... Args>
+        requires LogFormattable<Args...>
     static void error(std::string_view formatText, const Args&... args) noexcept
     {
         writeFormatted(stderr, "[ERROR] ", formatText, args...);
@@ -70,6 +80,7 @@ private:
     }
 
     template <typename... Args>
+        requires LogFormattable<Args...>
     static void writeFormatted(
         std::FILE* stream,
         const char* prefix,

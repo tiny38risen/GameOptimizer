@@ -17,10 +17,12 @@
 #include <Windows.h>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <expected>
 #include <mutex>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <thread>
 #include <vector>
@@ -61,8 +63,10 @@ public:
     [[nodiscard]] RuntimeMetrics collect(int threadMigrationCount) noexcept;
 
 private:
-    void runIcmpSensor() noexcept;
-    [[nodiscard]] bool waitInterruptible(std::chrono::milliseconds interval) noexcept;
+    void runIcmpSensor(std::stop_token stopToken) noexcept;
+    [[nodiscard]] bool waitInterruptible(
+        std::stop_token stopToken,
+        std::chrono::milliseconds interval) noexcept;
     [[nodiscard]] bool prepareIcmpSensor() noexcept;
     [[nodiscard]] bool ensureWinsockStarted() noexcept;
     void cleanupWinsock() noexcept;
@@ -89,6 +93,7 @@ private:
     std::size_t rttSampleCount_ = 0;
     std::atomic<double> cachedRttJitterMs_ = 0.0;
 
-    std::atomic_bool running_ = false;
-    std::thread sensorThread_;
+    std::mutex waitMutex_;
+    std::condition_variable_any stopCondition_;
+    std::jthread sensorThread_;
 };

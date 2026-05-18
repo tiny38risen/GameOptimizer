@@ -60,6 +60,16 @@ if errorlevel 1 (
     echo [PASS] NetworkInterruptControllerTests passed
 )
 
+set /a TEST_COUNT+=1
+echo [INFO] running TimerInputControllerTests...
+build_tests\TimerInputControllerTests.exe
+if errorlevel 1 (
+    echo [FAIL] TimerInputControllerTests failed
+    set /a FAILURE_COUNT+=1
+) else (
+    echo [PASS] TimerInputControllerTests passed
+)
+
 echo.
 echo [INFO] regression summary: total=%TEST_COUNT%, failed=%FAILURE_COUNT%
 

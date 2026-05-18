@@ -5,15 +5,17 @@
 
 #pragma once
 
-#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <functional>
+#include <mutex>
+#include <stop_token>
 #include <thread>
 
 class TrackingWatchdog
 {
 public:
-    using TickHandler = std::function<void()>;
+    using TickHandler = std::function<void(std::stop_token)>;
 
     TrackingWatchdog() noexcept = default;
     ~TrackingWatchdog() noexcept;
@@ -30,11 +32,14 @@ public:
     [[nodiscard]] bool isRunning() const noexcept;
 
 private:
-    void run(std::chrono::milliseconds interval) noexcept;
-    [[nodiscard]] bool waitInterruptible(std::chrono::milliseconds interval) noexcept;
+    void run(std::stop_token stopToken, std::chrono::milliseconds interval) noexcept;
+    [[nodiscard]] bool waitInterruptible(
+        std::stop_token stopToken,
+        std::chrono::milliseconds interval) noexcept;
 
 private:
-    std::atomic_bool running_ = false;
-    std::thread worker_;
+    std::mutex waitMutex_;
+    std::condition_variable_any stopCondition_;
+    std::jthread worker_;
     TickHandler tickHandler_;
 };

@@ -16,11 +16,15 @@
 #include <Windows.h>
 #include <array>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <limits>
+#include <mutex>
 #include <optional>
+#include <stop_token>
+#include <thread>
 
 #include "ErrorCode.h"
 #include "ThreadInfo.h"
@@ -97,6 +101,7 @@ public:
         ThreadTrackerConfig config = ThreadTrackerConfig{}) noexcept;
 
     [[nodiscard]] std::expected<void, ErrorCode> update() noexcept;
+    [[nodiscard]] std::expected<void, ErrorCode> update(std::stop_token stopToken) noexcept;
 
     [[nodiscard]] std::expected<ThreadInfoBuffer, ErrorCode>
     getTopThreads(std::size_t maxCount) const noexcept;
@@ -174,6 +179,9 @@ private:
     void deactivateMissingSamples() noexcept;
     [[nodiscard]] std::size_t activeSampleCount() const noexcept;
     [[nodiscard]] std::expected<void, ErrorCode> observeOnce() noexcept;
+    [[nodiscard]] static bool waitForNextSample(
+        std::stop_token stopToken,
+        std::chrono::milliseconds interval) noexcept;
     void finalizeMultiSample() noexcept;
     void resetMultiSampleAccumulators() noexcept;
 

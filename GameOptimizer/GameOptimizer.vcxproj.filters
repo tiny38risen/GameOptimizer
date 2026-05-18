@@ -75,6 +75,15 @@
     <ClCompile Include="NetworkInterruptControllerTests.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="TimerResolutionController.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="InputLatencyController.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="TimerInputControllerTests.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ErrorCode.h">
@@ -138,6 +147,12 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="NetworkInterruptController.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="TimerResolutionController.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="InputLatencyController.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

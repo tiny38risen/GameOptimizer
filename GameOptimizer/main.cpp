@@ -1,4 +1,4 @@
-// Build: cl /std:c++latest /O2 /W4 /WX /permissive- main.cpp ProcessFinder.cpp ThreadTracker.cpp TopologyAnalyzer.cpp RollbackManager.cpp SchedulerController.cpp TrackingWatchdog.cpp PolicyDispatcher.cpp LatencyDecisionLayer.cpp LatencyMetricsCollector.cpp NetworkInterruptController.cpp AppliedPolicyTracker.cpp BackgroundController.cpp RuntimeValidationMonitor.cpp ApplyGuard.cpp
+// Build: cl /std:c++latest /O2 /W4 /WX /permissive- main.cpp ProcessFinder.cpp ThreadTracker.cpp TopologyAnalyzer.cpp RollbackManager.cpp SchedulerController.cpp TrackingWatchdog.cpp PolicyDispatcher.cpp LatencyDecisionLayer.cpp LatencyMetricsCollector.cpp NetworkInterruptController.cpp TimerResolutionController.cpp InputLatencyController.cpp AppliedPolicyTracker.cpp BackgroundController.cpp RuntimeValidationMonitor.cpp ApplyGuard.cpp
 // MODULE: main
 // ERROR-POLICY: expected
 // Reason: application boundary converts expected errors into user-facing logs.
@@ -15,8 +15,10 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <expected>
 #include <limits>
+#include <mutex>
 #include <optional>
 #include <cstdint>
 #include <cwchar>
@@ -28,6 +30,7 @@
 #include "AppliedPolicyTracker.h"
 #include "BackgroundController.h"
 #include "ErrorCode.h"
+#include "InputLatencyController.h"
 #include "LatencyDecisionLayer.h"
 #include "LatencyMetricsCollector.h"
 #include "Logger.h"
@@ -39,6 +42,7 @@
 #include "SchedulerController.h"
 #include "ThreadInfo.h"
 #include "ThreadTracker.h"
+#include "TimerResolutionController.h"
 #include "TopologyAnalyzer.h"
 #include "TrackingWatchdog.h"
 #include "WinHandle.h"
@@ -47,6 +51,14 @@ namespace
 {
     std::atomic_bool gRunning = true;
     std::atomic_bool gRuntimeTimeoutRequested = false;
+    std::mutex gRunStateMutex;
+    std::condition_variable gRunStateChanged;
+
+    void requestShutdown() noexcept
+    {
+        gRunning.store(false, std::memory_order_release);
+        gRunStateChanged.notify_all();
+    }
 
     BOOL WINAPI handleConsoleControl(DWORD controlType) noexcept
     {
@@ -57,7 +69,7 @@ namespace
         case CTRL_CLOSE_EVENT:
         case CTRL_LOGOFF_EVENT:
         case CTRL_SHUTDOWN_EVENT:
-            gRunning.store(false, std::memory_order_release);
+            requestShutdown();
             return TRUE;
         default:
             return FALSE;
@@ -646,6 +658,21 @@ int wmain(int argc, wchar_t* argv[])
     ThreadTracker threadTracker(targetProcessId, trackerConfig);
     RollbackManager rollbackManager;
     SchedulerController schedulerController(rollbackManager, schedulerMode);
+    TimerResolutionController timerResolutionController(schedulerMode);
+    const auto timerResolutionResult = timerResolutionController.apply();
+    if (!timerResolutionResult)
+    {
+        Logger::error("startup failed: timer resolution apply failed: {}", toString(timerResolutionResult.error()));
+        return 1;
+    }
+
+    InputLatencyController inputLatencyController(schedulerMode);
+    const auto inputLatencyResult = inputLatencyController.detectAndApply(targetProcessId, mainThreadPolicy);
+    if (!inputLatencyResult)
+    {
+        Logger::warn("input latency controller unavailable: {}", toString(inputLatencyResult.error()));
+    }
+
     BackgroundFilterConfig backgroundFilterConfig =
         BackgroundController::loadFilterConfigFromFile(backgroundFilterConfigPath);
     backgroundFilterConfig.logRestrictedProcessDetails = backgroundDetailLogEnabled;
@@ -690,6 +717,7 @@ int wmain(int argc, wchar_t* argv[])
     if (!latencyMetricsCollector.start())
     {
         Logger::error("startup failed: latency metrics sensor start failed");
+        (void)timerResolutionController.rollback();
         return 1;
     }
 
@@ -699,9 +727,9 @@ int wmain(int argc, wchar_t* argv[])
 
     TrackingWatchdog watchdog;
     const bool watchdogStarted = watchdog.start(
-        [&]() noexcept
+        [&](std::stop_token stopToken) noexcept
         {
-            const auto updateResult = threadTracker.update();
+            const auto updateResult = threadTracker.update(stopToken);
             if (!updateResult)
             {
                 Logger::warn("thread update failed: {}; retrying next cycle", toString(updateResult.error()));
@@ -798,7 +826,7 @@ int wmain(int argc, wchar_t* argv[])
                 {
                     Logger::error("policy feedback requested rollback; shutting down watchdog loop");
                     runtimeValidationMonitor.observe(validationSample);
-                    gRunning.store(false, std::memory_order_release);
+                    requestShutdown();
                     return;
                 }
             }
@@ -844,7 +872,7 @@ int wmain(int argc, wchar_t* argv[])
             if (gRuntimeTimeoutRequested.load(std::memory_order_acquire))
             {
                 Logger::info("runtime timeout reached at watchdog cycle boundary; requesting clean shutdown");
-                gRunning.store(false, std::memory_order_release);
+                requestShutdown();
             }
         },
         kWatchdogInterval);
@@ -852,6 +880,9 @@ int wmain(int argc, wchar_t* argv[])
     if (!watchdogStarted)
     {
         Logger::error("startup failed: watchdog start failed");
+        latencyMetricsCollector.requestStop();
+        latencyMetricsCollector.join();
+        (void)timerResolutionController.rollback();
         return 1;
     }
 
@@ -872,7 +903,14 @@ int wmain(int argc, wchar_t* argv[])
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::unique_lock lock(gRunStateMutex);
+        gRunStateChanged.wait_for(
+            lock,
+            std::chrono::milliseconds(100),
+            []() noexcept
+            {
+                return !gRunning.load(std::memory_order_acquire);
+            });
     }
 
     Logger::info("shutdown requested; stopping watchdog and latency sensor before rollback");
@@ -884,6 +922,12 @@ int wmain(int argc, wchar_t* argv[])
     runtimeValidationMonitor.logSummary();
     const bool runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();
 
+    const auto timerRollbackResult = timerResolutionController.rollback();
+    if (!timerRollbackResult)
+    {
+        Logger::error("shutdown timer rollback failed: {}", toString(timerRollbackResult.error()));
+    }
+
     const auto rollbackResult = schedulerController.rollbackAll();
     if (!rollbackResult)
     {
@@ -892,6 +936,11 @@ int wmain(int argc, wchar_t* argv[])
     }
 
     Logger::info("shutdown completed cleanly");
+    if (!timerRollbackResult)
+    {
+        return 1;
+    }
+
     if (runtimeValidationFailed)
     {
         Logger::error("shutdown completed with runtime validation failure");

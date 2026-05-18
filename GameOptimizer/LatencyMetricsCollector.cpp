@@ -40,7 +40,6 @@ namespace
     constexpr DWORD kIcmpReplyBufferExtraBytes = 8;
     constexpr std::size_t kIcmpRequestPayloadBytes = 8;
     constexpr std::uint32_t kMaxConsecutiveIcmpFailuresBeforeReopen = 5;
-    constexpr std::chrono::milliseconds kSensorWaitSlice{100};
 
     [[nodiscard]] std::uint32_t ipv4AddressFromInAddr(const IN_ADDR& address) noexcept
     {
@@ -97,7 +96,6 @@ LatencyMetricsCollector::LatencyMetricsCollector(LatencyMetricsCollectorConfig c
 LatencyMetricsCollector::~LatencyMetricsCollector() noexcept
 {
     requestStop();
-    join();
 }
 
 bool LatencyMetricsCollector::start() noexcept
@@ -108,7 +106,7 @@ bool LatencyMetricsCollector::start() noexcept
         return true;
     }
 
-    if (running_.load(std::memory_order_acquire))
+    if (sensorThread_.joinable())
     {
         return false;
     }
@@ -123,13 +121,15 @@ bool LatencyMetricsCollector::start() noexcept
 
     try
     {
-        running_.store(true, std::memory_order_release);
-        sensorThread_ = std::thread(&LatencyMetricsCollector::runIcmpSensor, this);
+        sensorThread_ = std::jthread(
+            [this](std::stop_token stopToken) noexcept
+            {
+                runIcmpSensor(stopToken);
+            });
         return true;
     }
     catch (...)
     {
-        running_.store(false, std::memory_order_release);
         icmpHandle_.close();
         cleanupWinsock();
         Logger::error("latency ICMP sensor start failed");
@@ -139,7 +139,11 @@ bool LatencyMetricsCollector::start() noexcept
 
 void LatencyMetricsCollector::requestStop() noexcept
 {
-    running_.store(false, std::memory_order_release);
+    if (sensorThread_.joinable())
+    {
+        sensorThread_.request_stop();
+    }
+    stopCondition_.notify_all();
 }
 
 void LatencyMetricsCollector::join() noexcept
@@ -176,14 +180,14 @@ RuntimeMetrics LatencyMetricsCollector::collect(int threadMigrationCount) noexce
     return metrics;
 }
 
-void LatencyMetricsCollector::runIcmpSensor() noexcept
+void LatencyMetricsCollector::runIcmpSensor(std::stop_token stopToken) noexcept
 {
     Logger::info(
         "latency ICMP sensor started: interval={} ms, timeout={} ms",
         config_.icmpSampleInterval.count(),
         config_.icmpTimeout.count());
 
-    while (running_.load(std::memory_order_acquire))
+    while (!stopToken.stop_requested())
     {
         const auto rttSample = sampleIcmpRttMs();
         if (rttSample.has_value())
@@ -191,7 +195,7 @@ void LatencyMetricsCollector::runIcmpSensor() noexcept
             pushRttSample(*rttSample);
         }
 
-        if (!waitInterruptible(config_.icmpSampleInterval))
+        if (!waitInterruptible(stopToken, config_.icmpSampleInterval))
         {
             break;
         }
@@ -355,17 +359,29 @@ bool LatencyMetricsCollector::resolveTargetAddress(bool allowFallbackToPrevious)
 }
 
 
-bool LatencyMetricsCollector::waitInterruptible(std::chrono::milliseconds interval) noexcept
+bool LatencyMetricsCollector::waitInterruptible(
+    std::stop_token stopToken,
+    std::chrono::milliseconds interval) noexcept
 {
-    auto remaining = interval;
-    while (remaining.count() > 0 && running_.load(std::memory_order_acquire))
+    try
     {
-        const auto sleepDuration = remaining < kSensorWaitSlice ? remaining : kSensorWaitSlice;
-        std::this_thread::sleep_for(sleepDuration);
-        remaining -= sleepDuration;
+        std::unique_lock lock(waitMutex_);
+        stopCondition_.wait_for(
+            lock,
+            stopToken,
+            interval,
+            []() noexcept
+            {
+                return false;
+            });
+    }
+    catch (...)
+    {
+        Logger::error("latency ICMP sensor interruptible wait failed with unexpected exception");
+        requestStop();
     }
 
-    return running_.load(std::memory_order_acquire);
+    return !stopToken.stop_requested();
 }
 
 std::optional<double> LatencyMetricsCollector::sampleIcmpRttMs() noexcept

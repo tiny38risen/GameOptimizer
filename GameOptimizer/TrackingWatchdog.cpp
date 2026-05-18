@@ -12,14 +12,13 @@
 TrackingWatchdog::~TrackingWatchdog() noexcept
 {
     requestStop();
-    join();
 }
 
 bool TrackingWatchdog::start(
     TickHandler tickHandler,
     std::chrono::milliseconds interval) noexcept
 {
-    if (running_.load(std::memory_order_acquire) || !tickHandler || interval.count() <= 0)
+    if (worker_.joinable() || !tickHandler || interval.count() <= 0)
     {
         return false;
     }
@@ -27,13 +26,15 @@ bool TrackingWatchdog::start(
     try
     {
         tickHandler_ = std::move(tickHandler);
-        running_.store(true, std::memory_order_release);
-        worker_ = std::thread(&TrackingWatchdog::run, this, interval);
+        worker_ = std::jthread(
+            [this, interval](std::stop_token stopToken) noexcept
+            {
+                run(stopToken, interval);
+            });
         return true;
     }
     catch (...)
     {
-        running_.store(false, std::memory_order_release);
         tickHandler_ = nullptr;
         return false;
     }
@@ -41,7 +42,11 @@ bool TrackingWatchdog::start(
 
 void TrackingWatchdog::requestStop() noexcept
 {
-    running_.store(false, std::memory_order_release);
+    if (worker_.joinable())
+    {
+        worker_.request_stop();
+    }
+    stopCondition_.notify_all();
 }
 
 void TrackingWatchdog::join() noexcept
@@ -54,25 +59,25 @@ void TrackingWatchdog::join() noexcept
 
 bool TrackingWatchdog::isRunning() const noexcept
 {
-    return running_.load(std::memory_order_acquire);
+    return worker_.joinable() && !worker_.get_stop_token().stop_requested();
 }
 
-void TrackingWatchdog::run(std::chrono::milliseconds interval) noexcept
+void TrackingWatchdog::run(std::stop_token stopToken, std::chrono::milliseconds interval) noexcept
 {
     Logger::info("watchdog started");
 
-    while (running_.load(std::memory_order_acquire))
+    while (!stopToken.stop_requested())
     {
         try
         {
-            tickHandler_();
+            tickHandler_(stopToken);
         }
         catch (...)
         {
             Logger::error("watchdog tick failed with unexpected exception");
         }
 
-        if (!waitInterruptible(interval))
+        if (!waitInterruptible(stopToken, interval))
         {
             break;
         }
@@ -81,17 +86,27 @@ void TrackingWatchdog::run(std::chrono::milliseconds interval) noexcept
     Logger::info("watchdog stopped");
 }
 
-bool TrackingWatchdog::waitInterruptible(std::chrono::milliseconds interval) noexcept
+bool TrackingWatchdog::waitInterruptible(
+    std::stop_token stopToken,
+    std::chrono::milliseconds interval) noexcept
 {
-    constexpr auto kSlice = std::chrono::milliseconds(100);
-    auto remaining = interval;
-
-    while (remaining.count() > 0 && running_.load(std::memory_order_acquire))
+    try
     {
-        const auto sleepDuration = remaining < kSlice ? remaining : kSlice;
-        std::this_thread::sleep_for(sleepDuration);
-        remaining -= sleepDuration;
+        std::unique_lock lock(waitMutex_);
+        stopCondition_.wait_for(
+            lock,
+            stopToken,
+            interval,
+            []() noexcept
+            {
+                return false;
+            });
+    }
+    catch (...)
+    {
+        Logger::error("watchdog interruptible wait failed with unexpected exception");
+        requestStop();
     }
 
-    return running_.load(std::memory_order_acquire);
+    return !stopToken.stop_requested();
 }

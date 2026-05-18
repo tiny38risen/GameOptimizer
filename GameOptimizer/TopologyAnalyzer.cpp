@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <memory>
 #include <new>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -66,6 +67,11 @@ namespace
         }
 
         return count;
+    }
+
+    [[nodiscard]] DWORD_PTR lowestSetBitLocal(DWORD_PTR mask) noexcept
+    {
+        return mask & (~mask + 1);
     }
 
     [[nodiscard]] bool containsGroup(const std::vector<WORD>& groups, WORD group) noexcept
@@ -310,6 +316,67 @@ namespace
 
         return best;
     }
+
+    [[nodiscard]] std::expected<void, ErrorCode> collectTopologyCandidates(
+        std::span<const std::byte> topologyBuffer,
+        std::unordered_map<WORD, GroupCandidate>& candidates) noexcept
+    {
+        const std::byte* cursor = topologyBuffer.data();
+        const std::byte* const end = topologyBuffer.data() + topologyBuffer.size();
+        while (cursor < end)
+        {
+            const auto remainingBytes = static_cast<std::size_t>(end - cursor);
+            if (remainingBytes < sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX))
+            {
+                return std::unexpected(ErrorCode::TopologyScanFailed);
+            }
+
+            const auto* record = reinterpret_cast<const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(cursor);
+            if (record->Size == 0 || record->Size > remainingBytes)
+            {
+                return std::unexpected(ErrorCode::TopologyScanFailed);
+            }
+
+            if (record->Relationship == RelationProcessorCore)
+            {
+                for (WORD i = 0; i < record->Processor.GroupCount; ++i)
+                {
+                    const GROUP_AFFINITY& groupMask = record->Processor.GroupMask[i];
+                    const WORD group = groupMask.Group;
+                    const auto candidateIt = candidates.find(group);
+                    if (candidateIt == candidates.end())
+                    {
+                        continue;
+                    }
+
+                    const DWORD_PTR activeMask = activeProcessorMaskForGroup(group);
+                    const DWORD_PTR coreMask = static_cast<DWORD_PTR>(groupMask.Mask) & activeMask;
+                    candidateIt->second.physicalRepresentativeMask |= lowestSetBitLocal(coreMask);
+                }
+            }
+            else if (record->Relationship == RelationCache && record->Cache.Level == 3)
+            {
+                const GROUP_AFFINITY& groupMask = record->Cache.GroupMask;
+                const WORD group = groupMask.Group;
+                const auto candidateIt = candidates.find(group);
+                if (candidateIt != candidates.end())
+                {
+                    const DWORD_PTR activeMask = activeProcessorMaskForGroup(group);
+                    const DWORD_PTR l3Mask = static_cast<DWORD_PTR>(groupMask.Mask) & activeMask;
+                    if (l3Mask != 0)
+                    {
+                        candidateIt->second.l3Candidates.push_back(L3Candidate{
+                            .mask = l3Mask,
+                            .sizeBytes = record->Cache.CacheSize});
+                    }
+                }
+            }
+
+            cursor += record->Size;
+        }
+
+        return {};
+    }
 }
 
 DWORD_PTR TopologyAnalyzer::lowestSetBit(DWORD_PTR mask) noexcept
@@ -371,53 +438,11 @@ TopologyAnalyzer::buildMainThreadMask(DWORD processId) noexcept
             candidates.emplace(group, GroupCandidate{});
         }
 
-        const auto& buffer = *bufferResult;
-        const std::byte* cursor = buffer.data();
-        const std::byte* end = buffer.data() + buffer.size();
-        while (cursor < end)
+        const std::vector<std::byte>& topologyBuffer = bufferResult.value();
+        const auto collectResult = collectTopologyCandidates(topologyBuffer, candidates);
+        if (!collectResult)
         {
-            const auto* record = reinterpret_cast<const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(cursor);
-            if (record->Size == 0)
-            {
-                return std::unexpected(ErrorCode::TopologyScanFailed);
-            }
-
-            if (record->Relationship == RelationProcessorCore)
-            {
-                for (WORD i = 0; i < record->Processor.GroupCount; ++i)
-                {
-                    const GROUP_AFFINITY& groupMask = record->Processor.GroupMask[i];
-                    const WORD group = groupMask.Group;
-                    const auto candidateIt = candidates.find(group);
-                    if (candidateIt == candidates.end())
-                    {
-                        continue;
-                    }
-
-                    const DWORD_PTR activeMask = activeProcessorMaskForGroup(group);
-                    const DWORD_PTR coreMask = static_cast<DWORD_PTR>(groupMask.Mask) & activeMask;
-                    candidateIt->second.physicalRepresentativeMask |= lowestSetBit(coreMask);
-                }
-            }
-            else if (record->Relationship == RelationCache && record->Cache.Level == 3)
-            {
-                const GROUP_AFFINITY& groupMask = record->Cache.GroupMask;
-                const WORD group = groupMask.Group;
-                const auto candidateIt = candidates.find(group);
-                if (candidateIt != candidates.end())
-                {
-                    const DWORD_PTR activeMask = activeProcessorMaskForGroup(group);
-                    const DWORD_PTR l3Mask = static_cast<DWORD_PTR>(groupMask.Mask) & activeMask;
-                    if (l3Mask != 0)
-                    {
-                        candidateIt->second.l3Candidates.push_back(L3Candidate{
-                            .mask = l3Mask,
-                            .sizeBytes = record->Cache.CacheSize});
-                    }
-                }
-            }
-
-            cursor += record->Size;
+            return std::unexpected(collectResult.error());
         }
 
         SelectedCandidate selected = chooseBestCandidate(candidates, processGroups);
