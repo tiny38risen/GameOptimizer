@@ -80,6 +80,16 @@ if errorlevel 1 (
     echo [PASS] TimerInputControllerTests passed
 )
 
+set /a TEST_COUNT+=1
+echo [INFO] running AntiCheatFallbackTests...
+build_tests\AntiCheatFallbackTests.exe
+if errorlevel 1 (
+    echo [FAIL] AntiCheatFallbackTests failed
+    set /a FAILURE_COUNT+=1
+) else (
+    echo [PASS] AntiCheatFallbackTests passed
+)
+
 echo.
 echo [INFO] regression summary: total=%TEST_COUNT%, failed=%FAILURE_COUNT%
 

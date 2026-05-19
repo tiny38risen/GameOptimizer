@@ -1,0 +1,103 @@
+@echo off
+setlocal EnableExtensions
+
+if "%~1"=="" (
+    echo Usage: run_rc_gate.bat target.exe
+    exit /b 2
+)
+
+set TARGET=%~1
+set SCRIPT_DIR=%~dp0
+set VCVARS64=
+
+pushd "%SCRIPT_DIR%"
+
+where cl >nul 2>nul
+if errorlevel 1 (
+    if exist "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" (
+        set VCVARS64=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat
+    )
+    if "%VCVARS64%"=="" if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" (
+        set VCVARS64=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat
+    )
+    if "%VCVARS64%"=="" if exist "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" (
+        set VCVARS64=C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat
+    )
+    if "%VCVARS64%"=="" (
+        echo [FAIL] MSVC cl.exe was not found in PATH and vcvars64.bat could not be located.
+        echo [INFO] Open an x64 Native Tools Command Prompt or install Visual Studio C++ tools.
+        popd
+        exit /b 2
+    )
+
+    echo [INFO] MSVC cl.exe was not found in PATH; loading "%VCVARS64%"
+    call "%VCVARS64%"
+    if errorlevel 1 (
+        echo [FAIL] failed to initialize MSVC x64 build environment.
+        popd
+        exit /b 2
+    )
+)
+
+set PYTHON_CMD=
+set BUNDLED_PYTHON=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe
+if exist "%BUNDLED_PYTHON%" (
+    set PYTHON_CMD="%BUNDLED_PYTHON%"
+)
+if "%PYTHON_CMD%"=="" (
+    where python >nul 2>nul
+    if not errorlevel 1 (
+        python --version >nul 2>nul
+        if not errorlevel 1 (
+            set PYTHON_CMD=python
+        )
+    )
+)
+if "%PYTHON_CMD%"=="" (
+    where python3 >nul 2>nul
+    if not errorlevel 1 (
+        python3 --version >nul 2>nul
+        if not errorlevel 1 (
+            set PYTHON_CMD=python3
+        )
+    )
+)
+if "%PYTHON_CMD%"=="" (
+    where py >nul 2>nul
+    if not errorlevel 1 (
+        py -3 --version >nul 2>nul
+        if not errorlevel 1 (
+            set PYTHON_CMD=py -3
+        )
+    )
+)
+if "%PYTHON_CMD%"=="" (
+    echo [FAIL] Python 3 is required for RC gate static checks.
+    popd
+    exit /b 2
+)
+
+echo [RC-1] static gate
+%PYTHON_CMD% run_release_gate_static_checks.py
+if errorlevel 1 goto fail
+
+echo [RC-2] regression
+call run_regression_tests.bat
+if errorlevel 1 goto fail
+
+echo [RC-3] release smoke
+call run_release_gate_smoke.bat "%TARGET%"
+if errorlevel 1 goto fail
+
+echo [RC-4] long soak evidence gate: 30m dry-run + 60m soft-apply
+call run_long_soak_presets.bat "%TARGET%" both
+if errorlevel 1 goto fail
+
+echo [PASS] RC gate passed. Required evidence reports were generated under release_gate_logs.
+popd
+exit /b 0
+
+:fail
+echo [FAIL] RC gate failed.
+popd
+exit /b 1

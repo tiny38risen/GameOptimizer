@@ -92,6 +92,12 @@ std::expected<void, ErrorCode> SchedulerController::validatePolicyShape(
     return {};
 }
 
+bool SchedulerController::isRecoverableAccessLimitation(ErrorCode errorCode) noexcept
+{
+    return errorCode == ErrorCode::AccessDenied ||
+           errorCode == ErrorCode::ThreadOpenFailed;
+}
+
 std::expected<WinHandle, ErrorCode> SchedulerController::openThreadForSchedulingProbe(
     DWORD threadId) noexcept
 {
@@ -250,12 +256,23 @@ std::expected<void, ErrorCode> SchedulerController::applyMainThreadPolicy(
     GROUP_AFFINITY previousAffinity{};
     if (!SetThreadGroupAffinity(threadHandle.get(), &targetAffinity, &previousAffinity))
     {
+        const ErrorCode mappedError = mapLastErrorToErrorCode(GetLastError());
         applyGuard.discardSavedState();
+        if (isRecoverableAccessLimitation(mappedError))
+        {
+            Logger::warn(
+                "main-thread affinity apply blocked by recoverable access limitation for TID {}; monitoring-only fallback remains active ({})",
+                threadId,
+                toString(mappedError));
+            return std::unexpected(mappedError);
+        }
+
         return std::unexpected(ErrorCode::ThreadAffinityApplyFailed);
     }
 
     if (!SetThreadPriority(threadHandle.get(), policy.threadPriority))
     {
+        const ErrorCode mappedError = mapLastErrorToErrorCode(GetLastError());
         auto rollbackResult = applyGuard.rollbackNow();
         if (!rollbackResult)
         {
@@ -263,6 +280,15 @@ std::expected<void, ErrorCode> SchedulerController::applyMainThreadPolicy(
                 "priority apply failed and rollback also failed for TID {}: {}; rollback state is preserved for shutdown recovery",
                 threadId,
                 toString(rollbackResult.error()));
+        }
+
+        if (isRecoverableAccessLimitation(mappedError))
+        {
+            Logger::warn(
+                "main-thread priority apply blocked by recoverable access limitation for TID {}; rollback path was invoked when needed ({})",
+                threadId,
+                toString(mappedError));
+            return std::unexpected(mappedError);
         }
 
         return std::unexpected(ErrorCode::ThreadPriorityApplyFailed);
@@ -438,4 +464,3 @@ std::expected<void, ErrorCode> SchedulerController::rollbackAll() noexcept
 
     return {};
 }
-

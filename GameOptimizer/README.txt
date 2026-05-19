@@ -29,13 +29,15 @@ Current scope:
 17. BackgroundController blocks process-wide restriction for processor group 1+, records the blocked group in the non-fatal summary, and leaves thread-level group affinity support in SchedulerController.
 18. Long soak RC gate requires both a 30-minute dry-run and a 60-minute soft-apply run, with hang detection, runtime timeline monotonicity checks, runtime validation summary, and runtime validation failure exit-code gating.
 19. Release gate smoke and soak runs create run-id scoped RC evidence reports with logs, exit codes, git commit, build hash, and GameOptimizer.exe SHA-256.
+20. Anti-cheat/access-denied Win32 boundaries are classified as recoverable limitations and fall back to monitoring-only behavior when no safe mutation can be verified.
 
 Validation:
-1. Run run_regression_tests.bat from an x64 Native Tools Command Prompt for VS.
-2. Run run_release_gate_static_checks.py before merging.
-3. Run run_release_gate_smoke.bat <target.exe> from the directory containing GameOptimizer.exe for smoke validation.
-4. Run run_long_soak_presets.bat <target.exe> [30m|60m|both] from the directory containing GameOptimizer.exe for extended soak validation. The default RC path is both.
-5. Inspect release_gate_logs\<run-id>\rc_evidence_report.txt or .json for the final release decision evidence.
+1. Run run_rc_gate.bat <target.exe> from an x64 Native Tools Command Prompt for the full RC gate.
+2. Run run_regression_tests.bat for regression-only validation.
+3. Run run_release_gate_static_checks.py before merging.
+4. Run run_release_gate_smoke.bat <target.exe> for smoke validation.
+5. Run run_long_soak_presets.bat <target.exe> [30m|60m|both] for extended soak validation. The default RC path is both.
+6. Inspect release_gate_logs\<run-id>\rc_evidence_report.txt or .json for the final release decision evidence.
 
 Important:
 Apply mode can modify target thread scheduling and configured background process scheduling until shutdown rollback. Use --dry-run first, then soft-apply, then --apply only with a reviewed background filter.

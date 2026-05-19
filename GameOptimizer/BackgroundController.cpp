@@ -345,6 +345,12 @@ bool BackgroundController::supportsProcessWideRestrictionForGroup(WORD processor
     return processorGroup == 0;
 }
 
+bool BackgroundController::isRecoverableAccessLimitation(ErrorCode errorCode) noexcept
+{
+    return errorCode == ErrorCode::AccessDenied ||
+           errorCode == ErrorCode::ProcessOpenFailed;
+}
+
 std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::applyRestriction(
     const BackgroundRestrictionPolicy& policy) noexcept
 {
@@ -452,11 +458,22 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
             ++summary.skippedProcessCount;
             if (filterConfig_.logSkippedProcessDetails)
             {
-                Logger::warn(
-                    "background process skipped: {} (pid={}, reason=open_process_failed, error={})",
-                    processNameForLog,
-                    processId,
-                    toString(openedProcess.error()));
+                if (isRecoverableAccessLimitation(openedProcess.error()))
+                {
+                    Logger::warn(
+                        "background process skipped by recoverable access limitation: {} (pid={}, error={})",
+                        processNameForLog,
+                        processId,
+                        toString(openedProcess.error()));
+                }
+                else
+                {
+                    Logger::warn(
+                        "background process skipped: {} (pid={}, reason=open_process_failed, error={})",
+                        processNameForLog,
+                        processId,
+                        toString(openedProcess.error()));
+                }
             }
             continue;
         }
@@ -532,18 +549,31 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
 
         if (targetMask != processMask && !SetProcessAffinityMask(processHandle.get(), targetMask))
         {
+            const ErrorCode mappedError = mapLastErrorToErrorCode(GetLastError());
             applyGuard.discardSavedState();
 
             ++summary.skippedProcessCount;
-            Logger::warn(
-                "background restrict failed: {} (pid={}, reason=SetProcessAffinityMask_failed)",
-                processNameForLog,
-                processId);
+            if (isRecoverableAccessLimitation(mappedError))
+            {
+                Logger::warn(
+                    "background affinity restriction blocked by recoverable access limitation: {} (pid={}, error={}); saved state discarded before mutation",
+                    processNameForLog,
+                    processId,
+                    toString(mappedError));
+            }
+            else
+            {
+                Logger::warn(
+                    "background restrict failed: {} (pid={}, reason=SetProcessAffinityMask_failed)",
+                    processNameForLog,
+                    processId);
+            }
             continue;
         }
 
         if (!SetPriorityClass(processHandle.get(), IDLE_PRIORITY_CLASS))
         {
+            const ErrorCode mappedError = mapLastErrorToErrorCode(GetLastError());
             auto rollbackResult = applyGuard.rollbackNow();
             if (!rollbackResult)
             {
@@ -555,10 +585,21 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
             }
 
             ++summary.skippedProcessCount;
-            Logger::warn(
-                "background restrict failed: {} (pid={}, reason=SetPriorityClass_failed)",
-                processNameForLog,
-                processId);
+            if (isRecoverableAccessLimitation(mappedError))
+            {
+                Logger::warn(
+                    "background priority restriction blocked by recoverable access limitation: {} (pid={}, error={}); rollback path was invoked when needed",
+                    processNameForLog,
+                    processId,
+                    toString(mappedError));
+            }
+            else
+            {
+                Logger::warn(
+                    "background restrict failed: {} (pid={}, reason=SetPriorityClass_failed)",
+                    processNameForLog,
+                    processId);
+            }
             continue;
         }
 

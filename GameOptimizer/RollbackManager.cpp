@@ -739,10 +739,11 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
     auto openedProcess = openProcessForRollback(state.processId);
     if (!openedProcess)
     {
-        if (openedProcess.error() == ErrorCode::ProcessOpenFailed)
+        if (openedProcess.error() == ErrorCode::ProcessOpenFailed ||
+            openedProcess.error() == ErrorCode::AccessDenied)
         {
             Logger::warn(
-                "background rollback skipped for PID {} because the original process is no longer openable ({})",
+                "background rollback skipped for PID {} because the original process is no longer openable or is blocked by an access boundary ({})",
                 state.processId,
                 toString(openedProcess.error()));
             return {};

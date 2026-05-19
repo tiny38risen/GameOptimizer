@@ -467,6 +467,78 @@ def check_timer_input_module_registration() -> list[str]:
     return failures
 
 
+def check_anti_cheat_fallback_contract() -> list[str]:
+    failures: list[str] = []
+    required_files = [
+        ROOT / "AntiCheatFallbackDesign.md",
+        ROOT / "AntiCheatFallbackTests.cpp",
+    ]
+    for path in required_files:
+        if not path.exists():
+            failures.append(f"[FAIL] Anti-cheat fallback gate: required file missing: {path.name}")
+
+    scheduler_text = (ROOT / "SchedulerController.cpp").read_text(encoding="utf-8", errors="replace")
+    scheduler_header_text = (ROOT / "SchedulerController.h").read_text(encoding="utf-8", errors="replace")
+    background_text = (ROOT / "BackgroundController.cpp").read_text(encoding="utf-8", errors="replace")
+    background_header_text = (ROOT / "BackgroundController.h").read_text(encoding="utf-8", errors="replace")
+    rollback_text = (ROOT / "RollbackManager.cpp").read_text(encoding="utf-8", errors="replace")
+    winapi_text = (ROOT / "WinApiError.h").read_text(encoding="utf-8", errors="replace")
+    build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
+    regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
+    combined_text = "\n".join([
+        scheduler_text,
+        scheduler_header_text,
+        background_text,
+        background_header_text,
+        rollback_text,
+        winapi_text,
+        build_text,
+        regression_text,
+    ])
+
+    required_markers = [
+        "ERROR_ACCESS_DENIED",
+        "ErrorCode::AccessDenied",
+        "SchedulerController::isRecoverableAccessLimitation",
+        "BackgroundController::isRecoverableAccessLimitation",
+        "monitoring-only fallback remains active",
+        "recoverable access limitation",
+        "background rollback skipped for PID {} because the original process is no longer openable or is blocked by an access boundary",
+        "AntiCheatFallbackTests.cpp",
+        "AntiCheatFallbackTests.exe",
+        "running AntiCheatFallbackTests",
+    ]
+    for marker in required_markers:
+        if marker not in combined_text:
+            failures.append(f"[FAIL] Anti-cheat fallback gate: missing marker: {marker}")
+
+    return failures
+
+
+def check_rc_gate_contract() -> list[str]:
+    failures: list[str] = []
+    rc_gate_path = ROOT / "run_rc_gate.bat"
+    if not rc_gate_path.exists():
+        return ["[FAIL] RC gate: run_rc_gate.bat is missing"]
+
+    rc_text = rc_gate_path.read_text(encoding="utf-8", errors="replace")
+    required_markers = [
+        "run_release_gate_static_checks.py",
+        "run_regression_tests.bat",
+        "run_release_gate_smoke.bat",
+        "run_long_soak_presets.bat",
+        "both",
+        "release_gate_logs",
+        "[PASS] RC gate passed",
+        "[FAIL] RC gate failed",
+    ]
+    for marker in required_markers:
+        if marker not in rc_text:
+            failures.append(f"[FAIL] RC gate: missing marker: {marker}")
+
+    return failures
+
+
 def check_long_soak_automation_contract() -> list[str]:
     failures: list[str] = []
     required_files = [
@@ -609,6 +681,8 @@ def main() -> int:
     failures.extend(check_cpp20_runtime_contracts())
     failures.extend(check_project_language_contracts())
     failures.extend(check_timer_input_module_registration())
+    failures.extend(check_anti_cheat_fallback_contract())
+    failures.extend(check_rc_gate_contract())
     failures.extend(check_long_soak_automation_contract())
     failures.extend(check_release_evidence_contract())
     failures.extend(check_runtime_validation_failure_exit_code_contract())

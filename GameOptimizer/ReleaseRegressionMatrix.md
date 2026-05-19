@@ -5,6 +5,14 @@ This matrix defines the minimum regression checks before merging a GameOptimizer
 
 ## Required scenarios
 
+The full RC entry command is:
+
+```bat
+run_rc_gate.bat <target.exe>
+```
+
+It must pass static gate, regression, release smoke, and the combined 30m+60m soak evidence gate.
+
 | ID | Mode | Runtime | Required args | Pass criteria |
 |---|---|---:|---|---|
 | RG-1 | dry-run | 60s | `--dry-run --max-runtime-seconds 60` | no SetThread*/SetProcess* mutation logs, clean shutdown, exit code 0 |
@@ -23,6 +31,7 @@ This matrix defines the minimum regression checks before merging a GameOptimizer
 4. Any shutdown path that skips watchdog join or latency sensor join.
 5. Any log burst that prints per-process background skips unless `--background-detail-log` is explicitly set.
 6. Any RC soak evidence report missing either SOAK-30 or SOAK-60.
+7. Any RC gate run that does not generate smoke and soak evidence reports.
 
 
 ## Automated assertions

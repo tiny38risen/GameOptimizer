@@ -90,6 +90,7 @@ public:
 
     [[nodiscard]] static BackgroundFilterConfig loadFilterConfigFromFile(const std::wstring& path) noexcept;
     [[nodiscard]] static bool supportsProcessWideRestrictionForGroup(WORD processorGroup) noexcept;
+    [[nodiscard]] static bool isRecoverableAccessLimitation(ErrorCode errorCode) noexcept;
 
 private:
     [[nodiscard]] static bool isExcludedPid(DWORD processId, DWORD targetProcessId) noexcept;

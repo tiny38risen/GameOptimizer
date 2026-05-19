@@ -43,6 +43,8 @@ public:
     [[nodiscard]] static std::expected<void, ErrorCode>
     validatePolicyShape(const SchedulerPolicy& policy) noexcept;
 
+    [[nodiscard]] static bool isRecoverableAccessLimitation(ErrorCode errorCode) noexcept;
+
     [[nodiscard]] std::expected<void, ErrorCode>
     applyMainThreadPolicy(DWORD threadId, const SchedulerPolicy& policy) noexcept;
 

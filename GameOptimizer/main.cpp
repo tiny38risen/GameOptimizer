@@ -356,6 +356,15 @@ namespace
         const auto applyResult = schedulerController.applyMainThreadPolicy(mainThreadId, policy);
         if (!applyResult)
         {
+            if (SchedulerController::isRecoverableAccessLimitation(applyResult.error()))
+            {
+                Logger::warn(
+                    "main-thread policy limited by access boundary for TID {}; monitoring-only fallback remains active: {}",
+                    mainThreadId,
+                    toString(applyResult.error()));
+                return;
+            }
+
             Logger::error(
                 "failed to validate/apply policy for new main TID {}; previous main TID {} remains the active optimized thread: {}",
                 mainThreadId,
@@ -437,6 +446,15 @@ namespace
         const auto reconcileResult = schedulerController.reconcileMainThreadPolicy(currentMainThreadId, policy);
         if (!reconcileResult)
         {
+            if (SchedulerController::isRecoverableAccessLimitation(reconcileResult.error()))
+            {
+                Logger::warn(
+                    "policy drift audit limited by access boundary for main TID {}; monitoring-only fallback remains active: {}",
+                    currentMainThreadId,
+                    toString(reconcileResult.error()));
+                return;
+            }
+
             Logger::error(
                 "policy drift audit failed for main TID {}: {}",
                 currentMainThreadId,
