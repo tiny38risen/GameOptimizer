@@ -473,6 +473,7 @@ std::expected<void, ErrorCode> RollbackManager::rollbackAll() noexcept
 std::expected<RollbackManager::SaveStateDisposition, ErrorCode> RollbackManager::saveProcessState(
     DWORD processId,
     DWORD_PTR originalAffinityMask,
+    WORD processorGroup,
     DWORD originalPriorityClass) noexcept
 {
     if (processId == 0 || originalAffinityMask == 0 || originalPriorityClass == 0)
@@ -512,12 +513,14 @@ std::expected<RollbackManager::SaveStateDisposition, ErrorCode> RollbackManager:
             ProcessRollbackState{
                 .creationTime100ns = creationTime,
                 .originalAffinityMask = originalAffinityMask,
+                .originalProcessorGroup = processorGroup,
                 .processId = processId,
                 .originalPriorityClass = originalPriorityClass});
 
         Logger::info(
-            "background rollback state saved for PID {} (affinity=0x{:X}, priorityClass=0x{:X}, creationTime100ns={})",
+            "background rollback state saved for PID {} (group={}, affinity=0x{:X}, priorityClass=0x{:X}, creationTime100ns={})",
             processId,
+            static_cast<unsigned int>(processorGroup),
             static_cast<unsigned long long>(originalAffinityMask),
             static_cast<unsigned int>(originalPriorityClass),
             creationTime);
@@ -869,8 +872,9 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
     }
 
     Logger::info(
-        "background rollback restored PID {} (affinity=0x{:X}, priorityClass=0x{:X})",
+        "background rollback restored PID {} (group={}, affinity=0x{:X}, priorityClass=0x{:X})",
         state.processId,
+        static_cast<unsigned int>(state.originalProcessorGroup),
         static_cast<unsigned long long>(state.originalAffinityMask),
         static_cast<unsigned int>(state.originalPriorityClass));
 

@@ -45,6 +45,8 @@ namespace
             REQUIRE(topology.validatedMask == 0x30ULL, "validated mask must contain only selected same-group bits");
             REQUIRE(topology.selectedLogicalCoreCount == 2, "fallback should select at most two logical cores");
             REQUIRE(topology.l3ScoreFallback, "process-affinity fallback must be marked as topology-score fallback");
+            REQUIRE(topology.maskProvenance == TopologyMaskProvenance::ProcessAffinityFallback,
+                "process-affinity fallback must record mask provenance");
         }
     }
 
@@ -62,6 +64,26 @@ namespace
             REQUIRE(topology.processorGroup == 2, "64-core fallback must preserve group 2");
             REQUIRE(topology.validatedMask == 0x3ULL, "full group mask fallback must select only the two lowest bits");
             REQUIRE(topology.selectedLogicalCoreCount == 2, "full group fallback must not produce >2 selected cores");
+            REQUIRE(topology.maskProvenance == TopologyMaskProvenance::ProcessAffinityFallback,
+                "full group fallback must keep process-affinity provenance");
+        }
+    }
+
+    void testGroupOneSparseFallbackKeepsSameGroupOnly()
+    {
+        const auto result = TopologyAnalyzer::buildProcessAffinityFallbackMask(
+            0x0000000000000A00ULL,
+            0x0000000000000E00ULL,
+            1);
+
+        REQUIRE(result.has_value(), "sparse group-1 fallback should be generated");
+        if (result)
+        {
+            const TopologyResult& topology = result.value();
+            REQUIRE(topology.processorGroup == 1, "sparse fallback must preserve group 1");
+            REQUIRE(topology.primaryMask == 0x200ULL, "sparse fallback must keep the lowest same-group bit");
+            REQUIRE(topology.fallbackMask == 0x800ULL, "sparse fallback must keep the next same-group bit");
+            REQUIRE(topology.validatedMask == 0xA00ULL, "sparse fallback must not invent cross-group bits");
         }
     }
 
@@ -76,6 +98,7 @@ int main()
 {
     testHedtFallbackPreservesProcessorGroup();
     testFullGroupMaskFallbackIsBoundedToTwoCores();
+    testGroupOneSparseFallbackKeepsSameGroupOnly();
     testEmptyFallbackMaskFails();
 
     if (g_failureCount == 0)

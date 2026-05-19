@@ -301,17 +301,51 @@ def check_dpc_monitoring_is_not_placeholder() -> list[str]:
 
 
 def check_background_processor_group_policy_is_explicit() -> list[str]:
-    text = (ROOT / "BackgroundController.cpp").read_text(encoding="utf-8", errors="replace")
+    background_text = (ROOT / "BackgroundController.cpp").read_text(encoding="utf-8", errors="replace")
+    background_header_text = (ROOT / "BackgroundController.h").read_text(encoding="utf-8", errors="replace")
+    rollback_text = (ROOT / "RollbackManager.cpp").read_text(encoding="utf-8", errors="replace")
+    topology_text = (ROOT / "TopologyAnalyzer.cpp").read_text(encoding="utf-8", errors="replace")
+    scheduler_text = (ROOT / "SchedulerController.cpp").read_text(encoding="utf-8", errors="replace")
+    combined_text = "\n".join([
+        background_text,
+        background_header_text,
+        rollback_text,
+        topology_text,
+        scheduler_text,
+    ])
     required_markers = [
-        "processorGroup",
+        "return processorGroup == 0;",
         "blockedByUnsupportedProcessorGroup",
+        "blockedProcessorGroup",
         "background restriction blocked: processor group",
+        "thread-level SetThreadGroupAffinity remains supported",
+        "SetThreadGroupAffinity",
+        "saveProcessState(",
+        "policy.processorGroup",
+        "background rollback state saved for PID {} (group={}",
+        "background rollback restored PID {} (group={}",
+        "mask_provenance",
+        "TopologyMaskProvenance::ProcessAffinityFallback",
     ]
     failures: list[str] = []
     for marker in required_markers:
-        if marker not in text:
+        if marker not in combined_text:
             failures.append(
                 f"[FAIL] BackgroundController processor-group gate: missing explicit policy marker: {marker}")
+
+    apply_body = extract_function_body(background_text, "BackgroundController::applyRestriction")
+    if apply_body is None:
+        failures.append("[FAIL] BackgroundController processor-group gate: applyRestriction body not found")
+    else:
+        support_guard_index = apply_body.find("supportsProcessWideRestrictionForGroup(policy.processorGroup)")
+        affinity_apply_index = apply_body.find("SetProcessAffinityMask")
+        if support_guard_index < 0:
+            failures.append("[FAIL] BackgroundController processor-group gate: missing processor group support guard")
+        if affinity_apply_index < 0:
+            failures.append("[FAIL] BackgroundController processor-group gate: missing SetProcessAffinityMask marker")
+        if support_guard_index >= 0 and affinity_apply_index >= 0 and support_guard_index > affinity_apply_index:
+            failures.append(
+                "[FAIL] BackgroundController processor-group gate: SetProcessAffinityMask appears before group support guard")
     return failures
 
 
@@ -417,9 +451,13 @@ def check_timer_input_module_registration() -> list[str]:
     required_input_markers = [
         "RawInputDetectionPath::LocalProcessRegisteredDevices",
         "RawInputDetectionPath::RemoteProcessUnsupported",
+        "InputThreadTidConfidence::Low",
+        "InputThreadTidConfidence::High",
+        "InputThreadTidSource::EtwInvestigationPending",
         "GetRegisteredRawInputDevices",
         "isInputThreadPinningAllowed",
-        "status.rawInputDetected && status.inputThreadId != 0",
+        "status.tidConfidence == InputThreadTidConfidence::High",
+        "pinningEligible",
         "fallbackMonitoringOnly",
     ]
     for marker in required_input_markers:

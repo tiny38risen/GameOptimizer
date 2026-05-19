@@ -19,14 +19,14 @@ Current scope:
 7. NetworkInterruptController samples DPC rate through PDH and keeps unsupported interrupt-affinity environments in monitoring-only mode.
 8. PolicyDispatcher routes IRQ_REPIN to NetworkInterruptController; unsupported interrupt-affinity control is a non-fatal WARN path.
 9. TimerResolutionController requests NtSetTimerResolution only in apply mode and releases it during shutdown rollback.
-10. InputLatencyController queries same-process Raw Input registrations when possible, records remote-process detection as unsupported WARN/fallback, and keeps input thread pinning disabled unless Raw Input and a concrete input TID are detected.
+10. InputLatencyController queries same-process Raw Input registrations when possible, records remote-process detection as unsupported WARN/fallback, separates Raw Input detection from pinning eligibility, and keeps input thread pinning disabled unless Raw Input plus a high-confidence concrete input TID are detected.
 11. RuntimeValidationMonitor records runtime health samples and shutdown summaries.
 12. TrackingWatchdog and LatencyMetricsCollector use std::jthread/std::stop_token plus interruptible condition-variable waits instead of fixed sleep polling.
 13. ThreadTracker multi-sampling accepts stop_token cancellation between samples.
 14. TopologyAnalyzer parses Win32 topology buffers through span-bounded record walking.
 15. Logger formatting templates are concept-constrained before std::vformat dispatch.
-16. TopologyAnalyzer exposes a deterministic process-affinity fallback helper so HEDT/processor-group behavior can be regression-tested without 64+ core hardware.
-17. BackgroundController blocks process-wide restriction for processor group 1+ and records the limitation as a non-fatal summary flag.
+16. TopologyAnalyzer exposes a deterministic process-affinity fallback helper with group-preserving mask provenance so HEDT/processor-group behavior can be regression-tested without 64+ core hardware.
+17. BackgroundController blocks process-wide restriction for processor group 1+, records the blocked group in the non-fatal summary, and leaves thread-level group affinity support in SchedulerController.
 18. Long soak RC gate requires both a 30-minute dry-run and a 60-minute soft-apply run, with hang detection, runtime timeline monotonicity checks, runtime validation summary, and runtime validation failure exit-code gating.
 19. Release gate smoke and soak runs create run-id scoped RC evidence reports with logs, exit codes, git commit, build hash, and GameOptimizer.exe SHA-256.
 

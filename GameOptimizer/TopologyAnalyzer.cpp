@@ -438,6 +438,7 @@ std::expected<TopologyResult, ErrorCode> TopologyAnalyzer::buildProcessAffinityF
         .smtClean = false,
         .l3SizeKnown = false,
         .l3ScoreFallback = true,
+        .maskProvenance = TopologyMaskProvenance::ProcessAffinityFallback,
         .selectedLogicalCoreCount = selectedCount};
 }
 
@@ -496,6 +497,9 @@ TopologyAnalyzer::buildMainThreadMask(DWORD processId) noexcept
                 "topology fallback: using active processor mask for group {} because weighted topology scan produced no candidates",
                 static_cast<unsigned int>(selectedGroup));
         }
+        const TopologyMaskProvenance maskProvenance = selected.mask == 0
+            ? TopologyMaskProvenance::ActiveGroupFallback
+            : TopologyMaskProvenance::WeightedTopology;
 
         DWORD_PTR selectedMask = takeLowestBits(candidateMask, 2);
         if (selectedMask == 0)
@@ -530,9 +534,10 @@ TopologyAnalyzer::buildMainThreadMask(DWORD processId) noexcept
         }
 
         Logger::info(
-            "topology validation: allowed_groups=[{}], selected_group={}, primary=0x{:X}, fallback=0x{:X}, validated=0x{:X}, selectedCount={}, same_l3={}, l3_kb={}, l3_known={}, l3_score_fallback={}, smt_clean={}, score={}",
+            "topology validation: allowed_groups=[{}], selected_group={}, mask_provenance={}, primary=0x{:X}, fallback=0x{:X}, validated=0x{:X}, selectedCount={}, same_l3={}, l3_kb={}, l3_known={}, l3_score_fallback={}, smt_clean={}, score={}",
             formatGroups(processGroups),
             static_cast<unsigned int>(selectedGroup),
+            maskProvenance == TopologyMaskProvenance::ActiveGroupFallback ? "active_group_fallback" : "weighted_topology",
             static_cast<unsigned long long>(primaryMask),
             static_cast<unsigned long long>(fallbackMask),
             static_cast<unsigned long long>(validatedMask),
@@ -553,6 +558,7 @@ TopologyAnalyzer::buildMainThreadMask(DWORD processId) noexcept
             .smtClean = smtClean,
             .l3SizeKnown = l3SizeKnown,
             .l3ScoreFallback = l3ScoreFallback,
+            .maskProvenance = maskProvenance,
             .selectedLogicalCoreCount = selectedCount};
     }
     catch (const std::bad_alloc&)

@@ -18,15 +18,34 @@ enum class RawInputDetectionPath
     RemoteProcessUnsupported
 };
 
+enum class InputThreadTidConfidence
+{
+    None,
+    Low,
+    Medium,
+    High
+};
+
+enum class InputThreadTidSource
+{
+    None,
+    EtwInvestigationPending,
+    ForegroundMessageQueueInvestigationPending,
+    ConcreteTid
+};
+
 struct InputLatencyStatus
 {
     bool rawInputDetected = false;
+    bool pinningEligible = false;
     bool detectionAttempted = false;
     bool remoteDetectionSupported = false;
     bool fallbackMonitoringOnly = false;
     bool pinningBlockedUntilConcreteTid = false;
     bool inputThreadPinned = false;
     DWORD inputThreadId = 0;
+    InputThreadTidConfidence tidConfidence = InputThreadTidConfidence::None;
+    InputThreadTidSource tidSource = InputThreadTidSource::None;
     RawInputDetectionPath detectionPath = RawInputDetectionPath::NotAttempted;
 };
 

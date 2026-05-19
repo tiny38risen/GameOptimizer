@@ -25,6 +25,7 @@ std::expected<InputLatencyStatus, ErrorCode> InputLatencyController::detectAndAp
 
     status_ = {};
     status_ = detectRawInputUsage(processId);
+    status_.pinningEligible = isInputThreadPinningAllowed(status_);
 
     if (!status_.rawInputDetected)
     {
@@ -35,12 +36,12 @@ std::expected<InputLatencyStatus, ErrorCode> InputLatencyController::detectAndAp
         return status_;
     }
 
-    if (!isInputThreadPinningAllowed(status_))
+    if (!status_.pinningEligible)
     {
         status_.pinningBlockedUntilConcreteTid = true;
         status_.fallbackMonitoringOnly = true;
         Logger::warn(
-            "Raw Input detected for PID {}, but no concrete input thread identity is available; input thread pinning skipped",
+            "Raw Input detected for PID {}, but input TID confidence is below High or no concrete TID is available; input thread pinning skipped",
             processId);
         return status_;
     }
@@ -57,7 +58,9 @@ std::expected<InputLatencyStatus, ErrorCode> InputLatencyController::detectAndAp
 
 bool InputLatencyController::isInputThreadPinningAllowed(const InputLatencyStatus& status) noexcept
 {
-    return status.rawInputDetected && status.inputThreadId != 0;
+    return status.rawInputDetected
+        && status.inputThreadId != 0
+        && status.tidConfidence == InputThreadTidConfidence::High;
 }
 
 InputLatencyStatus InputLatencyController::detectRawInputUsage(DWORD processId) noexcept
@@ -72,14 +75,21 @@ InputLatencyStatus InputLatencyController::detectRawInputUsage(DWORD processId) 
         status.rawInputDetected = detectLocalRawInputRegistration();
         if (status.rawInputDetected)
         {
+            status.tidConfidence = InputThreadTidConfidence::Low;
+            status.tidSource = InputThreadTidSource::EtwInvestigationPending;
             Logger::info(
-                "Raw Input local-process registration detected for PID {}; concrete input TID is still unavailable",
+                "Raw Input local-process registration detected for PID {}; input TID confidence=Low, source=ETW investigation pending",
                 processId);
             status.pinningBlockedUntilConcreteTid = true;
             status.fallbackMonitoringOnly = true;
+            Logger::warn(
+                "input thread pinning remains monitoring-only for PID {} because TID confidence is below High",
+                processId);
         }
         else
         {
+            status.tidConfidence = InputThreadTidConfidence::None;
+            status.tidSource = InputThreadTidSource::ForegroundMessageQueueInvestigationPending;
             Logger::warn(
                 "Raw Input local-process registration not found for PID {}; using fallback input policy",
                 processId);
@@ -100,6 +110,8 @@ InputLatencyStatus InputLatencyController::detectRawInputUsage(DWORD processId) 
     status.detectionPath = RawInputDetectionPath::RemoteProcessUnsupported;
     status.remoteDetectionSupported = false;
     status.fallbackMonitoringOnly = true;
+    status.tidConfidence = InputThreadTidConfidence::None;
+    status.tidSource = InputThreadTidSource::None;
     Logger::warn(
         "Raw Input remote-process detection is unavailable through the current public Win32 path for PID {}; using fallback input policy",
         processId);

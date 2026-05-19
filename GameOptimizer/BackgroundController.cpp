@@ -357,8 +357,9 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
     {
         BackgroundRestrictionSummary summary{};
         summary.blockedByUnsupportedProcessorGroup = true;
+        summary.blockedProcessorGroup = policy.processorGroup;
         Logger::warn(
-            "background restriction blocked: processor group {} is selected, but process-wide SetProcessAffinityMask is only safe for group 0 policies",
+            "background restriction blocked: processor group {} is selected, but process-wide SetProcessAffinityMask is only safe for group 0 policies; thread-level SetThreadGroupAffinity remains supported",
             static_cast<unsigned int>(policy.processorGroup));
         return summary;
     }
@@ -506,7 +507,11 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
             continue;
         }
 
-        const auto saveResult = rollbackManager_.saveProcessState(processId, processMask, currentPriority);
+        const auto saveResult = rollbackManager_.saveProcessState(
+            processId,
+            processMask,
+            policy.processorGroup,
+            currentPriority);
         if (!saveResult)
         {
             ++summary.skippedProcessCount;

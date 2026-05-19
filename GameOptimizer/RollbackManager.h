@@ -52,7 +52,11 @@ public:
     [[nodiscard]] std::expected<void, ErrorCode> rollbackThread(DWORD threadId) noexcept;
 
     [[nodiscard]] std::expected<SaveStateDisposition, ErrorCode>
-    saveProcessState(DWORD processId, DWORD_PTR originalAffinityMask, DWORD originalPriorityClass) noexcept;
+    saveProcessState(
+        DWORD processId,
+        DWORD_PTR originalAffinityMask,
+        WORD processorGroup,
+        DWORD originalPriorityClass) noexcept;
 
     [[nodiscard]] std::expected<void, ErrorCode> rollbackProcess(DWORD processId) noexcept;
     [[nodiscard]] std::expected<void, ErrorCode> rollbackAll() noexcept;
@@ -84,6 +88,7 @@ private:
     {
         std::uint64_t creationTime100ns = 0;
         DWORD_PTR originalAffinityMask = 0;
+        WORD originalProcessorGroup = 0;
         DWORD processId = 0;
         DWORD originalPriorityClass = 0;
     };

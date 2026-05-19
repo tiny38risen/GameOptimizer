@@ -58,6 +58,17 @@ namespace
             REQUIRE(result->detectionPath == RawInputDetectionPath::LocalProcessRegisteredDevices,
                 "same-process Raw Input detection must use registered-device query path");
             REQUIRE(!result->inputThreadPinned, "input thread pinning must not run from detection alone");
+            REQUIRE(!result->pinningEligible,
+                "Raw Input detection success must not imply input-thread pinning eligibility");
+            if (result->rawInputDetected)
+            {
+                REQUIRE(result->tidConfidence == InputThreadTidConfidence::Low,
+                    "local Raw Input detection without concrete TID must record low TID confidence");
+                REQUIRE(result->tidSource == InputThreadTidSource::EtwInvestigationPending,
+                    "local Raw Input detection must leave concrete TID acquisition to ETW investigation");
+                REQUIRE(result->fallbackMonitoringOnly,
+                    "low TID confidence must stay in monitoring-only fallback");
+            }
         }
     }
 
@@ -81,6 +92,11 @@ namespace
                 "remote Raw Input detection must record the unsupported path");
             REQUIRE(!result->inputThreadPinned, "input thread pinning must not run without detection");
             REQUIRE(result->inputThreadId == 0, "input thread id must remain empty without concrete detection");
+            REQUIRE(!result->pinningEligible, "remote unsupported detection must not be pinning eligible");
+            REQUIRE(result->tidConfidence == InputThreadTidConfidence::None,
+                "remote unsupported detection must not assign TID confidence");
+            REQUIRE(result->tidSource == InputThreadTidSource::None,
+                "remote unsupported detection must not claim a TID source");
         }
     }
 
@@ -92,12 +108,19 @@ namespace
             "pinning must require Raw Input detection");
         REQUIRE(!InputLatencyController::isInputThreadPinningAllowed(InputLatencyStatus{
             .rawInputDetected = true,
-            .inputThreadId = 0}),
+            .inputThreadId = 0,
+            .tidConfidence = InputThreadTidConfidence::High}),
             "pinning must require a concrete input TID");
+        REQUIRE(!InputLatencyController::isInputThreadPinningAllowed(InputLatencyStatus{
+            .rawInputDetected = true,
+            .inputThreadId = 99,
+            .tidConfidence = InputThreadTidConfidence::Low}),
+            "pinning must reject low-confidence TID candidates");
         REQUIRE(InputLatencyController::isInputThreadPinningAllowed(InputLatencyStatus{
             .rawInputDetected = true,
-            .inputThreadId = 99}),
-            "pinning should become eligible only after Raw Input and concrete TID are both available");
+            .inputThreadId = 99,
+            .tidConfidence = InputThreadTidConfidence::High}),
+            "pinning should become eligible only after Raw Input and high-confidence concrete TID are both available");
     }
 }
 

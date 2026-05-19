@@ -18,6 +18,13 @@
 
 #include "ErrorCode.h"
 
+enum class TopologyMaskProvenance
+{
+    WeightedTopology,
+    ActiveGroupFallback,
+    ProcessAffinityFallback
+};
+
 struct TopologyResult
 {
     DWORD_PTR primaryMask = 0;
@@ -28,6 +35,7 @@ struct TopologyResult
     bool smtClean = false;
     bool l3SizeKnown = false;
     bool l3ScoreFallback = false;
+    TopologyMaskProvenance maskProvenance = TopologyMaskProvenance::WeightedTopology;
     int selectedLogicalCoreCount = 0;
 };
 

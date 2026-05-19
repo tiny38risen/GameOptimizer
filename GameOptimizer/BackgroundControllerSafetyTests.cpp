@@ -85,6 +85,8 @@ namespace
         {
             REQUIRE(result->blockedByUnsupportedProcessorGroup,
                 "unsupported processor group policy must be visible in the summary");
+            REQUIRE(result->blockedProcessorGroup == 1,
+                "unsupported processor group summary must record the blocked group");
             REQUIRE(result->restrictedProcessCount == 0,
                 "unsupported processor group policy must not restrict processes");
         }
