@@ -6,6 +6,8 @@ import re
 
 
 def read_log_text(path: pathlib.Path) -> str:
+    if not path.exists():
+        raise FileNotFoundError(f"log file not found: {path}")
     data = path.read_bytes()
     for encoding in ("utf-8-sig", "utf-16", "utf-16-le"):
         try:
@@ -171,7 +173,11 @@ def main() -> int:
     parser.add_argument("log_file", type=pathlib.Path)
     args = parser.parse_args()
 
-    log_text = read_log_text(args.log_file)
+    try:
+        log_text = read_log_text(args.log_file)
+    except OSError as exc:
+        print(f"[FAIL] {args.log_file}: {exc}")
+        return 1
     failures = validate(args.mode, log_text)
     if failures:
         for failure in failures:

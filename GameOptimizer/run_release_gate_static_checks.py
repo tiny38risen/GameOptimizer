@@ -10,6 +10,7 @@ BUILD_TESTS_FILE = ROOT / "build_decision_layer_tests.bat"
 REGRESSION_TESTS_FILE = ROOT / "run_regression_tests.bat"
 LONG_SOAK_PRESETS_FILE = ROOT / "run_long_soak_presets.bat"
 SOAK_HANG_DETECTION_FILE = ROOT / "run_soak_with_hang_detection.py"
+RELEASE_GATE_EVIDENCE_FILE = ROOT / "release_gate_evidence.py"
 
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"const\s+DWORD\s+targetProcessId\s*=\s*\*processId\s*;", "targetProcessId bind missing"),
@@ -478,6 +479,57 @@ def check_long_soak_automation_contract() -> list[str]:
     return failures
 
 
+def check_release_evidence_contract() -> list[str]:
+    failures: list[str] = []
+    if not RELEASE_GATE_EVIDENCE_FILE.exists():
+        return ["[FAIL] RC evidence gate: release_gate_evidence.py is missing"]
+
+    evidence_text = RELEASE_GATE_EVIDENCE_FILE.read_text(encoding="utf-8", errors="replace")
+    required_evidence_markers = [
+        "rc_evidence_report.json",
+        "rc_evidence_report.txt",
+        "exe_sha256",
+        "git_commit",
+        "build_hash",
+        "runtime validation FAILED must pair with process exit code 1",
+        "required RC soak step missing",
+        "release_gate_logs",
+    ]
+    for marker in required_evidence_markers:
+        if marker not in evidence_text:
+            failures.append(f"[FAIL] RC evidence gate: evidence writer missing marker: {marker}")
+
+    script_requirements = [
+        (ROOT / "run_release_gate_smoke.bat", "smoke"),
+        (ROOT / "run_long_soak_presets.bat", "soak"),
+    ]
+    for script_path, kind in script_requirements:
+        script_text = script_path.read_text(encoding="utf-8", errors="replace")
+        required_script_markers = [
+            f"release_gate_evidence.py init --kind {kind}",
+            "release_gate_evidence.py record",
+            "release_gate_evidence.py finalize",
+            "%RUN_DIR%\\logs",
+        ]
+        for marker in required_script_markers:
+            if marker not in script_text:
+                failures.append(
+                    f"[FAIL] RC evidence gate: {script_path.name} missing marker: {marker}")
+
+    soak_text = (ROOT / "run_long_soak_presets.bat").read_text(encoding="utf-8", errors="replace")
+    required_rc_soak_markers = [
+        "set PRESET=both",
+        "--require-soak-both",
+        "soak_30m_dry_run",
+        "soak_60m_soft_apply",
+    ]
+    for marker in required_rc_soak_markers:
+        if marker not in soak_text:
+            failures.append(f"[FAIL] RC soak gate: missing marker: {marker}")
+
+    return failures
+
+
 def check_runtime_validation_failure_exit_code_contract() -> list[str]:
     main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
     ordered_markers = [
@@ -520,6 +572,7 @@ def main() -> int:
     failures.extend(check_project_language_contracts())
     failures.extend(check_timer_input_module_registration())
     failures.extend(check_long_soak_automation_contract())
+    failures.extend(check_release_evidence_contract())
     failures.extend(check_runtime_validation_failure_exit_code_contract())
 
     if failures:

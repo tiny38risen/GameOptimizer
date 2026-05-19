@@ -46,15 +46,21 @@ def main() -> int:
         return 2
 
     args.log_file.parent.mkdir(parents=True, exist_ok=True)
-    process = subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        encoding="utf-8",
-        errors="replace",
-    )
+    try:
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except OSError as exc:
+        message = f"[FAIL] hang detection: failed to start command: {exc}\n"
+        sys.stdout.write(message)
+        args.log_file.write_text(message, encoding="utf-8")
+        return 1
 
     output_queue: queue.Queue[str] = queue.Queue()
     reader = threading.Thread(target=enqueue_output, args=(process.stdout, output_queue), daemon=True)

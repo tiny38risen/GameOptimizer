@@ -27,13 +27,15 @@ Current scope:
 15. Logger formatting templates are concept-constrained before std::vformat dispatch.
 16. TopologyAnalyzer exposes a deterministic process-affinity fallback helper so HEDT/processor-group behavior can be regression-tested without 64+ core hardware.
 17. BackgroundController blocks process-wide restriction for processor group 1+ and records the limitation as a non-fatal summary flag.
-18. Long soak presets provide 30-minute dry-run and 60-minute soft-apply runs with hang detection, runtime timeline monotonicity checks, and runtime validation failure exit-code gating.
+18. Long soak RC gate requires both a 30-minute dry-run and a 60-minute soft-apply run, with hang detection, runtime timeline monotonicity checks, runtime validation summary, and runtime validation failure exit-code gating.
+19. Release gate smoke and soak runs create run-id scoped RC evidence reports with logs, exit codes, git commit, build hash, and GameOptimizer.exe SHA-256.
 
 Validation:
 1. Run run_regression_tests.bat from an x64 Native Tools Command Prompt for VS.
 2. Run run_release_gate_static_checks.py before merging.
 3. Run run_release_gate_smoke.bat <target.exe> from the directory containing GameOptimizer.exe for smoke validation.
-4. Run run_long_soak_presets.bat <target.exe> [30m|60m|both] from the directory containing GameOptimizer.exe for extended soak validation.
+4. Run run_long_soak_presets.bat <target.exe> [30m|60m|both] from the directory containing GameOptimizer.exe for extended soak validation. The default RC path is both.
+5. Inspect release_gate_logs\<run-id>\rc_evidence_report.txt or .json for the final release decision evidence.
 
 Important:
 Apply mode can modify target thread scheduling and configured background process scheduling until shutdown rollback. Use --dry-run first, then soft-apply, then --apply only with a reviewed background filter.

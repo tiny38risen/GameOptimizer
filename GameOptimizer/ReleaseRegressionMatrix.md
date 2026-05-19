@@ -12,6 +12,8 @@ This matrix defines the minimum regression checks before merging a GameOptimizer
 | RG-3 | apply | 180s | `--apply --latency-ping 8.8.8.8 --background-filter background_filter_example.txt --max-runtime-seconds 180` | rollback audit passes, background stale identities are non-fatal only when identity changed, exit code 0 |
 | RG-4 | apply + detail | 60s | `--apply --background-detail-log --thread-detail-log --thread-log-interval 8 --max-runtime-seconds 60` | detail logs are bounded by interval, no log flood, clean shutdown |
 | RG-5 | target missing | immediate | `<missing.exe> --dry-run` | process lookup error, no watchdog start, exit code 1 |
+| SOAK-30 | dry-run | 30m | `--dry-run --max-runtime-seconds 1800 --thread-detail-log --thread-log-interval 20` | clean shutdown, runtime validation summary, monotonic runtime sample cycles, no runtime validation failure |
+| SOAK-60 | soft-apply | 60m | `--max-runtime-seconds 3600 --thread-detail-log --thread-log-interval 40` | clean shutdown, runtime validation summary, monotonic runtime sample cycles, no runtime validation failure, no shutdown rollback failure |
 
 ## Merge blockers
 
@@ -20,6 +22,7 @@ This matrix defines the minimum regression checks before merging a GameOptimizer
 3. Any watchdog hot-path heap allocation introduced for policy command or thread top-N buffers.
 4. Any shutdown path that skips watchdog join or latency sensor join.
 5. Any log burst that prints per-process background skips unless `--background-detail-log` is explicitly set.
+6. Any RC soak evidence report missing either SOAK-30 or SOAK-60.
 
 
 ## Automated assertions
@@ -39,6 +42,13 @@ The Release Gate smoke script now runs two assertion layers before accepting a b
    - requires apply-mode rollback audit success.
    - verifies background rollback stale evidence by PID, preventing unrelated stale logs from masking real rollback failures.
    - requires timeout shutdown to pass through the watchdog safe point in the documented order.
+
+3. `release_gate_evidence.py`
+   - creates a run-id directory under `release_gate_logs`.
+   - records per-step command exit codes, assertion exit codes, log paths, and log SHA-256 values.
+   - records git commit, build hash, and `GameOptimizer.exe` SHA-256.
+   - writes `rc_evidence_report.txt` and `rc_evidence_report.json`.
+   - fails the report when `runtime validation result: FAILED` appears, and verifies that this condition pairs with process exit code 1.
 
 RG-3 identity rule remains strict: background rollback failures are non-fatal only when stale identity evidence is logged. Same PID + same creation time + live process rollback failure is a release blocker.
 
