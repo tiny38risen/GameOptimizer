@@ -9,7 +9,10 @@ if "%~1"=="" (
 set TARGET=%~1
 set PRESET=%~2
 if "%PRESET%"=="" set PRESET=both
-set EXE=GameOptimizer.exe
+set EXE_NAME=GameOptimizer.exe
+set EXE_PATH=
+set CALL_DIR=%CD%
+set SCRIPT_DIR=%~dp0
 set LOG_DIR=release_gate_logs
 set RUN_DIR=
 set RUN_DIR_FILE=%TEMP%\gameoptimizer_soak_run_dir.txt
@@ -20,6 +23,16 @@ if /I not "%PRESET%"=="30m" if /I not "%PRESET%"=="60m" if /I not "%PRESET%"=="b
     exit /b 2
 )
 if /I "%PRESET%"=="both" set FINALIZE_FLAGS=--require-soak-both
+
+if exist "%CALL_DIR%\%EXE_NAME%" set EXE_PATH=%CALL_DIR%\%EXE_NAME%
+if "%EXE_PATH%"=="" if exist "%SCRIPT_DIR%%EXE_NAME%" set EXE_PATH=%SCRIPT_DIR%%EXE_NAME%
+if "%EXE_PATH%"=="" if exist "%SCRIPT_DIR%..\x64\Release\%EXE_NAME%" set EXE_PATH=%SCRIPT_DIR%..\x64\Release\%EXE_NAME%
+if "%EXE_PATH%"=="" (
+    echo [FAIL] GameOptimizer.exe was not found in current directory, script directory, or ..\x64\Release.
+    exit /b 2
+)
+
+pushd "%SCRIPT_DIR%"
 
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
@@ -60,7 +73,7 @@ if "%PYTHON_CMD%"=="" (
     exit /b 2
 )
 
-%PYTHON_CMD% release_gate_evidence.py init --kind soak --target "%TARGET%" --exe "%EXE%" > "%RUN_DIR_FILE%"
+%PYTHON_CMD% release_gate_evidence.py init --kind soak --target "%TARGET%" --exe "%EXE_PATH%" > "%RUN_DIR_FILE%"
 if errorlevel 1 exit /b 1
 set /p RUN_DIR=<"%RUN_DIR_FILE%"
 del "%RUN_DIR_FILE%" >nul 2>nul
@@ -90,7 +103,7 @@ exit /b 0
 
 :run30
 echo [SOAK-30M] dry-run smoke preset with hang detection
-%PYTHON_CMD% run_soak_with_hang_detection.py --timeout-seconds 1920 --idle-timeout-seconds 240 --log-file "%RUN_DIR%\logs\soak_30m_dry_run.log" -- ".\%EXE%" "%TARGET%" --dry-run --max-runtime-seconds 1800 --thread-detail-log --thread-log-interval 20
+%PYTHON_CMD% run_soak_with_hang_detection.py --timeout-seconds 1920 --idle-timeout-seconds 240 --log-file "%RUN_DIR%\logs\soak_30m_dry_run.log" -- "%EXE_PATH%" "%TARGET%" --dry-run --max-runtime-seconds 1800 --thread-detail-log --thread-log-interval 20
 set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode soak "%RUN_DIR%\logs\soak_30m_dry_run.log"
 set ASSERT_EXIT=%ERRORLEVEL%
@@ -101,7 +114,7 @@ exit /b 0
 
 :run60
 echo [SOAK-60M] soft-apply smoke preset with hang detection
-%PYTHON_CMD% run_soak_with_hang_detection.py --timeout-seconds 3780 --idle-timeout-seconds 300 --log-file "%RUN_DIR%\logs\soak_60m_soft_apply.log" -- ".\%EXE%" "%TARGET%" --max-runtime-seconds 3600 --thread-detail-log --thread-log-interval 40
+%PYTHON_CMD% run_soak_with_hang_detection.py --timeout-seconds 3780 --idle-timeout-seconds 300 --log-file "%RUN_DIR%\logs\soak_60m_soft_apply.log" -- "%EXE_PATH%" "%TARGET%" --max-runtime-seconds 3600 --thread-detail-log --thread-log-interval 40
 set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode soak "%RUN_DIR%\logs\soak_60m_soft_apply.log"
 set ASSERT_EXIT=%ERRORLEVEL%

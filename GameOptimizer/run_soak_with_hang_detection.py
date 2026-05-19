@@ -72,6 +72,12 @@ def main() -> int:
         while True:
             try:
                 line = output_queue.get(timeout=0.5)
+            except KeyboardInterrupt:
+                terminate_process(process)
+                message = "[FAIL] hang detection: soak run interrupted by Ctrl+C\n"
+                sys.stdout.write(message)
+                log_file.write(message)
+                return 130
             except queue.Empty:
                 line = None
 
