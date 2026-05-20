@@ -80,6 +80,12 @@ The Release Gate smoke script now runs two assertion layers before accepting a b
    - verifies the RC runbook, blocker list, evidence bundle, and final regression result.
    - blocks `v3.0-rc1` preparation when any required RC candidate artifact is missing.
 
+5. `create_rc_evidence_bundle.py`
+   - runs the same RC candidate checks before writing any bundle manifest.
+   - creates `rc_evidence_bundle_manifest.json` and `rc_evidence_bundle_manifest.txt`.
+   - copies smoke evidence, soak evidence, step logs, and the final regression log into one run-id directory.
+   - records `RC_CANDIDATE_PASS` only when there are no `BLOCKER` findings.
+
 RG-3 identity rule remains strict: background rollback failures are non-fatal only when stale identity evidence is logged. Same PID + same creation time + live process rollback failure is a release blocker.
 
 ## RG-6 ApplyGuard Transaction Gate

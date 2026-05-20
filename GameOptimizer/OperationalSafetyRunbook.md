@@ -49,6 +49,8 @@ A release candidate fails if exit code is non-zero, unless the scenario explicit
 
 `verify_rc_candidate.py --target <target.exe> --regression-log <log>` is mandatory before `v3.0-rc1`.
 
+`create_rc_evidence_bundle.py --target <target.exe> --regression-log <log>` is mandatory after candidate verification. It creates the final evidence bundle and writes `rc_evidence_bundle_manifest.json` plus `rc_evidence_bundle_manifest.txt`.
+
 The candidate is blocked when any of the following is missing:
 
 1. Runbook coverage.

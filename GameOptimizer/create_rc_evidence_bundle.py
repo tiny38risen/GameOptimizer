@@ -1,0 +1,185 @@
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+import shutil
+from typing import Any
+
+import release_gate_evidence as evidence
+import verify_rc_candidate
+
+
+ROOT = pathlib.Path(__file__).resolve().parent
+BUNDLE_SCHEMA = "gameoptimizer.rc_evidence_bundle.v1"
+
+
+def relative(path: pathlib.Path) -> str:
+    try:
+        return str(path.resolve().relative_to(ROOT.resolve()))
+    except ValueError:
+        return str(path.resolve())
+
+
+def copy_file(src: pathlib.Path, dst: pathlib.Path) -> dict[str, Any]:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    return {
+        "path": relative(dst),
+        "source": relative(src),
+        "sha256": evidence.sha256_file(dst),
+        "bytes": dst.stat().st_size,
+    }
+
+
+def copy_directory(src: pathlib.Path, dst: pathlib.Path) -> list[dict[str, Any]]:
+    copied: list[dict[str, Any]] = []
+    if not src.exists():
+        return copied
+
+    for path in sorted(src.rglob("*")):
+        if not path.is_file():
+            continue
+        copied.append(copy_file(path, dst / path.relative_to(src)))
+    return copied
+
+
+def latest_reports(target: str) -> tuple[tuple[pathlib.Path, dict[str, Any]], tuple[pathlib.Path, dict[str, Any]]]:
+    smoke = evidence.find_latest_report("smoke", target)
+    soak = evidence.find_latest_report("soak", target)
+    if smoke is None or soak is None:
+        raise RuntimeError("verified RC evidence disappeared before bundle creation")
+    return smoke, soak
+
+
+def create_bundle_dir(commit: str) -> pathlib.Path:
+    evidence.LOG_ROOT.mkdir(parents=True, exist_ok=True)
+    timestamp = evidence.utc_now().replace("-", "").replace(":", "")
+    base_name = f"{timestamp}_rc_bundle_{commit[:12] if commit != 'unknown' else 'unknown'}"
+    bundle_dir = evidence.LOG_ROOT / base_name
+    suffix = 1
+    while bundle_dir.exists():
+        bundle_dir = evidence.LOG_ROOT / f"{base_name}_{suffix}"
+        suffix += 1
+    bundle_dir.mkdir(parents=True)
+    return bundle_dir
+
+
+def write_json(path: pathlib.Path, data: dict[str, Any]) -> None:
+    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def write_text_manifest(path: pathlib.Path, manifest: dict[str, Any]) -> None:
+    lines = [
+        "GameOptimizer RC Evidence Bundle",
+        "",
+        f"Schema: {manifest['schema']}",
+        f"Decision: {manifest['candidate_decision']}",
+        f"Status: {manifest['status']}",
+        f"Target: {manifest['target']}",
+        f"Git commit: {manifest['git_commit']}",
+        f"Build hash: {manifest['build_hash']}",
+        f"EXE SHA-256: {manifest['exe_sha256']}",
+        f"Created UTC: {manifest['created_utc']}",
+        "",
+        "Artifacts:",
+    ]
+    for artifact in manifest["artifacts"]:
+        lines.append(f"- {artifact['label']}: {artifact['path']} sha256={artifact['sha256']}")
+    lines.extend([
+        "",
+        "BLOCKER:",
+        "- none",
+        "",
+        "WARN:",
+    ])
+    warnings = manifest.get("warnings", [])
+    if warnings:
+        lines.extend(f"- {warning}" for warning in warnings)
+    else:
+        lines.append("- none")
+    lines.extend([
+        "",
+        "INFO:",
+        f"- smoke report: {manifest['source_reports']['smoke']}",
+        f"- soak report: {manifest['source_reports']['soak']}",
+        f"- regression log: {manifest['source_reports']['regression_log']}",
+    ])
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def collect_warnings(*states: dict[str, Any]) -> list[str]:
+    warnings: list[str] = []
+    for state in states:
+        label = state.get("kind", "evidence")
+        for warning in state.get("warnings", []):
+            warnings.append(f"{label}: {warning}")
+    return warnings
+
+
+def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
+    failures: list[str] = []
+    failures.extend(verify_rc_candidate.validate_runbooks())
+    failures.extend(verify_rc_candidate.validate_regression_log(regression_log))
+    failures.extend(verify_rc_candidate.validate_evidence_bundle(target))
+    if failures:
+        for failure in failures:
+            print(f"[BLOCKER] RC evidence bundle: {failure}")
+        raise SystemExit(1)
+
+    commit = evidence.run_git(["rev-parse", "HEAD"]) or "unknown"
+    smoke, soak = latest_reports(target)
+    smoke_report, smoke_state = smoke
+    soak_report, soak_state = soak
+    bundle_dir = create_bundle_dir(commit)
+
+    artifacts: list[dict[str, Any]] = []
+    smoke_dir = smoke_report.parent
+    soak_dir = soak_report.parent
+    artifacts.append({"label": "smoke_json", **copy_file(smoke_report, bundle_dir / "smoke" / "rc_evidence_report.json")})
+    artifacts.append({"label": "smoke_text", **copy_file(smoke_dir / "rc_evidence_report.txt", bundle_dir / "smoke" / "rc_evidence_report.txt")})
+    artifacts.append({"label": "smoke_state", **copy_file(smoke_dir / evidence.STATE_FILE_NAME, bundle_dir / "smoke" / evidence.STATE_FILE_NAME)})
+    artifacts.extend({"label": "smoke_log", **item} for item in copy_directory(smoke_dir / "logs", bundle_dir / "smoke" / "logs"))
+
+    artifacts.append({"label": "soak_json", **copy_file(soak_report, bundle_dir / "soak" / "rc_evidence_report.json")})
+    artifacts.append({"label": "soak_text", **copy_file(soak_dir / "rc_evidence_report.txt", bundle_dir / "soak" / "rc_evidence_report.txt")})
+    artifacts.append({"label": "soak_state", **copy_file(soak_dir / evidence.STATE_FILE_NAME, bundle_dir / "soak" / evidence.STATE_FILE_NAME)})
+    artifacts.extend({"label": "soak_log", **item} for item in copy_directory(soak_dir / "logs", bundle_dir / "soak" / "logs"))
+
+    artifacts.append({"label": "final_regression_log", **copy_file(regression_log, bundle_dir / "final_regression.log")})
+
+    manifest = {
+        "schema": BUNDLE_SCHEMA,
+        "candidate_decision": "RC_CANDIDATE_PASS",
+        "status": "PASS",
+        "target": target,
+        "git_commit": commit,
+        "build_hash": smoke_state.get("build_hash"),
+        "exe_sha256": smoke_state.get("exe_sha256"),
+        "created_utc": evidence.utc_now(),
+        "warnings": collect_warnings(smoke_state, soak_state),
+        "source_reports": {
+            "smoke": relative(smoke_report),
+            "soak": relative(soak_report),
+            "regression_log": relative(regression_log),
+        },
+        "artifacts": artifacts,
+    }
+    write_json(bundle_dir / "rc_evidence_bundle_manifest.json", manifest)
+    write_text_manifest(bundle_dir / "rc_evidence_bundle_manifest.txt", manifest)
+    print(f"[PASS] RC evidence bundle created: {bundle_dir}")
+    return bundle_dir
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Create the final GameOptimizer v3.0 RC evidence bundle.")
+    parser.add_argument("--target", required=True)
+    parser.add_argument("--regression-log", required=True, type=pathlib.Path)
+    args = parser.parse_args()
+
+    create_bundle(args.target, args.regression_log)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

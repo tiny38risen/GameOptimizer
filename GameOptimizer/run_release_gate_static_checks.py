@@ -13,6 +13,7 @@ SOAK_HANG_DETECTION_FILE = ROOT / "run_soak_with_hang_detection.py"
 RELEASE_GATE_EVIDENCE_FILE = ROOT / "release_gate_evidence.py"
 RELEASE_GATE_EVIDENCE_SELFTEST_FILE = ROOT / "release_gate_evidence_selftest.py"
 VERIFY_RC_CANDIDATE_FILE = ROOT / "verify_rc_candidate.py"
+CREATE_RC_EVIDENCE_BUNDLE_FILE = ROOT / "create_rc_evidence_bundle.py"
 
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"const\s+DWORD\s+targetProcessId\s*=\s*\*processId\s*;", "targetProcessId bind missing"),
@@ -798,19 +799,27 @@ def check_rc_candidate_contract() -> list[str]:
     failures: list[str] = []
     if not VERIFY_RC_CANDIDATE_FILE.exists():
         return ["[FAIL] RC candidate gate: verify_rc_candidate.py is missing"]
+    if not CREATE_RC_EVIDENCE_BUNDLE_FILE.exists():
+        return ["[FAIL] RC candidate gate: create_rc_evidence_bundle.py is missing"]
 
     candidate_text = VERIFY_RC_CANDIDATE_FILE.read_text(encoding="utf-8", errors="replace")
+    bundle_text = CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(encoding="utf-8", errors="replace")
     runbook_text = (ROOT / "ReleaseGateRunbook.md").read_text(encoding="utf-8", errors="replace")
     matrix_text = (ROOT / "ReleaseRegressionMatrix.md").read_text(encoding="utf-8", errors="replace")
     ops_text = (ROOT / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
-    combined_text = "\n".join([candidate_text, runbook_text, matrix_text, ops_text])
+    combined_text = "\n".join([candidate_text, bundle_text, runbook_text, matrix_text, ops_text])
 
     required_markers = [
         "verify_rc_candidate.py --target <target.exe> --regression-log <log>",
+        "create_rc_evidence_bundle.py --target <target.exe> --regression-log <log>",
         "v3.0-rc1",
         "Runbook",
         "blocker list",
         "evidence bundle",
+        "rc_evidence_bundle_manifest.json",
+        "rc_evidence_bundle_manifest.txt",
+        "RC_CANDIDATE_PASS",
+        "[PASS] RC evidence bundle created",
         "final regression result",
         "failed=0",
         "[PASS] all regression tests passed",
