@@ -48,6 +48,9 @@
     <ClCompile Include="BackgroundController.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="CliOptions.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="AppliedPolicyTracker.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -61,6 +64,9 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="RuntimeValidationMonitor.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="RuntimeOrchestrator.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="RuntimeValidationMonitorTests.cpp">
@@ -143,6 +149,9 @@
     <ClInclude Include="BackgroundController.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="CliOptions.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="AppliedPolicyTracker.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -150,6 +159,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="RuntimeValidationMonitor.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="RuntimeOrchestrator.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="NetworkInterruptController.h">

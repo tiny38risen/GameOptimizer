@@ -34,6 +34,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="CliOptions.cpp" />
     <ClCompile Include="InputLatencyController.cpp" />
     <ClCompile Include="LatencyDecisionLayer.cpp" />
     <ClCompile Include="LatencyDecisionLayerTests.cpp">
@@ -63,6 +64,7 @@
     <ClCompile Include="PolicyDispatcher.cpp" />
     <ClCompile Include="ProcessFinder.cpp" />
     <ClCompile Include="RollbackManager.cpp" />
+    <ClCompile Include="RuntimeOrchestrator.cpp" />
     <ClCompile Include="RuntimeValidationMonitor.cpp" />
     <ClCompile Include="RuntimeValidationMonitorTests.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -92,6 +94,7 @@
     <ClInclude Include="AppliedPolicyTracker.h" />
     <ClInclude Include="ApplyGuard.h" />
     <ClInclude Include="BackgroundController.h" />
+    <ClInclude Include="CliOptions.h" />
     <ClInclude Include="ErrorCode.h" />
     <ClInclude Include="IcmpHandle.h" />
     <ClInclude Include="InputLatencyController.h" />
@@ -103,6 +106,7 @@
     <ClInclude Include="PolicyDispatcher.h" />
     <ClInclude Include="ProcessFinder.h" />
     <ClInclude Include="RollbackManager.h" />
+    <ClInclude Include="RuntimeOrchestrator.h" />
     <ClInclude Include="RuntimeValidationMonitor.h" />
     <ClInclude Include="SchedulerController.h" />
     <ClInclude Include="ThreadInfo.h" />

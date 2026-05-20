@@ -16,13 +16,18 @@ VERIFY_RC_CANDIDATE_FILE = ROOT / "verify_rc_candidate.py"
 CREATE_RC_EVIDENCE_BUNDLE_FILE = ROOT / "create_rc_evidence_bundle.py"
 
 REQUIRED_MAIN_PATTERNS = [
-    ("main.cpp", r"const\s+DWORD\s+targetProcessId\s*=\s*\*processId\s*;", "targetProcessId bind missing"),
-    ("main.cpp", r"const\s+auto&\s+topology\s*=\s*\*topologyResult\s*;", "topologyResult bind missing"),
-    ("main.cpp", r"const\s+auto&\s+observedThreads\s*=\s*\*topThreads\s*;", "topThreads bind missing"),
-    ("main.cpp", r"const\s+auto&\s+commands\s*=\s*\*commandsResult\s*;", "commandsResult bind missing"),
-    ("main.cpp", r"runtime timeout reached at watchdog cycle boundary", "runtime timeout safe-point log missing"),
-    ("main.cpp", r"struct\s+ShutdownResult", "shutdown result classification missing"),
-    ("main.cpp", r"shutdown result: timerRollbackFailed=\{\}, schedulerRollbackFailed=\{\}, runtimeValidationFailed=\{\}, rollbackStatePreserved=\{\}", "shutdown result summary log missing"),
+    ("main.cpp", r"RuntimeOrchestrator\s+orchestrator\s*\(\s*argc\s*,\s*argv\s*\)", "main must delegate to RuntimeOrchestrator"),
+    ("RuntimeOrchestrator.cpp", r"RuntimeOrchestrator::run\s*\(\s*\)", "RuntimeOrchestrator run entry missing"),
+    ("RuntimeOrchestrator.cpp", r"parseCliOptions\s*\(\s*argc\s*,\s*argv\s*\)", "RuntimeOrchestrator must delegate CLI parsing"),
+    ("CliOptions.h", r"struct\s+CliOptions", "CliOptions contract missing"),
+    ("CliOptions.cpp", r"std::expected\s*<\s*CliOptions\s*,\s*ErrorCode\s*>\s+parseCliOptions", "CliOptions parser missing"),
+    ("RuntimeOrchestrator.cpp", r"const\s+DWORD\s+targetProcessId\s*=\s*\*processId\s*;", "targetProcessId bind missing"),
+    ("RuntimeOrchestrator.cpp", r"const\s+auto&\s+topology\s*=\s*\*topologyResult\s*;", "topologyResult bind missing"),
+    ("RuntimeOrchestrator.cpp", r"const\s+auto&\s+observedThreads\s*=\s*\*topThreads\s*;", "topThreads bind missing"),
+    ("RuntimeOrchestrator.cpp", r"const\s+auto&\s+commands\s*=\s*\*commandsResult\s*;", "commandsResult bind missing"),
+    ("RuntimeOrchestrator.cpp", r"runtime timeout reached at watchdog cycle boundary", "runtime timeout safe-point log missing"),
+    ("RuntimeOrchestrator.cpp", r"struct\s+ShutdownResult", "shutdown result classification missing"),
+    ("RuntimeOrchestrator.cpp", r"shutdown result: timerRollbackFailed=\{\}, schedulerRollbackFailed=\{\}, runtimeValidationFailed=\{\}, rollbackStatePreserved=\{\}", "shutdown result summary log missing"),
 ]
 
 ALLOWED_EXPECTED_BIND_LINES = [
@@ -367,7 +372,7 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
     topology_tests_text = (ROOT / "TopologyAnalyzerTests.cpp").read_text(encoding="utf-8", errors="replace")
     processor_group_tests_text = (ROOT / "ProcessorGroupHedtEvidenceTests.cpp").read_text(encoding="utf-8", errors="replace")
     scheduler_text = (ROOT / "SchedulerController.cpp").read_text(encoding="utf-8", errors="replace")
-    main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
+    runtime_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
     project_text = PROJECT_FILE.read_text(encoding="utf-8", errors="replace")
     build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
@@ -379,7 +384,7 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         topology_tests_text,
         processor_group_tests_text,
         scheduler_text,
-        main_text,
+        runtime_text,
         project_text,
         build_text,
         regression_text,
@@ -492,7 +497,7 @@ def check_timer_input_module_registration() -> list[str]:
     project_text = PROJECT_FILE.read_text(encoding="utf-8", errors="replace")
     build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
-    main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
+    runtime_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
 
     required_project_entries = [
         "TimerResolutionController.cpp",
@@ -531,7 +536,7 @@ def check_timer_input_module_registration() -> list[str]:
         "timerResolutionController.rollback()",
     ]
     for marker in required_main_markers:
-        if marker not in main_text:
+        if marker not in runtime_text:
             failures.append(f"[FAIL] Timer/Input gate: runtime integration missing: {marker}")
 
     input_latency_text = (ROOT / "InputLatencyController.cpp").read_text(encoding="utf-8", errors="replace")
@@ -582,7 +587,7 @@ def check_anti_cheat_fallback_contract() -> list[str]:
     background_text = (ROOT / "BackgroundController.cpp").read_text(encoding="utf-8", errors="replace")
     background_header_text = (ROOT / "BackgroundController.h").read_text(encoding="utf-8", errors="replace")
     rollback_text = (ROOT / "RollbackManager.cpp").read_text(encoding="utf-8", errors="replace")
-    main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
+    runtime_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
     tests_text = (ROOT / "AntiCheatFallbackTests.cpp").read_text(encoding="utf-8", errors="replace")
     assertions_text = (ROOT / "run_release_gate_log_assertions.py").read_text(encoding="utf-8", errors="replace")
     winapi_text = (ROOT / "WinApiError.h").read_text(encoding="utf-8", errors="replace")
@@ -594,7 +599,7 @@ def check_anti_cheat_fallback_contract() -> list[str]:
         background_text,
         background_header_text,
         rollback_text,
-        main_text,
+        runtime_text,
         tests_text,
         assertions_text,
         winapi_text,
@@ -844,7 +849,7 @@ def check_rc_candidate_contract() -> list[str]:
 
 
 def check_runtime_validation_failure_exit_code_contract() -> list[str]:
-    main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
+    main_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
     ordered_markers = [
         "ShutdownResult shutdownResult{};",
         "shutdownResult.runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();",

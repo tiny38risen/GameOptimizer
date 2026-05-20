@@ -71,7 +71,7 @@ namespace
         const std::string schedulerText = readTextFile("SchedulerController.cpp");
         const std::string backgroundText = readTextFile("BackgroundController.cpp");
         const std::string rollbackText = readTextFile("RollbackManager.cpp");
-        const std::string mainText = readTextFile("main.cpp");
+        const std::string runtimeText = readTextFile("RuntimeOrchestrator.cpp");
         const std::string assertionsText = readTextFile("run_release_gate_log_assertions.py");
 
         REQUIRE(schedulerText.find("monitoring-only fallback remains active") != std::string::npos,
@@ -88,7 +88,7 @@ namespace
             "rollback access-denied path must leave access-boundary evidence");
         REQUIRE(rollbackText.find("no longer openable") != std::string::npos,
             "rollback open failure must leave non-fatal skip evidence");
-        REQUIRE(mainText.find("policy drift audit limited by access boundary") != std::string::npos,
+        REQUIRE(runtimeText.find("policy drift audit limited by access boundary") != std::string::npos,
             "runtime drift audit access boundary must leave monitoring-only evidence");
         REQUIRE(assertionsText.find("validate_access_denied_fallback_evidence") != std::string::npos,
             "release log assertions must validate access-denied fallback evidence");
