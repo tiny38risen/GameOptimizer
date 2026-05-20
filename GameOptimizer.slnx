@@ -4,4 +4,5 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="GameOptimizer/GameOptimizer.vcxproj" Id="8c5c6e24-8073-4179-ac18-16f218f0494b" />
+  <Project Path="GameOptimizer.UI/GameOptimizer.UI.csproj" Id="3c42a2d9-41ed-4ac1-a3a4-b7b2f277dd41" />
 </Solution>
