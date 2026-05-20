@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <mutex>
 #include <optional>
+#include <string_view>
 #include <unordered_map>
 
 #include "ErrorCode.h"
@@ -86,11 +87,18 @@ private:
 
     struct ProcessRollbackState
     {
+        enum class RollbackMode
+        {
+            LegacyProcessAffinityMask,
+            GroupAwareUnsupported
+        };
+
         std::uint64_t creationTime100ns = 0;
         DWORD_PTR originalAffinityMask = 0;
-        WORD originalProcessorGroup = 0;
+        WORD observedProcessorGroup = 0;
         DWORD processId = 0;
         DWORD originalPriorityClass = 0;
+        RollbackMode rollbackMode = RollbackMode::LegacyProcessAffinityMask;
     };
 
     [[nodiscard]] static std::expected<WinHandle, ErrorCode> openThreadForRollback(DWORD threadId) noexcept;
@@ -98,6 +106,7 @@ private:
     [[nodiscard]] static std::expected<std::uint64_t, ErrorCode> queryThreadCreationTime100ns(HANDLE threadHandle) noexcept;
     [[nodiscard]] static std::expected<std::uint64_t, ErrorCode> queryProcessCreationTime100ns(HANDLE processHandle) noexcept;
     [[nodiscard]] static bool isSameIdentity(std::optional<std::uint64_t> expectedCreationTime, std::uint64_t currentCreationTime) noexcept;
+    [[nodiscard]] static std::string_view processRollbackModeToString(ProcessRollbackState::RollbackMode rollbackMode) noexcept;
     [[nodiscard]] std::expected<void, ErrorCode> rollbackState(const ThreadRollbackState& state) noexcept;
     [[nodiscard]] std::expected<void, ErrorCode> rollbackProcessState(const ProcessRollbackState& state) noexcept;
 

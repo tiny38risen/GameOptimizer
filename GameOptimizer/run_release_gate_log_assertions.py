@@ -159,8 +159,12 @@ def validate(mode: str, log_text: str) -> list[str]:
 
     if not contains(log_text, "shutdown completed cleanly"):
         failures.append("missing clean shutdown log")
+    if not contains(log_text, "shutdown result: timerRollbackFailed="):
+        failures.append("shutdown result summary missing")
     if contains(log_text, "shutdown rollback failed"):
         failures.append("shutdown rollback failed")
+    if contains(log_text, "rollbackStatePreserved=true"):
+        failures.append("rollback state preserved after rollback failure")
     if re.search(r"\[ERROR\].*rollback failed", log_text, re.IGNORECASE):
         failures.append("rollback error log found")
     if contains(log_text, "runtime validation result: FAILED"):

@@ -82,6 +82,21 @@ namespace
             .processorGroup = currentAffinity.Group,
             .priority = currentPriority};
     }
+
+}
+
+std::string_view RollbackManager::processRollbackModeToString(
+    ProcessRollbackState::RollbackMode rollbackMode) noexcept
+{
+    switch (rollbackMode)
+    {
+    case ProcessRollbackState::RollbackMode::LegacyProcessAffinityMask:
+        return "LegacyProcessAffinityMask";
+    case ProcessRollbackState::RollbackMode::GroupAwareUnsupported:
+        return "GroupAwareUnsupported";
+    }
+
+    return "UnknownProcessRollbackMode";
 }
 
 std::expected<WinHandle, ErrorCode> RollbackManager::openThreadForRollback(DWORD threadId) noexcept
@@ -270,7 +285,7 @@ std::expected<void, ErrorCode> RollbackManager::saveValidatedReadState(
                 .kind = RollbackStateKind::SoftApplyValidatedRead});
 
         Logger::info(
-            "soft-apply rollback data captured for TID {} (affinity=0x{:X}, group={}, priority={}, creationTime100ns={})",
+            "soft-apply validated scheduling baseline captured for TID {} (affinity=0x{:X}, group={}, priority={}, creationTime100ns={})",
             threadId,
             static_cast<unsigned long long>(currentAffinityMask),
             static_cast<unsigned int>(processorGroup),
@@ -420,6 +435,11 @@ std::expected<void, ErrorCode> RollbackManager::rollbackAll() noexcept
         }
 
         bool hasFailure = false;
+        std::vector<DWORD> completedThreadIds;
+        std::vector<DWORD> completedProcessIds;
+        completedThreadIds.reserve(threadStates.size());
+        completedProcessIds.reserve(processStates.size());
+
         for (const ThreadRollbackState& state : threadStates)
         {
             const auto result = rollbackState(state);
@@ -430,7 +450,10 @@ std::expected<void, ErrorCode> RollbackManager::rollbackAll() noexcept
                     "rollback failed for TID {}: {}",
                     state.threadId,
                     toString(result.error()));
+                continue;
             }
+
+            completedThreadIds.push_back(state.threadId);
         }
 
         for (const ProcessRollbackState& state : processStates)
@@ -443,17 +466,31 @@ std::expected<void, ErrorCode> RollbackManager::rollbackAll() noexcept
                     "background rollback failed for PID {}: {}",
                     state.processId,
                     toString(result.error()));
+                continue;
             }
+
+            completedProcessIds.push_back(state.processId);
         }
 
         {
             std::scoped_lock lock(mutex_);
-            states_.clear();
-            processStates_.clear();
+            for (const DWORD threadId : completedThreadIds)
+            {
+                states_.erase(threadId);
+            }
+
+            for (const DWORD processId : completedProcessIds)
+            {
+                processStates_.erase(processId);
+            }
         }
 
         if (hasFailure)
         {
+            Logger::error(
+                "rollback completed with failures; preserved rollback state count: thread={}, process={}",
+                threadStates.size() - completedThreadIds.size(),
+                processStates.size() - completedProcessIds.size());
             return std::unexpected(ErrorCode::RollbackFailed);
         }
 
@@ -508,19 +545,26 @@ std::expected<RollbackManager::SaveStateDisposition, ErrorCode> RollbackManager:
             return SaveStateDisposition::ReusedExistingState;
         }
 
+        const ProcessRollbackState::RollbackMode rollbackMode =
+            processorGroup == 0
+                ? ProcessRollbackState::RollbackMode::LegacyProcessAffinityMask
+                : ProcessRollbackState::RollbackMode::GroupAwareUnsupported;
+
         processStates_.insert_or_assign(
             processId,
             ProcessRollbackState{
                 .creationTime100ns = creationTime,
                 .originalAffinityMask = originalAffinityMask,
-                .originalProcessorGroup = processorGroup,
+                .observedProcessorGroup = processorGroup,
                 .processId = processId,
-                .originalPriorityClass = originalPriorityClass});
+                .originalPriorityClass = originalPriorityClass,
+                .rollbackMode = rollbackMode});
 
         Logger::info(
-            "background rollback state saved for PID {} (group={}, affinity=0x{:X}, priorityClass=0x{:X}, creationTime100ns={})",
+            "background rollback state saved for PID {} (observedGroup={}, rollbackMode={}, affinity=0x{:X}, priorityClass=0x{:X}, creationTime100ns={})",
             processId,
             static_cast<unsigned int>(processorGroup),
+            processRollbackModeToString(rollbackMode),
             static_cast<unsigned long long>(originalAffinityMask),
             static_cast<unsigned int>(originalPriorityClass),
             creationTime);
@@ -612,7 +656,7 @@ std::expected<void, ErrorCode> RollbackManager::rollbackState(
     if (state.kind == RollbackStateKind::SoftApplyValidatedRead)
     {
         Logger::info(
-            "soft-apply rollback verified for TID {} (no scheduling state was changed)",
+            "soft-apply validated scheduling baseline verified for TID {} (no scheduling state was changed)",
             state.threadId);
         return {};
     }
@@ -754,6 +798,15 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
 
     WinHandle& processHandle = *openedProcess;
 
+    if (state.rollbackMode == ProcessRollbackState::RollbackMode::GroupAwareUnsupported)
+    {
+        Logger::error(
+            "background process affinity rollback unsupported for PID {} observedGroup={}; SetProcessAffinityMask cannot restore processor-group-specific process affinity, rollback state preserved",
+            state.processId,
+            static_cast<unsigned int>(state.observedProcessorGroup));
+        return std::unexpected(ErrorCode::RollbackFailed);
+    }
+
     const auto currentCreationTime = queryProcessCreationTime100ns(processHandle.get());
     if (!currentCreationTime)
     {
@@ -873,9 +926,10 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
     }
 
     Logger::info(
-        "background rollback restored PID {} (group={}, affinity=0x{:X}, priorityClass=0x{:X})",
+        "background rollback restored PID {} (observedGroup={}, rollbackMode={}, affinity=0x{:X}, priorityClass=0x{:X})",
         state.processId,
-        static_cast<unsigned int>(state.originalProcessorGroup),
+        static_cast<unsigned int>(state.observedProcessorGroup),
+        processRollbackModeToString(state.rollbackMode),
         static_cast<unsigned long long>(state.originalAffinityMask),
         static_cast<unsigned int>(state.originalPriorityClass));
 

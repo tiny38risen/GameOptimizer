@@ -3,7 +3,7 @@ using System.Text;
 
 namespace GameOptimizer.UI;
 
-public sealed class MainForm : Form
+public sealed partial class MainForm : Form
 {
     private readonly ComboBox targetCombo = new();
     private readonly Button refreshButton = new();
@@ -28,15 +28,23 @@ public sealed class MainForm : Form
 
     private Process? runningProcess;
 
+    private sealed class ProcessListItem
+    {
+        public required string ExeName { get; init; }
+        public required int ProcessId { get; init; }
+        public string WindowTitle { get; init; } = string.Empty;
+
+        public override string ToString()
+        {
+            return string.IsNullOrWhiteSpace(WindowTitle)
+                ? $"{ExeName}  (PID {ProcessId})"
+                : $"{ExeName}  (PID {ProcessId}) - {WindowTitle}";
+        }
+    }
+
     public MainForm()
     {
-        Text = "GameOptimizer v3.0 운영 콘솔";
-        StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(1080, 720);
-        Size = new Size(1180, 780);
-        Font = new Font("Segoe UI", 10F);
-
-        BuildLayout();
+        InitializeComponent();
         RefreshProcessList();
         UpdateEnginePathLabel();
         UpdateControlState(false);
@@ -126,7 +134,7 @@ public sealed class MainForm : Form
         panel.Controls.Add(table);
 
         targetCombo.Dock = DockStyle.Fill;
-        targetCombo.DropDownStyle = ComboBoxStyle.DropDown;
+        targetCombo.DropDownStyle = ComboBoxStyle.DropDownList;
         table.Controls.Add(targetCombo, 0, 0);
 
         refreshButton.Text = "새로고침";
@@ -247,28 +255,52 @@ public sealed class MainForm : Form
 
     private void RefreshProcessList()
     {
-        var previous = targetCombo.Text;
+        var previous = GetSelectedTargetName();
         targetCombo.Items.Clear();
-        foreach (var name in Process.GetProcesses()
-                     .Select(p => SafeProcessName(p))
-                     .Where(name => !string.IsNullOrWhiteSpace(name))
-                     .Distinct(StringComparer.OrdinalIgnoreCase)
-                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
+        var items = Process.GetProcesses()
+            .Select(CreateProcessListItem)
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .OrderBy(item => item.ExeName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.ProcessId)
+            .ToList();
+
+        foreach (var item in items)
         {
-            targetCombo.Items.Add(name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name : $"{name}.exe");
+            targetCombo.Items.Add(item);
         }
-        targetCombo.Text = string.IsNullOrWhiteSpace(previous) ? "notepad.exe" : previous;
+
+        var previousMatch = items.FindIndex(item => string.Equals(item.ExeName, previous, StringComparison.OrdinalIgnoreCase));
+        if (previousMatch >= 0)
+        {
+            targetCombo.SelectedIndex = previousMatch;
+        }
+        else if (targetCombo.Items.Count > 0)
+        {
+            targetCombo.SelectedIndex = 0;
+        }
     }
 
-    private static string SafeProcessName(Process process)
+    private static ProcessListItem? CreateProcessListItem(Process process)
     {
         try
         {
-            return process.ProcessName;
+            var name = process.ProcessName;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            return new ProcessListItem
+            {
+                ExeName = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name : $"{name}.exe",
+                ProcessId = process.Id,
+                WindowTitle = process.MainWindowTitle,
+            };
         }
         catch
         {
-            return string.Empty;
+            return null;
         }
     }
 
@@ -279,7 +311,7 @@ public sealed class MainForm : Form
             return;
         }
 
-        var target = targetCombo.Text.Trim();
+        var target = GetSelectedTargetName();
         if (string.IsNullOrWhiteSpace(target))
         {
             MessageBox.Show("대상 프로세스를 선택하거나 입력하세요.", "대상 필요", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -390,6 +422,15 @@ public sealed class MainForm : Form
         args.Add("--max-runtime-seconds");
         args.Add(((int)runtimeSecondsBox.Value).ToString());
         return string.Join(" ", args);
+    }
+
+    private string GetSelectedTargetName()
+    {
+        if (targetCombo.SelectedItem is ProcessListItem item)
+        {
+            return item.ExeName;
+        }
+        return targetCombo.Text.Trim();
     }
 
     private static string Quote(string value)

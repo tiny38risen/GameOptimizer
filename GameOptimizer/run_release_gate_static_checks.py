@@ -21,10 +21,12 @@ REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"const\s+auto&\s+observedThreads\s*=\s*\*topThreads\s*;", "topThreads bind missing"),
     ("main.cpp", r"const\s+auto&\s+commands\s*=\s*\*commandsResult\s*;", "commandsResult bind missing"),
     ("main.cpp", r"runtime timeout reached at watchdog cycle boundary", "runtime timeout safe-point log missing"),
+    ("main.cpp", r"struct\s+ShutdownResult", "shutdown result classification missing"),
+    ("main.cpp", r"shutdown result: timerRollbackFailed=\{\}, schedulerRollbackFailed=\{\}, runtimeValidationFailed=\{\}, rollbackStatePreserved=\{\}", "shutdown result summary log missing"),
 ]
 
 ALLOWED_EXPECTED_BIND_LINES = [
-    re.compile(r"\s*(?:const\s+)?(?:auto|auto&|const\s+auto&|DWORD|const\s+DWORD|ErrorCode|const\s+ErrorCode|WinHandle&|const\s+WinHandle&|std::uint64_t&|const\s+std::uint64_t&)\s+\w+\s*=\s*\*\w+\s*;\s*"),
+    re.compile(r"\s*(?:const\s+)?(?:auto|auto&|const\s+auto&|DWORD|const\s+DWORD|WORD|const\s+WORD|ErrorCode|const\s+ErrorCode|WinHandle&|const\s+WinHandle&|std::uint64_t&|const\s+std::uint64_t&)\s+\w+\s*=\s*\*\w+\s*;\s*"),
 ]
 
 CONTROL_KEYWORDS = {"if", "while", "for", "switch", "return", "sizeof", "static_cast", "reinterpret_cast", "const_cast"}
@@ -391,8 +393,12 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         "SetThreadGroupAffinity",
         "saveProcessState(",
         "policy.processorGroup",
-        "background rollback state saved for PID {} (group={}",
-        "background rollback restored PID {} (group={}",
+        "background rollback state saved for PID {} (observedGroup={}, rollbackMode={}",
+        "background rollback restored PID {} (observedGroup={}, rollbackMode={}",
+        "RollbackMode::LegacyProcessAffinityMask",
+        "RollbackMode::GroupAwareUnsupported",
+        "SetProcessAffinityMask cannot restore processor-group-specific process affinity",
+        "preserved rollback state count: thread={}, process={}",
         "mask_provenance",
         "TopologyMaskProvenance::ProcessAffinityFallback",
         "topology fallback policy selected from process affinity: group={}",
@@ -837,8 +843,10 @@ def check_rc_candidate_contract() -> list[str]:
 def check_runtime_validation_failure_exit_code_contract() -> list[str]:
     main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
     ordered_markers = [
-        "const bool runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();",
-        "if (runtimeValidationFailed)",
+        "ShutdownResult shutdownResult{};",
+        "shutdownResult.runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();",
+        "shutdown result: timerRollbackFailed={}, schedulerRollbackFailed={}, runtimeValidationFailed={}, rollbackStatePreserved={}",
+        "if (shutdownResult.failed())",
         'Logger::error("shutdown completed with runtime validation failure");',
         "return 1;",
     ]
@@ -854,6 +862,8 @@ def check_runtime_validation_failure_exit_code_contract() -> list[str]:
     assertions_text = (ROOT / "run_release_gate_log_assertions.py").read_text(encoding="utf-8", errors="replace")
     if "runtime validation result: FAILED" not in assertions_text:
         failures.append("[FAIL] Runtime validation exit-code gate: log assertion must reject FAILED result")
+    if "rollbackStatePreserved=true" not in assertions_text:
+        failures.append("[FAIL] Runtime validation exit-code gate: log assertion must reject preserved rollback state")
 
     return failures
 

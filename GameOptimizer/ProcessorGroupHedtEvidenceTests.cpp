@@ -76,10 +76,18 @@ namespace
             "thread rollback audit log must include group");
         REQUIRE(rollbackText.find("expected(group={}") != std::string::npos,
             "thread rollback mismatch log must include expected group");
-        REQUIRE(rollbackText.find("background rollback state saved for PID {} (group={}") != std::string::npos,
-            "process rollback save log must include group");
-        REQUIRE(rollbackText.find("background rollback restored PID {} (group={}") != std::string::npos,
-            "process rollback restore log must include group");
+        REQUIRE(rollbackText.find("observedProcessorGroup") != std::string::npos,
+            "process rollback state must record group as observed evidence, not full group-aware restore capability");
+        REQUIRE(rollbackText.find("RollbackMode::LegacyProcessAffinityMask") != std::string::npos,
+            "process rollback must distinguish legacy process affinity mode");
+        REQUIRE(rollbackText.find("RollbackMode::GroupAwareUnsupported") != std::string::npos,
+            "process rollback must distinguish unsupported group-aware process affinity mode");
+        REQUIRE(rollbackText.find("background rollback state saved for PID {} (observedGroup={}, rollbackMode={}") != std::string::npos,
+            "process rollback save log must include observed group and rollback mode");
+        REQUIRE(rollbackText.find("background rollback restored PID {} (observedGroup={}, rollbackMode={}") != std::string::npos,
+            "process rollback restore log must include observed group and rollback mode");
+        REQUIRE(rollbackText.find("preserved rollback state count: thread={}, process={}") != std::string::npos,
+            "rollbackAll must preserve failed rollback states");
     }
 
     void testProcessorGroupGateSourceContainsEvidenceMarkers()
@@ -92,10 +100,12 @@ namespace
             "process-wide background affinity must remain group-0 limited");
         REQUIRE(backgroundText.find("background restriction blocked: processor group") != std::string::npos,
             "group 1+ background restriction must leave WARN evidence");
-        REQUIRE(staticGateText.find("background rollback state saved for PID {} (group={}") != std::string::npos,
-            "static gate must guard process rollback save group evidence");
-        REQUIRE(staticGateText.find("background rollback restored PID {} (group={}") != std::string::npos,
-            "static gate must guard process rollback restore group evidence");
+        REQUIRE(staticGateText.find("background rollback state saved for PID {} (observedGroup={}, rollbackMode={}") != std::string::npos,
+            "static gate must guard process rollback observed-group evidence");
+        REQUIRE(staticGateText.find("background rollback restored PID {} (observedGroup={}, rollbackMode={}") != std::string::npos,
+            "static gate must guard process rollback legacy-mode evidence");
+        REQUIRE(staticGateText.find("preserved rollback state count: thread={}, process={}") != std::string::npos,
+            "static gate must guard failed rollback state preservation evidence");
         REQUIRE(staticGateText.find("topology fallback policy selected from process affinity: group={}") != std::string::npos,
             "static gate must guard topology fallback group evidence");
         REQUIRE(topologyTestText.find("processorGroup == 1") != std::string::npos,

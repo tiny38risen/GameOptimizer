@@ -174,6 +174,19 @@ namespace
         std::uint32_t threadDetailLogIntervalCycles = 1;
     };
 
+    struct ShutdownResult
+    {
+        bool timerRollbackFailed = false;
+        bool schedulerRollbackFailed = false;
+        bool runtimeValidationFailed = false;
+        bool rollbackStatePreserved = false;
+
+        [[nodiscard]] bool failed() const noexcept
+        {
+            return timerRollbackFailed || schedulerRollbackFailed || runtimeValidationFailed;
+        }
+    };
+
     [[nodiscard]] std::uint32_t parsePositiveUIntArgument(
         int argc,
         wchar_t* argv[],
@@ -462,25 +475,25 @@ namespace
         }
     }
 
-    [[nodiscard]] WORD queryFirstProcessGroup(HANDLE processHandle) noexcept
+    [[nodiscard]] std::expected<WORD, ErrorCode> queryPrimaryProcessGroup(HANDLE processHandle) noexcept
     {
         USHORT groupCount = 0;
         if (GetProcessGroupAffinity(processHandle, &groupCount, nullptr) ||
             GetLastError() != ERROR_INSUFFICIENT_BUFFER ||
             groupCount == 0)
         {
-            return 0;
+            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
         }
 
         std::array<USHORT, 64> groups{};
         if (groupCount > groups.size())
         {
-            return 0;
+            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
         }
 
         if (!GetProcessGroupAffinity(processHandle, &groupCount, groups.data()) || groupCount == 0)
         {
-            return 0;
+            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
         }
 
         return groups.front();
@@ -503,7 +516,13 @@ namespace
             return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
         }
 
-        const WORD processorGroup = queryFirstProcessGroup(processHandle.get());
+        const auto processorGroupResult = queryPrimaryProcessGroup(processHandle.get());
+        if (!processorGroupResult)
+        {
+            return std::unexpected(processorGroupResult.error());
+        }
+
+        const WORD processorGroup = *processorGroupResult;
         const auto fallbackTopology = TopologyAnalyzer::buildProcessAffinityFallbackMask(
             processMask,
             systemMask,
@@ -925,32 +944,47 @@ int wmain(int argc, wchar_t* argv[])
     latencyMetricsCollector.join();
 
     runtimeValidationMonitor.logSummary();
-    const bool runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();
+    ShutdownResult shutdownResult{};
+    shutdownResult.runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();
 
     const auto timerRollbackResult = timerResolutionController.rollback();
     if (!timerRollbackResult)
     {
+        shutdownResult.timerRollbackFailed = true;
         Logger::error("shutdown timer rollback failed: {}", toString(timerRollbackResult.error()));
     }
 
     const auto rollbackResult = schedulerController.rollbackAll();
     if (!rollbackResult)
     {
+        shutdownResult.schedulerRollbackFailed = true;
+        shutdownResult.rollbackStatePreserved = true;
         Logger::error("shutdown rollback failed: {}", toString(rollbackResult.error()));
+    }
+
+    Logger::info(
+        "shutdown result: timerRollbackFailed={}, schedulerRollbackFailed={}, runtimeValidationFailed={}, rollbackStatePreserved={}",
+        shutdownResult.timerRollbackFailed,
+        shutdownResult.schedulerRollbackFailed,
+        shutdownResult.runtimeValidationFailed,
+        shutdownResult.rollbackStatePreserved);
+
+    if (shutdownResult.failed())
+    {
+        if (shutdownResult.runtimeValidationFailed)
+        {
+            Logger::error("shutdown completed with runtime validation failure");
+        }
+
+        if (shutdownResult.rollbackStatePreserved)
+        {
+            Logger::error("shutdown completed with preserved rollback state after rollback failure");
+        }
+
+        Logger::error("shutdown completed with failures");
         return 1;
     }
 
     Logger::info("shutdown completed cleanly");
-    if (!timerRollbackResult)
-    {
-        return 1;
-    }
-
-    if (runtimeValidationFailed)
-    {
-        Logger::error("shutdown completed with runtime validation failure");
-        return 1;
-    }
-
     return 0;
 }
