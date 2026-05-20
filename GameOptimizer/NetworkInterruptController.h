@@ -30,6 +30,8 @@ struct NetworkInterruptStatus
     bool dpcMonitoringAvailable = false;
     bool interruptAffinitySupported = false;
     bool monitoringOnly = true;
+    int irqRepinRequestCount = 0;
+    int irqRepinSuppressedCount = 0;
 };
 
 class NetworkInterruptController

@@ -11,7 +11,13 @@ The full RC entry command is:
 run_rc_gate.bat <target.exe>
 ```
 
-It must pass static gate, regression, release smoke, and the combined 30m+60m soak evidence gate.
+It must pass static gate, regression, release smoke, the combined 30m+60m soak evidence gate, and final RC evidence verification for the current commit.
+
+RC report severity is split into three levels:
+
+- `BLOCKER`: release is forbidden and the evidence report fails.
+- `WARN`: release may continue, but the limitation must remain visible in the report.
+- `INFO`: tracking metadata only.
 
 | ID | Mode | Runtime | Required args | Pass criteria |
 |---|---|---:|---|---|
@@ -32,6 +38,14 @@ It must pass static gate, regression, release smoke, and the combined 30m+60m so
 5. Any log burst that prints per-process background skips unless `--background-detail-log` is explicitly set.
 6. Any RC soak evidence report missing either SOAK-30 or SOAK-60.
 7. Any RC gate run that does not generate smoke and soak evidence reports.
+8. Any current-commit RC evidence verification missing either the smoke or soak PASS report.
+9. Any RC evidence schema version, git commit, or exe SHA-256 mismatch.
+10. Any RC candidate missing Runbook, blocker list, evidence bundle, or final regression result.
+11. Any Access Denied / access-boundary runtime log without fallback or rollback evidence.
+12. Any IRQ unsupported path that becomes ERROR/FAIL instead of WARN + monitoring-only.
+13. Any Processor Group / HEDT group 1+ mock missing affinity, rollback, or log evidence.
+14. Any Input Latency pinning path enabled without High confidence and `ConcreteTid`.
+15. Any missing `ProcessorGroupHedtEvidenceTests` registration or failure.
 
 
 ## Automated assertions
@@ -58,6 +72,13 @@ The Release Gate smoke script now runs two assertion layers before accepting a b
    - records git commit, build hash, and `GameOptimizer.exe` SHA-256.
    - writes `rc_evidence_report.txt` and `rc_evidence_report.json`.
    - fails the report when `runtime validation result: FAILED` appears, and verifies that this condition pairs with process exit code 1.
+   - verifies the final RC evidence set with `verify-rc`, requiring current-commit smoke and soak PASS reports for the target.
+   - blocks schema version, git commit, exe SHA-256, smoke/soak exe hash, or smoke/soak build hash mismatch.
+   - records `severity_summary` as `BLOCKER`, `WARN`, and `INFO`; WARN-only reports produce `PASS_WITH_WARNINGS`, not release failure.
+
+4. `verify_rc_candidate.py`
+   - verifies the RC runbook, blocker list, evidence bundle, and final regression result.
+   - blocks `v3.0-rc1` preparation when any required RC candidate artifact is missing.
 
 RG-3 identity rule remains strict: background rollback failures are non-fatal only when stale identity evidence is logged. Same PID + same creation time + live process rollback failure is a release blocker.
 

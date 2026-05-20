@@ -85,16 +85,31 @@ if "%RUN_DIR%"=="" (
 %PYTHON_CMD% run_release_gate_static_checks.py
 set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step static_checks --mode static --exit-code %STEP_EXIT% --command "run_release_gate_static_checks.py"
-if not "%STEP_EXIT%"=="0" goto fail
+if not "%STEP_EXIT%"=="0" (
+    echo [BLOCKER] long soak gate failed: static checks failed
+    goto fail
+)
 
 if /I "%PRESET%"=="30m" call :run30
-if errorlevel 1 goto fail
+if errorlevel 1 (
+    echo [BLOCKER] long soak gate failed: 30m dry-run soak failed
+    goto fail
+)
 if /I "%PRESET%"=="60m" call :run60
-if errorlevel 1 goto fail
+if errorlevel 1 (
+    echo [BLOCKER] long soak gate failed: 60m soft-apply soak failed
+    goto fail
+)
 if /I "%PRESET%"=="both" call :run30
-if errorlevel 1 goto fail
+if errorlevel 1 (
+    echo [BLOCKER] long soak gate failed: 30m dry-run soak failed
+    goto fail
+)
 if /I "%PRESET%"=="both" call :run60
-if errorlevel 1 goto fail
+if errorlevel 1 (
+    echo [BLOCKER] long soak gate failed: 60m soft-apply soak failed
+    goto fail
+)
 
 %PYTHON_CMD% release_gate_evidence.py finalize --run-dir "%RUN_DIR%" %FINALIZE_FLAGS%
 if errorlevel 1 exit /b 1
@@ -108,8 +123,14 @@ set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode soak "%RUN_DIR%\logs\soak_30m_dry_run.log"
 set ASSERT_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step soak_30m_dry_run --mode soak --log-file "%RUN_DIR%\logs\soak_30m_dry_run.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe target --dry-run --max-runtime-seconds 1800 --thread-detail-log --thread-log-interval 20"
-if not "%STEP_EXIT%"=="0" exit /b 1
-if not "%ASSERT_EXIT%"=="0" exit /b 1
+if not "%STEP_EXIT%"=="0" (
+    echo [BLOCKER] SOAK-30M command failed with exit code %STEP_EXIT%
+    exit /b 1
+)
+if not "%ASSERT_EXIT%"=="0" (
+    echo [BLOCKER] SOAK-30M log assertions failed with exit code %ASSERT_EXIT%
+    exit /b 1
+)
 exit /b 0
 
 :run60
@@ -119,8 +140,14 @@ set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode soak "%RUN_DIR%\logs\soak_60m_soft_apply.log"
 set ASSERT_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step soak_60m_soft_apply --mode soak --log-file "%RUN_DIR%\logs\soak_60m_soft_apply.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe target --max-runtime-seconds 3600 --thread-detail-log --thread-log-interval 40"
-if not "%STEP_EXIT%"=="0" exit /b 1
-if not "%ASSERT_EXIT%"=="0" exit /b 1
+if not "%STEP_EXIT%"=="0" (
+    echo [BLOCKER] SOAK-60M command failed with exit code %STEP_EXIT%
+    exit /b 1
+)
+if not "%ASSERT_EXIT%"=="0" (
+    echo [BLOCKER] SOAK-60M log assertions failed with exit code %ASSERT_EXIT%
+    exit /b 1
+)
 exit /b 0
 
 :fail

@@ -45,6 +45,17 @@ Fatal background rollback cases:
 
 A release candidate fails if exit code is non-zero, unless the scenario explicitly expects startup failure, such as missing target process validation.
 
+## RC candidate artifact stop condition
+
+`verify_rc_candidate.py --target <target.exe> --regression-log <log>` is mandatory before `v3.0-rc1`.
+
+The candidate is blocked when any of the following is missing:
+
+1. Runbook coverage.
+2. Release blocker list.
+3. Current-commit smoke/soak evidence bundle.
+4. Final regression result with `failed=0`.
+
 
 ## Runtime timeout safe-point invariant
 

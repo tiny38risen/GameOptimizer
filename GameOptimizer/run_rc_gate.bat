@@ -9,6 +9,7 @@ if "%~1"=="" (
 set TARGET=%~1
 set SCRIPT_DIR=%~dp0
 set VCVARS64=
+set RC_BLOCKER=unknown
 
 pushd "%SCRIPT_DIR%"
 
@@ -79,25 +80,45 @@ if "%PYTHON_CMD%"=="" (
 
 echo [RC-1] static gate
 %PYTHON_CMD% run_release_gate_static_checks.py
-if errorlevel 1 goto fail
+if errorlevel 1 (
+    set RC_BLOCKER=static gate failed
+    goto fail
+)
 
 echo [RC-2] regression
 call run_regression_tests.bat
-if errorlevel 1 goto fail
+if errorlevel 1 (
+    set RC_BLOCKER=regression failed
+    goto fail
+)
 
 echo [RC-3] release smoke
 call run_release_gate_smoke.bat "%TARGET%"
-if errorlevel 1 goto fail
+if errorlevel 1 (
+    set RC_BLOCKER=release smoke failed
+    goto fail
+)
 
 echo [RC-4] long soak evidence gate: 30m dry-run + 60m soft-apply
 call run_long_soak_presets.bat "%TARGET%" both
-if errorlevel 1 goto fail
+if errorlevel 1 (
+    set RC_BLOCKER=30m or 60m soak failed
+    goto fail
+)
+
+echo [RC-5] verify RC evidence set
+%PYTHON_CMD% release_gate_evidence.py verify-rc --target "%TARGET%"
+if errorlevel 1 (
+    set RC_BLOCKER=verify-rc failed
+    goto fail
+)
 
 echo [PASS] RC gate passed. Required evidence reports were generated under release_gate_logs.
 popd
 exit /b 0
 
 :fail
+echo [BLOCKER] RC gate failed: %RC_BLOCKER%
 echo [FAIL] RC gate failed.
 popd
 exit /b 1

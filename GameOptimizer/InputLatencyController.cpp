@@ -41,7 +41,7 @@ std::expected<InputLatencyStatus, ErrorCode> InputLatencyController::detectAndAp
         status_.pinningBlockedUntilConcreteTid = true;
         status_.fallbackMonitoringOnly = true;
         Logger::warn(
-            "Raw Input detected for PID {}, but input TID confidence is below High or no concrete TID is available; input thread pinning skipped",
+            "Raw Input detected for PID {}, but input TID confidence is below High, the TID source is not ConcreteTid, or no concrete TID is available; input thread pinning skipped",
             processId);
         return status_;
     }
@@ -60,7 +60,8 @@ bool InputLatencyController::isInputThreadPinningAllowed(const InputLatencyStatu
 {
     return status.rawInputDetected
         && status.inputThreadId != 0
-        && status.tidConfidence == InputThreadTidConfidence::High;
+        && status.tidConfidence == InputThreadTidConfidence::High
+        && status.tidSource == InputThreadTidSource::ConcreteTid;
 }
 
 InputLatencyStatus InputLatencyController::detectRawInputUsage(DWORD processId) noexcept

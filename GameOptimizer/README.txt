@@ -28,7 +28,7 @@ Current scope:
 16. TopologyAnalyzer exposes a deterministic process-affinity fallback helper with group-preserving mask provenance so HEDT/processor-group behavior can be regression-tested without 64+ core hardware.
 17. BackgroundController blocks process-wide restriction for processor group 1+, records the blocked group in the non-fatal summary, and leaves thread-level group affinity support in SchedulerController.
 18. Long soak RC gate requires both a 30-minute dry-run and a 60-minute soft-apply run, with hang detection, runtime timeline monotonicity checks, runtime validation summary, and runtime validation failure exit-code gating.
-19. Release gate smoke and soak runs create run-id scoped RC evidence reports with logs, exit codes, git commit, build hash, and GameOptimizer.exe SHA-256.
+19. Release gate smoke and soak runs create run-id scoped RC evidence reports with logs, exit codes, schema version, git commit, build hash, GameOptimizer.exe SHA-256, and BLOCKER/WARN/INFO severity summaries.
 20. Anti-cheat/access-denied Win32 boundaries are classified as recoverable limitations and fall back to monitoring-only behavior when no safe mutation can be verified.
 
 Validation:
@@ -37,7 +37,8 @@ Validation:
 3. Run run_release_gate_static_checks.py before merging.
 4. Run run_release_gate_smoke.bat <target.exe> for smoke validation.
 5. Run run_long_soak_presets.bat <target.exe> [30m|60m|both] for extended soak validation. The default RC path is both.
-6. Inspect release_gate_logs\<run-id>\rc_evidence_report.txt or .json for the final release decision evidence.
+6. Run release_gate_evidence.py verify-rc --target <target.exe> to verify that current-commit smoke and soak evidence reports both exist and passed. Schema, git commit, or exe SHA-256 mismatch is a BLOCKER. WARN is allowed but reported, and INFO is tracking data.
+7. Inspect release_gate_logs\<run-id>\rc_evidence_report.txt or .json for the final release decision evidence.
 
 Important:
 Apply mode can modify target thread scheduling and configured background process scheduling until shutdown rollback. Use --dry-run first, then soft-apply, then --apply only with a reviewed background filter.

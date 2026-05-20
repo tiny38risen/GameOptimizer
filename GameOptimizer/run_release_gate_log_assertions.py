@@ -97,6 +97,35 @@ def validate_background_stale_matching(log_text: str) -> list[str]:
     return failures
 
 
+def validate_access_denied_fallback_evidence(log_text: str) -> list[str]:
+    failures: list[str] = []
+    access_markers = [
+        "access denied",
+        "access boundary",
+        "recoverable access limitation",
+        "openthread failure",
+        "openprocess failure",
+    ]
+    evidence_markers = [
+        "monitoring-only fallback remains active",
+        "skipped",
+        "rollback path was invoked when needed",
+        "saved state discarded before mutation",
+        "no longer openable",
+        "blocked by an access boundary",
+    ]
+
+    for line_number, line in enumerate(log_text.splitlines(), start=1):
+        lowered = line.lower()
+        if not any(marker in lowered for marker in access_markers):
+            continue
+        if any(marker in lowered for marker in evidence_markers):
+            continue
+        failures.append(
+            f"access-denied/access-boundary log lacks fallback or rollback evidence at line {line_number}: {line}")
+    return failures
+
+
 def validate_timeline_monotonicity(log_text: str) -> list[str]:
     failures: list[str] = []
     cycles = [
@@ -140,6 +169,7 @@ def validate(mode: str, log_text: str) -> list[str]:
         failures.append("runtime validation error log found")
     if contains(log_text, "continue statement"):
         failures.append("compiler-style continue error text found")
+    failures.extend(validate_access_denied_fallback_evidence(log_text))
 
     if mode == "dry-run":
         forbidden_mutation_markers = [

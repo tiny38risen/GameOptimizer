@@ -9,7 +9,10 @@
 
 #include <Windows.h>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <sstream>
+#include <string>
 #include <string_view>
 
 namespace
@@ -30,6 +33,14 @@ namespace
             recordFailure(__FILE__, __LINE__, (message)); \
         } \
     } while (false)
+
+    [[nodiscard]] std::string readTextFile(const char* path)
+    {
+        std::ifstream file(path, std::ios::binary);
+        std::ostringstream buffer;
+        buffer << file.rdbuf();
+        return buffer.str();
+    }
 
     void testWin32AccessDeniedMapsToRecoverableCategory()
     {
@@ -54,12 +65,41 @@ namespace
         REQUIRE(!BackgroundController::isRecoverableAccessLimitation(ErrorCode::ProcessPriorityApplyFailed),
             "background controller must not hide generic process priority failures");
     }
+
+    void testAccessDeniedFallbackEvidenceMarkersArePresent()
+    {
+        const std::string schedulerText = readTextFile("SchedulerController.cpp");
+        const std::string backgroundText = readTextFile("BackgroundController.cpp");
+        const std::string rollbackText = readTextFile("RollbackManager.cpp");
+        const std::string mainText = readTextFile("main.cpp");
+        const std::string assertionsText = readTextFile("run_release_gate_log_assertions.py");
+
+        REQUIRE(schedulerText.find("monitoring-only fallback remains active") != std::string::npos,
+            "scheduler access-denied path must leave monitoring-only fallback evidence");
+        REQUIRE(schedulerText.find("rollback path was invoked when needed") != std::string::npos,
+            "scheduler access-denied priority path must leave rollback-path evidence");
+        REQUIRE(backgroundText.find("background process skipped by recoverable access limitation") != std::string::npos,
+            "background OpenProcess access-denied path must leave skip evidence");
+        REQUIRE(backgroundText.find("saved state discarded before mutation") != std::string::npos,
+            "background affinity access-denied path must prove saved state was discarded before mutation");
+        REQUIRE(backgroundText.find("rollback path was invoked when needed") != std::string::npos,
+            "background priority access-denied path must leave rollback-path evidence");
+        REQUIRE(rollbackText.find("blocked by an access boundary") != std::string::npos,
+            "rollback access-denied path must leave access-boundary evidence");
+        REQUIRE(rollbackText.find("no longer openable") != std::string::npos,
+            "rollback open failure must leave non-fatal skip evidence");
+        REQUIRE(mainText.find("policy drift audit limited by access boundary") != std::string::npos,
+            "runtime drift audit access boundary must leave monitoring-only evidence");
+        REQUIRE(assertionsText.find("validate_access_denied_fallback_evidence") != std::string::npos,
+            "release log assertions must validate access-denied fallback evidence");
+    }
 }
 
 int main()
 {
     testWin32AccessDeniedMapsToRecoverableCategory();
     testBackgroundAccessDeniedIsRecoverableButApplyFailureIsNot();
+    testAccessDeniedFallbackEvidenceMarkersArePresent();
 
     if (g_failureCount == 0)
     {

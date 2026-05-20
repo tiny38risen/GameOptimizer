@@ -3,6 +3,31 @@
 ## Goal
 Verify that the default Release path avoids display-only diagnostic work while preserving opt-in diagnostics.
 
+## RC candidate command
+
+The full RC entry command is:
+
+```bat
+run_rc_gate.bat <target.exe>
+```
+
+After the gate passes, save the final regression output and run:
+
+```bat
+verify_rc_candidate.py --target <target.exe> --regression-log <log>
+```
+
+Do not create the `v3.0-rc1` tag until this candidate check passes.
+
+## RC candidate required artifacts
+
+- Runbook: this file and the operational safety runbook must describe the release flow.
+- Blocker list: `ReleaseRegressionMatrix.md` must list release blockers.
+- evidence bundle: current-commit smoke and soak reports must exist under `release_gate_logs`.
+- Final regression result: a saved regression log must contain `failed=0` and `[PASS] all regression tests passed`.
+
+Any missing item is a `BLOCKER`.
+
 ## Default compact run
 ```bat
 GameOptimizer.exe target.exe --apply --background-filter background_filter_example.txt --latency-ping 8.8.8.8
@@ -42,6 +67,16 @@ The script captures logs under `release_gate_logs/` and validates them with:
 - `run_release_gate_log_assertions.py`
 
 Do not approve a release if either script fails, even when the executable itself exits with code 0.
+
+## v3.0-rc1 tag preparation
+
+Before tagging:
+
+1. `run_rc_gate.bat <target.exe>` passes.
+2. `verify_rc_candidate.py --target <target.exe> --regression-log <log>` passes.
+3. Smoke and soak `rc_evidence_report.json` files match the current git commit.
+4. `GameOptimizer.exe` SHA-256 matches the evidence report.
+5. The final regression log reports `failed=0`.
 
 
 ## ApplyGuard sequence gate

@@ -76,7 +76,10 @@ if "%RUN_DIR%"=="" (
 %PYTHON_CMD% run_release_gate_static_checks.py
 set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step static_checks --mode static --exit-code %STEP_EXIT% --command "run_release_gate_static_checks.py"
-if not "%STEP_EXIT%"=="0" goto fail
+if not "%STEP_EXIT%"=="0" (
+    echo [BLOCKER] release smoke failed: static checks failed
+    goto fail
+)
 
 echo [RG-1] dry-run smoke
 powershell -NoProfile -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference='Stop'; try { & '%EXE_PATH%' '%TARGET%' --dry-run --max-runtime-seconds 60 2>&1 | Tee-Object -FilePath '%RUN_DIR%\logs\rg1_dry_run.log'; exit $LASTEXITCODE } catch { $_ | Out-String | Tee-Object -FilePath '%RUN_DIR%\logs\rg1_dry_run.log'; exit 1 } }"
@@ -84,8 +87,14 @@ set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode dry-run "%RUN_DIR%\logs\rg1_dry_run.log"
 set ASSERT_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step rg1_dry_run --mode dry-run --log-file "%RUN_DIR%\logs\rg1_dry_run.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe target --dry-run --max-runtime-seconds 60"
-if not "%STEP_EXIT%"=="0" goto fail
-if not "%ASSERT_EXIT%"=="0" goto fail
+if not "%STEP_EXIT%"=="0" (
+    echo [BLOCKER] RG-1 dry-run command failed with exit code %STEP_EXIT%
+    goto fail
+)
+if not "%ASSERT_EXIT%"=="0" (
+    echo [BLOCKER] RG-1 dry-run log assertions failed with exit code %ASSERT_EXIT%
+    goto fail
+)
 
 echo [RG-2] soft-apply smoke
 powershell -NoProfile -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference='Stop'; try { & '%EXE_PATH%' '%TARGET%' --max-runtime-seconds 120 --thread-detail-log --thread-log-interval 4 2>&1 | Tee-Object -FilePath '%RUN_DIR%\logs\rg2_soft_apply.log'; exit $LASTEXITCODE } catch { $_ | Out-String | Tee-Object -FilePath '%RUN_DIR%\logs\rg2_soft_apply.log'; exit 1 } }"
@@ -93,8 +102,14 @@ set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode soft-apply "%RUN_DIR%\logs\rg2_soft_apply.log"
 set ASSERT_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step rg2_soft_apply --mode soft-apply --log-file "%RUN_DIR%\logs\rg2_soft_apply.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe target --max-runtime-seconds 120 --thread-detail-log --thread-log-interval 4"
-if not "%STEP_EXIT%"=="0" goto fail
-if not "%ASSERT_EXIT%"=="0" goto fail
+if not "%STEP_EXIT%"=="0" (
+    echo [BLOCKER] RG-2 soft-apply command failed with exit code %STEP_EXIT%
+    goto fail
+)
+if not "%ASSERT_EXIT%"=="0" (
+    echo [BLOCKER] RG-2 soft-apply log assertions failed with exit code %ASSERT_EXIT%
+    goto fail
+)
 
 echo [RG-3] apply smoke
 powershell -NoProfile -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference='Stop'; try { & '%EXE_PATH%' '%TARGET%' --apply --latency-ping 8.8.8.8 --background-filter background_filter_example.txt --max-runtime-seconds 180 2>&1 | Tee-Object -FilePath '%RUN_DIR%\logs\rg3_apply.log'; exit $LASTEXITCODE } catch { $_ | Out-String | Tee-Object -FilePath '%RUN_DIR%\logs\rg3_apply.log'; exit 1 } }"
@@ -102,8 +117,14 @@ set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode apply "%RUN_DIR%\logs\rg3_apply.log"
 set ASSERT_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step rg3_apply --mode apply --log-file "%RUN_DIR%\logs\rg3_apply.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe target --apply --latency-ping 8.8.8.8 --background-filter background_filter_example.txt --max-runtime-seconds 180"
-if not "%STEP_EXIT%"=="0" goto fail
-if not "%ASSERT_EXIT%"=="0" goto fail
+if not "%STEP_EXIT%"=="0" (
+    echo [BLOCKER] RG-3 apply command failed with exit code %STEP_EXIT%
+    goto fail
+)
+if not "%ASSERT_EXIT%"=="0" (
+    echo [BLOCKER] RG-3 apply log assertions failed with exit code %ASSERT_EXIT%
+    goto fail
+)
 
 echo [RG-4] timeout safe-point smoke
 powershell -NoProfile -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference='Stop'; try { & '%EXE_PATH%' '%TARGET%' --dry-run --max-runtime-seconds 5 2>&1 | Tee-Object -FilePath '%RUN_DIR%\logs\rg4_timeout.log'; exit $LASTEXITCODE } catch { $_ | Out-String | Tee-Object -FilePath '%RUN_DIR%\logs\rg4_timeout.log'; exit 1 } }"
@@ -111,8 +132,14 @@ set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode timeout "%RUN_DIR%\logs\rg4_timeout.log"
 set ASSERT_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step rg4_timeout --mode timeout --log-file "%RUN_DIR%\logs\rg4_timeout.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe target --dry-run --max-runtime-seconds 5"
-if not "%STEP_EXIT%"=="0" goto fail
-if not "%ASSERT_EXIT%"=="0" goto fail
+if not "%STEP_EXIT%"=="0" (
+    echo [BLOCKER] RG-4 timeout command failed with exit code %STEP_EXIT%
+    goto fail
+)
+if not "%ASSERT_EXIT%"=="0" (
+    echo [BLOCKER] RG-4 timeout log assertions failed with exit code %ASSERT_EXIT%
+    goto fail
+)
 
 %PYTHON_CMD% release_gate_evidence.py finalize --run-dir "%RUN_DIR%"
 if errorlevel 1 exit /b 1

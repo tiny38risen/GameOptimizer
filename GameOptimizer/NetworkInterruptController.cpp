@@ -131,15 +131,20 @@ NetworkInterruptStatus NetworkInterruptController::status() const noexcept
 
 std::expected<void, ErrorCode> NetworkInterruptController::handleIrqRepin() noexcept
 {
+    ++status_.irqRepinRequestCount;
     if (!status_.interruptAffinitySupported)
     {
+        ++status_.irqRepinSuppressedCount;
         Logger::warn(
-            "IRQ_REPIN ignored: interrupt affinity control is unsupported; continuing DPC monitoring only");
+            "IRQ_REPIN ignored: interrupt affinity control is unsupported; continuing DPC monitoring only (requests={}, suppressed={})",
+            status_.irqRepinRequestCount,
+            status_.irqRepinSuppressedCount);
         return {};
     }
 
     Logger::warn(
-        "IRQ_REPIN dispatch path reached, but no public Win32 interrupt-affinity mutation backend is enabled; continuing monitoring-only");
+        "IRQ_REPIN dispatch path reached, but no public Win32 interrupt-affinity mutation backend is enabled; continuing monitoring-only (requests={})",
+        status_.irqRepinRequestCount);
     return {};
 }
 

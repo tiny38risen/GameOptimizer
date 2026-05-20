@@ -3,6 +3,7 @@ setlocal enabledelayedexpansion
 
 set FAILURE_COUNT=0
 set TEST_COUNT=0
+set PYTHON_CMD=
 
 call build_decision_layer_tests.bat
 if errorlevel 1 (
@@ -61,6 +62,16 @@ if errorlevel 1 (
 )
 
 set /a TEST_COUNT+=1
+echo [INFO] running ProcessorGroupHedtEvidenceTests...
+build_tests\ProcessorGroupHedtEvidenceTests.exe
+if errorlevel 1 (
+    echo [FAIL] ProcessorGroupHedtEvidenceTests failed
+    set /a FAILURE_COUNT+=1
+) else (
+    echo [PASS] ProcessorGroupHedtEvidenceTests passed
+)
+
+set /a TEST_COUNT+=1
 echo [INFO] running NetworkInterruptControllerTests...
 build_tests\NetworkInterruptControllerTests.exe
 if errorlevel 1 (
@@ -88,6 +99,44 @@ if errorlevel 1 (
     set /a FAILURE_COUNT+=1
 ) else (
     echo [PASS] AntiCheatFallbackTests passed
+)
+
+set BUNDLED_PYTHON=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe
+if exist "%BUNDLED_PYTHON%" (
+    set PYTHON_CMD="%BUNDLED_PYTHON%"
+)
+if "%PYTHON_CMD%"=="" (
+    where python >nul 2>nul
+    if not errorlevel 1 (
+        python --version >nul 2>nul
+        if not errorlevel 1 (
+            set PYTHON_CMD=python
+        )
+    )
+)
+if "%PYTHON_CMD%"=="" (
+    where py >nul 2>nul
+    if not errorlevel 1 (
+        py -3 --version >nul 2>nul
+        if not errorlevel 1 (
+            set PYTHON_CMD=py -3
+        )
+    )
+)
+
+set /a TEST_COUNT+=1
+echo [INFO] running release_gate_evidence_selftest...
+if "%PYTHON_CMD%"=="" (
+    echo [FAIL] release_gate_evidence_selftest failed because Python 3 was not found
+    set /a FAILURE_COUNT+=1
+) else (
+    %PYTHON_CMD% release_gate_evidence_selftest.py
+    if errorlevel 1 (
+        echo [FAIL] release_gate_evidence_selftest failed
+        set /a FAILURE_COUNT+=1
+    ) else (
+        echo [PASS] release_gate_evidence_selftest passed
+    )
 )
 
 echo.

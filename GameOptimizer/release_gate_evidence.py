@@ -12,6 +12,8 @@ from typing import Any
 ROOT = pathlib.Path(__file__).resolve().parent
 LOG_ROOT = ROOT / "release_gate_logs"
 STATE_FILE_NAME = "evidence_state.json"
+MAX_OBSERVATION_SAMPLES = 20
+EXPECTED_SCHEMA = "gameoptimizer.rc_evidence.v1"
 
 
 def utc_now() -> str:
@@ -95,7 +97,7 @@ def init_evidence(args: argparse.Namespace) -> int:
     cwd_exe_path = (pathlib.Path.cwd() / args.exe).resolve()
     exe_path = cwd_exe_path if cwd_exe_path.exists() else (ROOT / args.exe).resolve()
     state: dict[str, Any] = {
-        "schema": "gameoptimizer.rc_evidence.v1",
+        "schema": EXPECTED_SCHEMA,
         "kind": args.kind,
         "run_id": run_dir.name,
         "status": "RUNNING",
@@ -118,6 +120,14 @@ def detect_runtime_validation_failed(log_text: str) -> bool:
     return "runtime validation result: failed" in log_text.lower()
 
 
+def extract_log_lines(log_text: str, marker: str) -> list[str]:
+    lines: list[str] = []
+    for line in log_text.splitlines():
+        if marker in line:
+            lines.append(line.strip())
+    return lines
+
+
 def record_step(args: argparse.Namespace) -> int:
     run_dir = pathlib.Path(args.run_dir)
     state = load_state(run_dir)
@@ -136,6 +146,9 @@ def record_step(args: argparse.Namespace) -> int:
         "log_sha256": sha256_file(log_path) if log_path else None,
         "log_bytes": log_path.stat().st_size if log_path and log_path.exists() else None,
         "runtime_validation_failed": detect_runtime_validation_failed(log_text),
+        "warn_count": len(extract_log_lines(log_text, "[WARN]")),
+        "warn_samples": extract_log_lines(log_text, "[WARN]")[:MAX_OBSERVATION_SAMPLES],
+        "info_count": len(extract_log_lines(log_text, "[INFO]")),
         "recorded_utc": utc_now(),
     }
     state["steps"].append(step)
@@ -160,6 +173,52 @@ def summarize_failures(state: dict[str, Any]) -> list[str]:
     return failures
 
 
+def summarize_warnings(state: dict[str, Any]) -> list[str]:
+    warnings: list[str] = []
+    for step in state["steps"]:
+        label = step["step"]
+        warn_count = int(step.get("warn_count") or 0)
+        if warn_count == 0:
+            continue
+        samples = step.get("warn_samples") or []
+        warnings.append(f"{label}: {warn_count} warning log line(s) observed")
+        warnings.extend(f"{label}: {sample}" for sample in samples)
+    return warnings
+
+
+def summarize_info(state: dict[str, Any]) -> list[str]:
+    info: list[str] = [
+        f"target: {state['target']}",
+        f"git_commit: {state['git_commit']}",
+        f"build_hash: {state['build_hash']}",
+        f"exe_sha256: {state['exe_sha256']}",
+    ]
+    for step in state["steps"]:
+        info.append(f"{step['step']}: {int(step.get('info_count') or 0)} info log line(s) observed")
+    return info
+
+
+def apply_severity_summary(state: dict[str, Any]) -> None:
+    blockers = list(state.get("blockers") or state.get("failures") or [])
+    warnings = list(state.get("warnings") or [])
+    info = list(state.get("info") or [])
+    state["blockers"] = blockers
+    state["failures"] = blockers
+    state["warnings"] = warnings
+    state["info"] = info
+    state["severity_summary"] = {
+        "BLOCKER": len(blockers),
+        "WARN": len(warnings),
+        "INFO": len(info),
+    }
+    if blockers:
+        state["status"] = "FAIL"
+    elif warnings:
+        state["status"] = "PASS_WITH_WARNINGS"
+    else:
+        state["status"] = "PASS"
+
+
 def validate_required_soak_steps(state: dict[str, Any]) -> list[str]:
     if state["kind"] != "soak":
         return []
@@ -173,6 +232,159 @@ def validate_required_soak_steps(state: dict[str, Any]) -> list[str]:
     return [f"required RC soak step missing: {step}" for step in missing_steps]
 
 
+def validate_required_smoke_steps(state: dict[str, Any]) -> list[str]:
+    if state["kind"] != "smoke":
+        return []
+
+    completed_steps = {step["step"] for step in state["steps"]}
+    required_steps = {
+        "static_checks",
+        "rg1_dry_run",
+        "rg2_soft_apply",
+        "rg3_apply",
+        "rg4_timeout",
+    }
+    missing_steps = sorted(required_steps - completed_steps)
+    return [f"required smoke step missing: {step}" for step in missing_steps]
+
+
+def step_is_successful(step: dict[str, Any]) -> bool:
+    return (
+        step.get("exit_code") == 0
+        and step.get("assertion_exit_code") in (None, 0)
+        and not step.get("runtime_validation_failed", False)
+    )
+
+
+def report_is_successful(state: dict[str, Any]) -> bool:
+    return (
+        state.get("status") in ("PASS", "PASS_WITH_WARNINGS")
+        and not state.get("blockers", state.get("failures"))
+        and all(step_is_successful(step) for step in state.get("steps", []))
+    )
+
+
+def report_matches_target(state: dict[str, Any], target: str) -> bool:
+    return state.get("target") == target
+
+
+def load_evidence_reports() -> list[tuple[pathlib.Path, dict[str, Any]]]:
+    reports: list[tuple[pathlib.Path, dict[str, Any]]] = []
+    if not LOG_ROOT.exists():
+        return reports
+
+    for report_path in sorted(LOG_ROOT.glob("*/rc_evidence_report.json")):
+        try:
+            reports.append((report_path, read_json(report_path)))
+        except (OSError, json.JSONDecodeError):
+            continue
+    return reports
+
+
+def find_latest_report(kind: str, target: str) -> tuple[pathlib.Path, dict[str, Any]] | None:
+    matches = [
+        (path, state)
+        for path, state in load_evidence_reports()
+        if state.get("kind") == kind and report_matches_target(state, target)
+    ]
+    if not matches:
+        return None
+    return max(matches, key=lambda item: item[1].get("finished_utc") or item[1].get("started_utc") or "")
+
+
+def validate_report_identity(state: dict[str, Any], label: str, git_commit: str) -> list[str]:
+    failures: list[str] = []
+    if state.get("schema") != EXPECTED_SCHEMA:
+        failures.append(
+            f"{label} evidence schema version mismatch: expected {EXPECTED_SCHEMA}, found {state.get('schema')}")
+    if state.get("git_commit") != git_commit:
+        failures.append(
+            f"{label} evidence git commit mismatch: expected {git_commit}, found {state.get('git_commit')}")
+
+    recorded_hash = state.get("exe_sha256")
+    exe_path_text = state.get("exe_path")
+    if not recorded_hash:
+        failures.append(f"{label} evidence exe SHA-256 is missing")
+    if not exe_path_text:
+        failures.append(f"{label} evidence exe path is missing")
+    elif recorded_hash:
+        current_hash = sha256_file(pathlib.Path(exe_path_text))
+        if current_hash is None:
+            failures.append(f"{label} evidence exe path is not readable: {exe_path_text}")
+        elif current_hash != recorded_hash:
+            failures.append(
+                f"{label} evidence exe SHA-256 mismatch: expected {current_hash}, found {recorded_hash}")
+    return failures
+
+
+def validate_smoke_report(state: dict[str, Any], git_commit: str) -> list[str]:
+    failures: list[str] = []
+    failures.extend(validate_report_identity(state, "smoke", git_commit))
+    if not report_is_successful(state):
+        failures.append(f"smoke evidence report is not PASS: {state.get('run_id')}")
+    failures.extend(validate_required_smoke_steps(state))
+    return failures
+
+
+def validate_soak_report(state: dict[str, Any], git_commit: str) -> list[str]:
+    failures: list[str] = []
+    failures.extend(validate_report_identity(state, "soak", git_commit))
+    if not report_is_successful(state):
+        failures.append(f"soak evidence report is not PASS: {state.get('run_id')}")
+    failures.extend(validate_required_soak_steps(state))
+    return failures
+
+
+def validate_evidence_pair(
+    smoke_state: dict[str, Any],
+    soak_state: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    if smoke_state.get("exe_sha256") != soak_state.get("exe_sha256"):
+        failures.append(
+            "smoke/soak evidence exe SHA-256 mismatch: "
+            f"smoke={smoke_state.get('exe_sha256')}, soak={soak_state.get('exe_sha256')}")
+    if smoke_state.get("build_hash") != soak_state.get("build_hash"):
+        failures.append(
+            "smoke/soak evidence build hash mismatch: "
+            f"smoke={smoke_state.get('build_hash')}, soak={soak_state.get('build_hash')}")
+    return failures
+
+
+def verify_rc_evidence(args: argparse.Namespace) -> int:
+    git_commit = run_git(["rev-parse", "HEAD"]) or "unknown"
+    smoke_report = find_latest_report("smoke", args.target)
+    soak_report = find_latest_report("soak", args.target)
+    failures: list[str] = []
+
+    if smoke_report is None:
+        failures.append(
+            f"required smoke evidence report missing for target={args.target} commit={git_commit}")
+    else:
+        failures.extend(validate_smoke_report(smoke_report[1], git_commit))
+
+    if soak_report is None:
+        failures.append(
+            f"required soak evidence report missing for target={args.target} commit={git_commit}")
+    else:
+        failures.extend(validate_soak_report(soak_report[1], git_commit))
+
+    if smoke_report is not None and soak_report is not None:
+        failures.extend(validate_evidence_pair(smoke_report[1], soak_report[1]))
+
+    if failures:
+        for failure in failures:
+            print(f"[BLOCKER] RC evidence verification: {failure}")
+        return 1
+
+    assert smoke_report is not None
+    assert soak_report is not None
+    print(f"[PASS] RC evidence verification passed for target={args.target} commit={git_commit}")
+    print(f"[INFO] smoke evidence: {smoke_report[0]}")
+    print(f"[INFO] soak evidence: {soak_report[0]}")
+    return 0
+
+
 def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
     lines = [
         "GameOptimizer RC Evidence Report",
@@ -180,6 +392,8 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
         f"Run ID: {state['run_id']}",
         f"Kind: {state['kind']}",
         f"Status: {state['status']}",
+        f"Severity: BLOCKER={state['severity_summary']['BLOCKER']}, "
+        f"WARN={state['severity_summary']['WARN']}, INFO={state['severity_summary']['INFO']}",
         f"Started UTC: {state['started_utc']}",
         f"Finished UTC: {state['finished_utc']}",
         f"Target: {state['target']}",
@@ -195,12 +409,24 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
             f"  command exit code: {step['exit_code']}",
             f"  assertion exit code: {step['assertion_exit_code']}",
             f"  runtime validation failed: {step['runtime_validation_failed']}",
+            f"  warn count: {step.get('warn_count', 0)}",
+            f"  info count: {step.get('info_count', 0)}",
             f"  log: {step['log_file']}",
             f"  log sha256: {step['log_sha256']}",
         ])
-    lines.extend(["", "Failures:"])
-    if state["failures"]:
-        lines.extend(f"- {failure}" for failure in state["failures"])
+    lines.extend(["", "BLOCKER:"])
+    if state["blockers"]:
+        lines.extend(f"- {blocker}" for blocker in state["blockers"])
+    else:
+        lines.append("- none")
+    lines.extend(["", "WARN:"])
+    if state["warnings"]:
+        lines.extend(f"- {warning}" for warning in state["warnings"])
+    else:
+        lines.append("- none")
+    lines.extend(["", "INFO:"])
+    if state["info"]:
+        lines.extend(f"- {item}" for item in state["info"])
     else:
         lines.append("- none")
     (run_dir / "rc_evidence_report.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -210,15 +436,17 @@ def finalize_evidence(args: argparse.Namespace) -> int:
     run_dir = pathlib.Path(args.run_dir)
     state = load_state(run_dir)
     state["finished_utc"] = utc_now()
-    state["failures"] = summarize_failures(state)
+    state["blockers"] = summarize_failures(state)
     if args.require_soak_both:
-        state["failures"].extend(validate_required_soak_steps(state))
-    state["status"] = "PASS" if not state["failures"] else "FAIL"
+        state["blockers"].extend(validate_required_soak_steps(state))
+    state["warnings"] = summarize_warnings(state)
+    state["info"] = summarize_info(state)
+    apply_severity_summary(state)
     write_json(run_dir / "rc_evidence_report.json", state)
     write_text_report(run_dir, state)
     save_state(run_dir, state)
     print(f"[{state['status']}] evidence report: {run_dir / 'rc_evidence_report.txt'}")
-    return 0 if state["status"] == "PASS" else 1
+    return 0 if state["status"] in ("PASS", "PASS_WITH_WARNINGS") else 1
 
 
 def main() -> int:
@@ -245,6 +473,10 @@ def main() -> int:
     finalize_parser.add_argument("--run-dir", required=True)
     finalize_parser.add_argument("--require-soak-both", action="store_true")
     finalize_parser.set_defaults(func=finalize_evidence)
+
+    verify_parser = subparsers.add_parser("verify-rc")
+    verify_parser.add_argument("--target", required=True)
+    verify_parser.set_defaults(func=verify_rc_evidence)
 
     args = parser.parse_args()
     return args.func(args)

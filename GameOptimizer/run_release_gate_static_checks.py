@@ -11,6 +11,8 @@ REGRESSION_TESTS_FILE = ROOT / "run_regression_tests.bat"
 LONG_SOAK_PRESETS_FILE = ROOT / "run_long_soak_presets.bat"
 SOAK_HANG_DETECTION_FILE = ROOT / "run_soak_with_hang_detection.py"
 RELEASE_GATE_EVIDENCE_FILE = ROOT / "release_gate_evidence.py"
+RELEASE_GATE_EVIDENCE_SELFTEST_FILE = ROOT / "release_gate_evidence_selftest.py"
+VERIFY_RC_CANDIDATE_FILE = ROOT / "verify_rc_candidate.py"
 
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"const\s+DWORD\s+targetProcessId\s*=\s*\*processId\s*;", "targetProcessId bind missing"),
@@ -300,18 +302,84 @@ def check_dpc_monitoring_is_not_placeholder() -> list[str]:
     return []
 
 
+def check_network_irq_unsupported_policy_is_warn_only() -> list[str]:
+    failures: list[str] = []
+    controller_text = (ROOT / "NetworkInterruptController.cpp").read_text(encoding="utf-8", errors="replace")
+    controller_header_text = (ROOT / "NetworkInterruptController.h").read_text(encoding="utf-8", errors="replace")
+    tests_text = (ROOT / "NetworkInterruptControllerTests.cpp").read_text(encoding="utf-8", errors="replace")
+    dispatcher_text = (ROOT / "PolicyDispatcher.cpp").read_text(encoding="utf-8", errors="replace")
+    build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
+    regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
+    combined_text = "\n".join([
+        controller_text,
+        controller_header_text,
+        tests_text,
+        dispatcher_text,
+        build_text,
+        regression_text,
+    ])
+
+    required_markers = [
+        "IRQ_REPIN ignored: interrupt affinity control is unsupported; continuing DPC monitoring only",
+        "return {};",
+        "irqRepinRequestCount",
+        "irqRepinSuppressedCount",
+        "unsupported IRQ_REPIN must be ignored as a non-fatal fallback",
+        "unsupported IRQ_REPIN must be recorded as suppressed monitoring-only evidence",
+        "IT-2: unsupported dispatcher IRQ_REPIN must be suppressed as WARN + monitoring-only evidence",
+        "forced-support IRQ_REPIN path must remain non-fatal while no mutation backend exists",
+        "NetworkInterruptControllerTests.cpp",
+        "NetworkInterruptControllerTests.exe",
+        "running NetworkInterruptControllerTests",
+        "networkInterruptController_->handleIrqRepin()",
+    ]
+    for marker in required_markers:
+        if marker not in combined_text:
+            failures.append(f"[FAIL] Network IRQ gate: missing WARN/monitoring-only marker: {marker}")
+
+    unsupported_body = extract_function_body(controller_text, "NetworkInterruptController::handleIrqRepin")
+    if unsupported_body is None:
+        failures.append("[FAIL] Network IRQ gate: handleIrqRepin body not found")
+    else:
+        unsupported_index = unsupported_body.find("!status_.interruptAffinitySupported")
+        warn_index = unsupported_body.find("Logger::warn", unsupported_index)
+        success_index = unsupported_body.find("return {};", unsupported_index)
+        unexpected_index = unsupported_body.find("std::unexpected", unsupported_index)
+        if unsupported_index < 0:
+            failures.append("[FAIL] Network IRQ gate: unsupported interrupt-affinity branch missing")
+        if warn_index < 0:
+            failures.append("[FAIL] Network IRQ gate: unsupported IRQ_REPIN branch must log WARN")
+        if success_index < 0:
+            failures.append("[FAIL] Network IRQ gate: unsupported IRQ_REPIN branch must return success")
+        if unexpected_index >= 0 and (success_index < 0 or unexpected_index < success_index):
+            failures.append("[FAIL] Network IRQ gate: unsupported IRQ_REPIN must not return std::unexpected")
+    return failures
+
+
 def check_background_processor_group_policy_is_explicit() -> list[str]:
     background_text = (ROOT / "BackgroundController.cpp").read_text(encoding="utf-8", errors="replace")
     background_header_text = (ROOT / "BackgroundController.h").read_text(encoding="utf-8", errors="replace")
     rollback_text = (ROOT / "RollbackManager.cpp").read_text(encoding="utf-8", errors="replace")
     topology_text = (ROOT / "TopologyAnalyzer.cpp").read_text(encoding="utf-8", errors="replace")
+    topology_tests_text = (ROOT / "TopologyAnalyzerTests.cpp").read_text(encoding="utf-8", errors="replace")
+    processor_group_tests_text = (ROOT / "ProcessorGroupHedtEvidenceTests.cpp").read_text(encoding="utf-8", errors="replace")
     scheduler_text = (ROOT / "SchedulerController.cpp").read_text(encoding="utf-8", errors="replace")
+    main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
+    project_text = PROJECT_FILE.read_text(encoding="utf-8", errors="replace")
+    build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
+    regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     combined_text = "\n".join([
         background_text,
         background_header_text,
         rollback_text,
         topology_text,
+        topology_tests_text,
+        processor_group_tests_text,
         scheduler_text,
+        main_text,
+        project_text,
+        build_text,
+        regression_text,
     ])
     required_markers = [
         "return processorGroup == 0;",
@@ -326,6 +394,15 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         "background rollback restored PID {} (group={}",
         "mask_provenance",
         "TopologyMaskProvenance::ProcessAffinityFallback",
+        "topology fallback policy selected from process affinity: group={}",
+        "ProcessorGroupHedtEvidenceTests.cpp",
+        "ProcessorGroupHedtEvidenceTests.exe",
+        "running ProcessorGroupHedtEvidenceTests",
+        "ProcessorGroup/HEDT evidence tests completed",
+        "processorGroup == 1",
+        "targetAffinity.Group = state.originalProcessorGroup.value_or(0);",
+        "rollback audit passed for TID {} (group={}",
+        "expected(group={}",
     ]
     failures: list[str] = []
     for marker in required_markers:
@@ -454,15 +531,28 @@ def check_timer_input_module_registration() -> list[str]:
         "InputThreadTidConfidence::Low",
         "InputThreadTidConfidence::High",
         "InputThreadTidSource::EtwInvestigationPending",
+        "InputThreadTidSource::ConcreteTid",
         "GetRegisteredRawInputDevices",
         "isInputThreadPinningAllowed",
         "status.tidConfidence == InputThreadTidConfidence::High",
+        "status.tidSource == InputThreadTidSource::ConcreteTid",
         "pinningEligible",
         "fallbackMonitoringOnly",
+        "TID source is not ConcreteTid",
     ]
     for marker in required_input_markers:
         if marker not in input_latency_text:
             failures.append(f"[FAIL] Timer/Input gate: Raw Input fallback contract missing: {marker}")
+
+    tests_text = (ROOT / "TimerInputControllerTests.cpp").read_text(encoding="utf-8", errors="replace")
+    required_input_test_markers = [
+        "pinning must reject medium-confidence non-concrete TID candidates",
+        "pinning must reject high-confidence candidates until the TID source is ConcreteTid",
+        "High confidence, and ConcreteTid source",
+    ]
+    for marker in required_input_test_markers:
+        if marker not in tests_text:
+            failures.append(f"[FAIL] Timer/Input gate: concrete TID pinning test missing: {marker}")
 
     return failures
 
@@ -482,6 +572,9 @@ def check_anti_cheat_fallback_contract() -> list[str]:
     background_text = (ROOT / "BackgroundController.cpp").read_text(encoding="utf-8", errors="replace")
     background_header_text = (ROOT / "BackgroundController.h").read_text(encoding="utf-8", errors="replace")
     rollback_text = (ROOT / "RollbackManager.cpp").read_text(encoding="utf-8", errors="replace")
+    main_text = (ROOT / "main.cpp").read_text(encoding="utf-8", errors="replace")
+    tests_text = (ROOT / "AntiCheatFallbackTests.cpp").read_text(encoding="utf-8", errors="replace")
+    assertions_text = (ROOT / "run_release_gate_log_assertions.py").read_text(encoding="utf-8", errors="replace")
     winapi_text = (ROOT / "WinApiError.h").read_text(encoding="utf-8", errors="replace")
     build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
@@ -491,6 +584,9 @@ def check_anti_cheat_fallback_contract() -> list[str]:
         background_text,
         background_header_text,
         rollback_text,
+        main_text,
+        tests_text,
+        assertions_text,
         winapi_text,
         build_text,
         regression_text,
@@ -503,10 +599,15 @@ def check_anti_cheat_fallback_contract() -> list[str]:
         "BackgroundController::isRecoverableAccessLimitation",
         "monitoring-only fallback remains active",
         "recoverable access limitation",
+        "rollback path was invoked when needed",
+        "saved state discarded before mutation",
+        "validate_access_denied_fallback_evidence",
+        "access-denied/access-boundary log lacks fallback or rollback evidence",
         "background rollback skipped for PID {} because the original process is no longer openable or is blocked by an access boundary",
         "AntiCheatFallbackTests.cpp",
         "AntiCheatFallbackTests.exe",
         "running AntiCheatFallbackTests",
+        "testAccessDeniedFallbackEvidenceMarkersArePresent",
     ]
     for marker in required_markers:
         if marker not in combined_text:
@@ -527,6 +628,12 @@ def check_rc_gate_contract() -> list[str]:
         "run_regression_tests.bat",
         "run_release_gate_smoke.bat",
         "run_long_soak_presets.bat",
+        "release_gate_evidence.py verify-rc",
+        "RC_BLOCKER",
+        "[BLOCKER] RC gate failed",
+        "release smoke failed",
+        "30m or 60m soak failed",
+        "verify-rc failed",
         "both",
         "release_gate_logs",
         "[PASS] RC gate passed",
@@ -558,6 +665,10 @@ def check_long_soak_automation_contract() -> list[str]:
             "--mode soak",
             "--max-runtime-seconds 1800",
             "--max-runtime-seconds 3600",
+            "[BLOCKER] SOAK-30M command failed",
+            "[BLOCKER] SOAK-60M command failed",
+            "[BLOCKER] SOAK-30M log assertions failed",
+            "[BLOCKER] SOAK-60M log assertions failed",
         ]
         for marker in required_soak_markers:
             if marker not in soak_text:
@@ -593,8 +704,12 @@ def check_release_evidence_contract() -> list[str]:
     failures: list[str] = []
     if not RELEASE_GATE_EVIDENCE_FILE.exists():
         return ["[FAIL] RC evidence gate: release_gate_evidence.py is missing"]
+    if not RELEASE_GATE_EVIDENCE_SELFTEST_FILE.exists():
+        return ["[FAIL] RC evidence gate: release_gate_evidence_selftest.py is missing"]
 
     evidence_text = RELEASE_GATE_EVIDENCE_FILE.read_text(encoding="utf-8", errors="replace")
+    evidence_selftest_text = RELEASE_GATE_EVIDENCE_SELFTEST_FILE.read_text(encoding="utf-8", errors="replace")
+    regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     required_evidence_markers = [
         "rc_evidence_report.json",
         "rc_evidence_report.txt",
@@ -603,11 +718,35 @@ def check_release_evidence_contract() -> list[str]:
         "build_hash",
         "runtime validation FAILED must pair with process exit code 1",
         "required RC soak step missing",
+        "required smoke step missing",
+        "verify-rc",
+        "EXPECTED_SCHEMA",
+        "schema version mismatch",
+        "git commit mismatch",
+        "exe SHA-256 mismatch",
+        "BLOCKER",
+        "PASS_WITH_WARNINGS",
+        "severity_summary",
         "release_gate_logs",
     ]
     for marker in required_evidence_markers:
         if marker not in evidence_text:
             failures.append(f"[FAIL] RC evidence gate: evidence writer missing marker: {marker}")
+
+    required_selftest_markers = [
+        "release_gate_evidence_selftest.py",
+        "missing evidence unexpectedly passed",
+        "complete synthetic evidence did not pass",
+        "WARN-only evidence did not produce PASS_WITH_WARNINGS",
+        "schema version mismatch unexpectedly passed",
+        "git commit mismatch unexpectedly passed",
+        "exe SHA-256 mismatch unexpectedly passed",
+        "RC evidence self-test passed",
+    ]
+    combined_selftest_text = "\n".join([evidence_selftest_text, regression_text])
+    for marker in required_selftest_markers:
+        if marker not in combined_selftest_text:
+            failures.append(f"[FAIL] RC evidence gate: self-test registration missing marker: {marker}")
 
     script_requirements = [
         (ROOT / "run_release_gate_smoke.bat", "smoke"),
@@ -626,6 +765,21 @@ def check_release_evidence_contract() -> list[str]:
                 failures.append(
                     f"[FAIL] RC evidence gate: {script_path.name} missing marker: {marker}")
 
+    smoke_text = (ROOT / "run_release_gate_smoke.bat").read_text(encoding="utf-8", errors="replace")
+    required_smoke_blocker_markers = [
+        "[BLOCKER] RG-1 dry-run command failed",
+        "[BLOCKER] RG-2 soft-apply command failed",
+        "[BLOCKER] RG-3 apply command failed",
+        "[BLOCKER] RG-4 timeout command failed",
+        "[BLOCKER] RG-1 dry-run log assertions failed",
+        "[BLOCKER] RG-2 soft-apply log assertions failed",
+        "[BLOCKER] RG-3 apply log assertions failed",
+        "[BLOCKER] RG-4 timeout log assertions failed",
+    ]
+    for marker in required_smoke_blocker_markers:
+        if marker not in smoke_text:
+            failures.append(f"[FAIL] RC smoke gate: missing BLOCKER marker: {marker}")
+
     soak_text = (ROOT / "run_long_soak_presets.bat").read_text(encoding="utf-8", errors="replace")
     required_rc_soak_markers = [
         "set PRESET=both",
@@ -637,6 +791,37 @@ def check_release_evidence_contract() -> list[str]:
         if marker not in soak_text:
             failures.append(f"[FAIL] RC soak gate: missing marker: {marker}")
 
+    return failures
+
+
+def check_rc_candidate_contract() -> list[str]:
+    failures: list[str] = []
+    if not VERIFY_RC_CANDIDATE_FILE.exists():
+        return ["[FAIL] RC candidate gate: verify_rc_candidate.py is missing"]
+
+    candidate_text = VERIFY_RC_CANDIDATE_FILE.read_text(encoding="utf-8", errors="replace")
+    runbook_text = (ROOT / "ReleaseGateRunbook.md").read_text(encoding="utf-8", errors="replace")
+    matrix_text = (ROOT / "ReleaseRegressionMatrix.md").read_text(encoding="utf-8", errors="replace")
+    ops_text = (ROOT / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
+    combined_text = "\n".join([candidate_text, runbook_text, matrix_text, ops_text])
+
+    required_markers = [
+        "verify_rc_candidate.py --target <target.exe> --regression-log <log>",
+        "v3.0-rc1",
+        "Runbook",
+        "blocker list",
+        "evidence bundle",
+        "final regression result",
+        "failed=0",
+        "[PASS] all regression tests passed",
+        "validate_evidence_bundle",
+        "validate_regression_log",
+        "validate_runbooks",
+        "[BLOCKER] RC candidate verification",
+    ]
+    for marker in required_markers:
+        if marker not in combined_text:
+            failures.append(f"[FAIL] RC candidate gate: missing marker: {marker}")
     return failures
 
 
@@ -677,6 +862,7 @@ def main() -> int:
 
     failures.extend(check_apply_guard_transaction_patterns())
     failures.extend(check_dpc_monitoring_is_not_placeholder())
+    failures.extend(check_network_irq_unsupported_policy_is_warn_only())
     failures.extend(check_background_processor_group_policy_is_explicit())
     failures.extend(check_cpp20_runtime_contracts())
     failures.extend(check_project_language_contracts())
@@ -685,6 +871,7 @@ def main() -> int:
     failures.extend(check_rc_gate_contract())
     failures.extend(check_long_soak_automation_contract())
     failures.extend(check_release_evidence_contract())
+    failures.extend(check_rc_candidate_contract())
     failures.extend(check_runtime_validation_failure_exit_code_contract())
 
     if failures:

@@ -116,11 +116,24 @@ namespace
             .inputThreadId = 99,
             .tidConfidence = InputThreadTidConfidence::Low}),
             "pinning must reject low-confidence TID candidates");
+        REQUIRE(!InputLatencyController::isInputThreadPinningAllowed(InputLatencyStatus{
+            .rawInputDetected = true,
+            .inputThreadId = 99,
+            .tidConfidence = InputThreadTidConfidence::Medium,
+            .tidSource = InputThreadTidSource::ForegroundMessageQueueInvestigationPending}),
+            "pinning must reject medium-confidence non-concrete TID candidates");
+        REQUIRE(!InputLatencyController::isInputThreadPinningAllowed(InputLatencyStatus{
+            .rawInputDetected = true,
+            .inputThreadId = 99,
+            .tidConfidence = InputThreadTidConfidence::High,
+            .tidSource = InputThreadTidSource::EtwInvestigationPending}),
+            "pinning must reject high-confidence candidates until the TID source is ConcreteTid");
         REQUIRE(InputLatencyController::isInputThreadPinningAllowed(InputLatencyStatus{
             .rawInputDetected = true,
             .inputThreadId = 99,
-            .tidConfidence = InputThreadTidConfidence::High}),
-            "pinning should become eligible only after Raw Input and high-confidence concrete TID are both available");
+            .tidConfidence = InputThreadTidConfidence::High,
+            .tidSource = InputThreadTidSource::ConcreteTid}),
+            "pinning should become eligible only after Raw Input, High confidence, and ConcreteTid source are all available");
     }
 }
 
