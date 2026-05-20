@@ -5,6 +5,7 @@ import datetime as dt
 import hashlib
 import json
 import pathlib
+import re
 import subprocess
 from typing import Any
 
@@ -28,6 +29,12 @@ def sha256_file(path: pathlib.Path) -> str | None:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def file_size(path: pathlib.Path) -> int | None:
+    if not path.exists() or not path.is_file():
+        return None
+    return path.stat().st_size
 
 
 def run_git(args: list[str]) -> str | None:
@@ -106,6 +113,11 @@ def init_evidence(args: argparse.Namespace) -> int:
         "target": args.target,
         "exe_path": str(exe_path),
         "exe_sha256": sha256_file(exe_path),
+        "binary_fingerprint": {
+            "path": str(exe_path),
+            "sha256": sha256_file(exe_path),
+            "bytes": file_size(exe_path),
+        },
         "git_commit": commit,
         "build_hash": run_git(["rev-parse", "HEAD^{tree}"]),
         "steps": [],
@@ -128,6 +140,86 @@ def extract_log_lines(log_text: str, marker: str) -> list[str]:
     return lines
 
 
+def parse_bool_text(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    lowered = value.lower()
+    if lowered in ("true", "1"):
+        return True
+    if lowered in ("false", "0"):
+        return False
+    return None
+
+
+def extract_shutdown_failure_classification(log_text: str) -> dict[str, bool | None]:
+    match = re.search(
+        r"shutdown result: timerRollbackFailed=(true|false|0|1), "
+        r"schedulerRollbackFailed=(true|false|0|1), "
+        r"runtimeValidationFailed=(true|false|0|1), "
+        r"rollbackStatePreserved=(true|false|0|1)",
+        log_text,
+        re.IGNORECASE,
+    )
+    return {
+        "summary_present": match is not None,
+        "timer_rollback_failed": parse_bool_text(match.group(1)) if match else None,
+        "scheduler_rollback_failed": parse_bool_text(match.group(2)) if match else None,
+        "runtime_validation_failed": parse_bool_text(match.group(3)) if match else None,
+        "rollback_state_preserved": parse_bool_text(match.group(4)) if match else None,
+    }
+
+
+def extract_rollback_preserved_state_summary(log_text: str) -> dict[str, int | bool | None]:
+    matches = re.findall(
+        r"preserved rollback state count: thread=(\d+), process=(\d+)",
+        log_text,
+        re.IGNORECASE,
+    )
+    if not matches:
+        return {
+            "summary_present": False,
+            "thread": None,
+            "process": None,
+            "total": None,
+            "has_preserved_state": None,
+        }
+
+    thread_count = int(matches[-1][0])
+    process_count = int(matches[-1][1])
+    total = thread_count + process_count
+    return {
+        "summary_present": True,
+        "thread": thread_count,
+        "process": process_count,
+        "total": total,
+        "has_preserved_state": total > 0,
+    }
+
+
+def extract_processor_group_mode_summary(log_text: str) -> dict[str, Any]:
+    selected_groups = sorted({
+        int(group)
+        for group in re.findall(r"selected_group=(\d+)", log_text, re.IGNORECASE)
+    })
+    fallback_groups = sorted({
+        int(group)
+        for group in re.findall(r"topology fallback policy selected from process affinity: group=(\d+)", log_text, re.IGNORECASE)
+    })
+    blocked_groups = sorted({
+        int(group)
+        for group in re.findall(r"background restriction blocked: processor group (\d+)", log_text, re.IGNORECASE)
+    })
+    provenance = sorted(set(re.findall(r"mask_provenance=([a-zA-Z0-9_]+)", log_text)))
+    return {
+        "selected_groups": selected_groups,
+        "fallback_groups": fallback_groups,
+        "background_blocked_groups": blocked_groups,
+        "mask_provenance": provenance,
+        "has_group_1_plus_evidence": any(group > 0 for group in selected_groups + fallback_groups + blocked_groups),
+        "process_wide_group_1_plus_blocked": bool(blocked_groups),
+    }
+
+
 def record_step(args: argparse.Namespace) -> int:
     run_dir = pathlib.Path(args.run_dir)
     state = load_state(run_dir)
@@ -146,6 +238,9 @@ def record_step(args: argparse.Namespace) -> int:
         "log_sha256": sha256_file(log_path) if log_path else None,
         "log_bytes": log_path.stat().st_size if log_path and log_path.exists() else None,
         "runtime_validation_failed": detect_runtime_validation_failed(log_text),
+        "shutdown_failure_classification": extract_shutdown_failure_classification(log_text),
+        "rollback_preserved_state_summary": extract_rollback_preserved_state_summary(log_text),
+        "processor_group_mode_summary": extract_processor_group_mode_summary(log_text),
         "warn_count": len(extract_log_lines(log_text, "[WARN]")),
         "warn_samples": extract_log_lines(log_text, "[WARN]")[:MAX_OBSERVATION_SAMPLES],
         "info_count": len(extract_log_lines(log_text, "[INFO]")),
@@ -170,6 +265,14 @@ def summarize_failures(state: dict[str, Any]) -> list[str]:
                 failures.append(
                     f"{label}: runtime validation FAILED must pair with process exit code 1, "
                     f"found {step['exit_code']}")
+        shutdown = step.get("shutdown_failure_classification") or {}
+        if shutdown.get("rollback_state_preserved"):
+            failures.append(f"{label}: shutdown preserved rollback state")
+        rollback = step.get("rollback_preserved_state_summary") or {}
+        if rollback.get("has_preserved_state"):
+            failures.append(
+                f"{label}: preserved rollback state remains "
+                f"(thread={rollback.get('thread')}, process={rollback.get('process')})")
     return failures
 
 
@@ -192,7 +295,26 @@ def summarize_info(state: dict[str, Any]) -> list[str]:
         f"git_commit: {state['git_commit']}",
         f"build_hash: {state['build_hash']}",
         f"exe_sha256: {state['exe_sha256']}",
+        f"binary_fingerprint: {state.get('binary_fingerprint')}",
     ]
+    processor_group_summaries = [
+        step.get("processor_group_mode_summary")
+        for step in state["steps"]
+        if step.get("processor_group_mode_summary")
+    ]
+    shutdown_summaries = [
+        step.get("shutdown_failure_classification")
+        for step in state["steps"]
+        if step.get("shutdown_failure_classification")
+    ]
+    rollback_summaries = [
+        step.get("rollback_preserved_state_summary")
+        for step in state["steps"]
+        if step.get("rollback_preserved_state_summary")
+    ]
+    info.append(f"processor_group_mode_summary: {processor_group_summaries}")
+    info.append(f"shutdown_failure_classification: {shutdown_summaries}")
+    info.append(f"rollback_preserved_state_summary: {rollback_summaries}")
     for step in state["steps"]:
         info.append(f"{step['step']}: {int(step.get('info_count') or 0)} info log line(s) observed")
     return info
@@ -400,6 +522,7 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
         f"Git commit: {state['git_commit']}",
         f"Build hash: {state['build_hash']}",
         f"EXE SHA-256: {state['exe_sha256']}",
+        f"Binary fingerprint: {state.get('binary_fingerprint')}",
         "",
         "Steps:",
     ]
@@ -409,6 +532,9 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
             f"  command exit code: {step['exit_code']}",
             f"  assertion exit code: {step['assertion_exit_code']}",
             f"  runtime validation failed: {step['runtime_validation_failed']}",
+            f"  shutdown failure classification: {step.get('shutdown_failure_classification')}",
+            f"  rollback preserved state summary: {step.get('rollback_preserved_state_summary')}",
+            f"  processor group mode summary: {step.get('processor_group_mode_summary')}",
             f"  warn count: {step.get('warn_count', 0)}",
             f"  info count: {step.get('info_count', 0)}",
             f"  log: {step['log_file']}",

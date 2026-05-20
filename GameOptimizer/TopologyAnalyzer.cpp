@@ -6,6 +6,7 @@
 #include "TopologyAnalyzer.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstddef>
 #include <memory>
 #include <new>
@@ -59,19 +60,12 @@ namespace
 
     [[nodiscard]] int countSetBitsLocal(DWORD_PTR mask) noexcept
     {
-        int count = 0;
-        while (mask != 0)
-        {
-            mask &= (mask - 1);
-            ++count;
-        }
-
-        return count;
+        return std::popcount(mask);
     }
 
     [[nodiscard]] DWORD_PTR lowestSetBitLocal(DWORD_PTR mask) noexcept
     {
-        return mask & (~mask + 1);
+        return mask == 0 ? 0 : (static_cast<DWORD_PTR>(1) << std::countr_zero(mask));
     }
 
     [[nodiscard]] bool containsGroup(const std::vector<WORD>& groups, WORD group) noexcept
@@ -381,7 +375,7 @@ namespace
 
 DWORD_PTR TopologyAnalyzer::lowestSetBit(DWORD_PTR mask) noexcept
 {
-    return mask & (~mask + 1);
+    return mask == 0 ? 0 : (static_cast<DWORD_PTR>(1) << std::countr_zero(mask));
 }
 
 DWORD_PTR TopologyAnalyzer::takeLowestBits(DWORD_PTR mask, int count) noexcept
@@ -399,14 +393,7 @@ DWORD_PTR TopologyAnalyzer::takeLowestBits(DWORD_PTR mask, int count) noexcept
 
 int TopologyAnalyzer::countSetBits(DWORD_PTR mask) noexcept
 {
-    int count = 0;
-    while (mask != 0)
-    {
-        mask &= (mask - 1);
-        ++count;
-    }
-
-    return count;
+    return std::popcount(mask);
 }
 
 std::expected<TopologyResult, ErrorCode> TopologyAnalyzer::buildProcessAffinityFallbackMask(

@@ -373,6 +373,10 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
     processor_group_tests_text = (ROOT / "ProcessorGroupHedtEvidenceTests.cpp").read_text(encoding="utf-8", errors="replace")
     scheduler_text = (ROOT / "SchedulerController.cpp").read_text(encoding="utf-8", errors="replace")
     runtime_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
+    processor_group_design_text = (ROOT / "ProcessorGroupPhase2Design.md").read_text(encoding="utf-8", errors="replace")
+    safety_runbook_text = (ROOT / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
+    readme_text = (ROOT / "README.txt").read_text(encoding="utf-8", errors="replace")
+    roadmap_text = (ROOT / "DevelopmentRoadmap.md").read_text(encoding="utf-8", errors="replace")
     project_text = PROJECT_FILE.read_text(encoding="utf-8", errors="replace")
     build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
@@ -385,6 +389,10 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         processor_group_tests_text,
         scheduler_text,
         runtime_text,
+        processor_group_design_text,
+        safety_runbook_text,
+        readme_text,
+        roadmap_text,
         project_text,
         build_text,
         regression_text,
@@ -406,6 +414,14 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         "return std::unexpected(ErrorCode::UnsupportedProcessorGroupRollback);",
         "background rollback state save blocked for PID {} observedGroup={}",
         "SetProcessAffinityMask cannot restore processor-group-specific process affinity",
+        "explicit safety limitation",
+        "WARN/monitoring-only evidence",
+        "Per-thread group-aware background restriction",
+        "LOW priority",
+        "Future Phase",
+        "Release Candidate Stabilization",
+        "Release Hardening",
+        "Future Architecture",
         "preserved rollback state count: thread={}, process={}",
         "mask_provenance",
         "TopologyMaskProvenance::ProcessAffinityFallback",
@@ -443,6 +459,23 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
 
 def check_cpp20_runtime_contracts() -> list[str]:
     failures: list[str] = []
+    topology_text = (ROOT / "TopologyAnalyzer.cpp").read_text(encoding="utf-8", errors="replace")
+    topology_without_comments = strip_comments_and_strings(topology_text)
+    logger_text = (ROOT / "Logger.h").read_text(encoding="utf-8", errors="replace")
+    if "#include <bit>" not in topology_text:
+        failures.append("[FAIL] C++20 bit gate: TopologyAnalyzer must include <bit>")
+    if "std::popcount" not in topology_without_comments:
+        failures.append("[FAIL] C++20 bit gate: TopologyAnalyzer must use std::popcount")
+    if "std::countr_zero" not in topology_without_comments:
+        failures.append("[FAIL] C++20 bit gate: TopologyAnalyzer must use std::countr_zero")
+    for marker in [
+        "std::chrono::system_clock::now",
+        "localtime_s",
+        "sequenceCounter",
+        "[{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}][#{:06}][{}]",
+    ]:
+        if marker not in logger_text:
+            failures.append(f"[FAIL] Logger observability gate: missing marker: {marker}")
 
     for path in iter_source_files():
         raw_text = path.read_text(encoding="utf-8", errors="replace")
@@ -729,8 +762,12 @@ def check_release_evidence_contract() -> list[str]:
         "rc_evidence_report.json",
         "rc_evidence_report.txt",
         "exe_sha256",
+        "binary_fingerprint",
         "git_commit",
         "build_hash",
+        "shutdown_failure_classification",
+        "rollback_preserved_state_summary",
+        "processor_group_mode_summary",
         "runtime validation FAILED must pair with process exit code 1",
         "required RC soak step missing",
         "required smoke step missing",

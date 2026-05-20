@@ -80,6 +80,10 @@ def write_text_manifest(path: pathlib.Path, manifest: dict[str, Any]) -> None:
         f"Git commit: {manifest['git_commit']}",
         f"Build hash: {manifest['build_hash']}",
         f"EXE SHA-256: {manifest['exe_sha256']}",
+        f"Binary fingerprint: {manifest['binary_fingerprint']}",
+        f"Rollback preserved state summary: {manifest['rollback_preserved_state_summary']}",
+        f"Shutdown failure classification: {manifest['shutdown_failure_classification']}",
+        f"Processor group mode summary: {manifest['processor_group_mode_summary']}",
         f"Created UTC: {manifest['created_utc']}",
         "",
         "Artifacts:",
@@ -115,6 +119,21 @@ def collect_warnings(*states: dict[str, Any]) -> list[str]:
         for warning in state.get("warnings", []):
             warnings.append(f"{label}: {warning}")
     return warnings
+
+
+def collect_step_field(field_name: str, *states: dict[str, Any]) -> list[dict[str, Any]]:
+    values: list[dict[str, Any]] = []
+    for state in states:
+        label = state.get("kind", "evidence")
+        for step in state.get("steps", []):
+            value = step.get(field_name)
+            if value is not None:
+                values.append({
+                    "kind": label,
+                    "step": step.get("step"),
+                    "value": value,
+                })
+    return values
 
 
 def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
@@ -156,6 +175,19 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
         "git_commit": commit,
         "build_hash": smoke_state.get("build_hash"),
         "exe_sha256": smoke_state.get("exe_sha256"),
+        "binary_fingerprint": smoke_state.get("binary_fingerprint"),
+        "rollback_preserved_state_summary": collect_step_field(
+            "rollback_preserved_state_summary",
+            smoke_state,
+            soak_state),
+        "shutdown_failure_classification": collect_step_field(
+            "shutdown_failure_classification",
+            smoke_state,
+            soak_state),
+        "processor_group_mode_summary": collect_step_field(
+            "processor_group_mode_summary",
+            smoke_state,
+            soak_state),
         "created_utc": evidence.utc_now(),
         "warnings": collect_warnings(smoke_state, soak_state),
         "source_reports": {

@@ -6,8 +6,27 @@
 #include "ProcessFinder.h"
 
 #include <TlHelp32.h>
+#include <limits>
 
 #include "WinHandle.h"
+
+namespace
+{
+    [[nodiscard]] bool equalsProcessNameIgnoreCase(std::wstring_view expected, const wchar_t* actual) noexcept
+    {
+        if (actual == nullptr || expected.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)()))
+        {
+            return false;
+        }
+
+        return CompareStringOrdinal(
+            expected.data(),
+            static_cast<int>(expected.size()),
+            actual,
+            -1,
+            TRUE) == CSTR_EQUAL;
+    }
+}
 
 std::expected<DWORD, ErrorCode>
 ProcessFinder::findProcessIdByName(std::wstring_view processName) noexcept
@@ -39,7 +58,7 @@ ProcessFinder::findProcessIdByName(std::wstring_view processName) noexcept
 
     do
     {
-        if (processName == entry.szExeFile)
+        if (equalsProcessNameIgnoreCase(processName, entry.szExeFile))
         {
             return entry.th32ProcessID;
         }

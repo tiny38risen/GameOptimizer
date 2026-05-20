@@ -41,6 +41,12 @@ Fatal background rollback cases:
 - process is still alive
 - affinity or priority restoration fails
 
+## Processor Group / HEDT interpretation
+
+Group 1+ background process-wide restriction is an explicit safety limitation, not a release blocker by itself. `SetProcessAffinityMask` is only considered safe for group 0 process-wide background restriction. When a group 1+ policy is selected, the runtime must record WARN/monitoring-only evidence and skip process-wide background mutation.
+
+Thread-level `SetThreadGroupAffinity` remains the supported group-aware path. Per-thread group-aware background restriction is a Future Phase item and is LOW priority until a dedicated backend exists.
+
 ## Stop condition
 
 A release candidate fails if exit code is non-zero, unless the scenario explicitly expects startup failure, such as missing target process validation.
