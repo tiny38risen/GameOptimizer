@@ -29,6 +29,7 @@ enum class ErrorCode
     RollbackVerificationFailed,
     RollbackStateNotFound,
     RollbackFailed,
+    UnsupportedProcessorGroupRollback,
     PolicyDriftReapplyLimitExceeded,
     AccessDenied,
     AllocationFailed,
@@ -80,6 +81,8 @@ enum class ErrorCode
         return "rollback state not found";
     case ErrorCode::RollbackFailed:
         return "rollback failed";
+    case ErrorCode::UnsupportedProcessorGroupRollback:
+        return "unsupported processor group rollback";
     case ErrorCode::PolicyDriftReapplyLimitExceeded:
         return "policy drift reapply limit exceeded";
     case ErrorCode::AccessDenied:

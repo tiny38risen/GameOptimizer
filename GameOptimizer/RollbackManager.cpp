@@ -518,6 +518,20 @@ std::expected<RollbackManager::SaveStateDisposition, ErrorCode> RollbackManager:
         return std::unexpected(ErrorCode::InvalidArgument);
     }
 
+    const ProcessRollbackState::RollbackMode rollbackMode =
+        processorGroup == 0
+            ? ProcessRollbackState::RollbackMode::LegacyProcessAffinityMask
+            : ProcessRollbackState::RollbackMode::GroupAwareUnsupported;
+
+    if (rollbackMode == ProcessRollbackState::RollbackMode::GroupAwareUnsupported)
+    {
+        Logger::warn(
+            "background rollback state save blocked for PID {} observedGroup={}: SetProcessAffinityMask cannot restore processor-group-specific process affinity",
+            processId,
+            static_cast<unsigned int>(processorGroup));
+        return std::unexpected(ErrorCode::UnsupportedProcessorGroupRollback);
+    }
+
     try
     {
         std::uint64_t creationTime = 0;
@@ -544,11 +558,6 @@ std::expected<RollbackManager::SaveStateDisposition, ErrorCode> RollbackManager:
         {
             return SaveStateDisposition::ReusedExistingState;
         }
-
-        const ProcessRollbackState::RollbackMode rollbackMode =
-            processorGroup == 0
-                ? ProcessRollbackState::RollbackMode::LegacyProcessAffinityMask
-                : ProcessRollbackState::RollbackMode::GroupAwareUnsupported;
 
         processStates_.insert_or_assign(
             processId,
@@ -798,15 +807,6 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
 
     WinHandle& processHandle = *openedProcess;
 
-    if (state.rollbackMode == ProcessRollbackState::RollbackMode::GroupAwareUnsupported)
-    {
-        Logger::error(
-            "background process affinity rollback unsupported for PID {} observedGroup={}; SetProcessAffinityMask cannot restore processor-group-specific process affinity, rollback state preserved",
-            state.processId,
-            static_cast<unsigned int>(state.observedProcessorGroup));
-        return std::unexpected(ErrorCode::RollbackFailed);
-    }
-
     const auto currentCreationTime = queryProcessCreationTime100ns(processHandle.get());
     if (!currentCreationTime)
     {
@@ -829,6 +829,15 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
             delta.deltaMs,
             delta.deltaSeconds);
         return {};
+    }
+
+    if (state.rollbackMode == ProcessRollbackState::RollbackMode::GroupAwareUnsupported)
+    {
+        Logger::error(
+            "background process affinity rollback unsupported for PID {} observedGroup={}; SetProcessAffinityMask cannot restore processor-group-specific process affinity, rollback state preserved",
+            state.processId,
+            static_cast<unsigned int>(state.observedProcessorGroup));
+        return std::unexpected(ErrorCode::UnsupportedProcessorGroupRollback);
     }
 
     const auto verifyIdentityAfterRestoreFailure = [&]() noexcept -> IdentityCheckResult

@@ -70,6 +70,20 @@ namespace
         REQUIRE(!BackgroundController::supportsProcessWideRestrictionForGroup(1),
             "group 1+ must be blocked until a group-aware background policy exists");
 
+        RollbackManager directRollbackManager;
+        const auto unsupportedSave = directRollbackManager.saveProcessState(
+            GetCurrentProcessId(),
+            0x1,
+            1,
+            NORMAL_PRIORITY_CLASS);
+        REQUIRE(!unsupportedSave.has_value(),
+            "process rollback state save must reject unsupported group-aware rollback before any mutation");
+        if (!unsupportedSave)
+        {
+            REQUIRE(unsupportedSave.error() == ErrorCode::UnsupportedProcessorGroupRollback,
+                "unsupported process rollback save must report UnsupportedProcessorGroupRollback");
+        }
+
         RollbackManager rollbackManager;
         BackgroundController controller(rollbackManager, SchedulerMode::Apply);
 
