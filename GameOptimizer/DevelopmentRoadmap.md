@@ -58,7 +58,8 @@ Exit criteria:
 
 1. Group 1+ process-wide background restriction remains blocked until a safe backend exists.
 2. Future HEDT work is per-thread or group-aware by construction.
-3. Topology policy changes remain replayable and auditable through evidence.
+3. Do not apply priority-class-only background restriction for group 1+ until process affinity rollback state and priority rollback state are split.
+4. Topology policy changes remain replayable and auditable through evidence.
 
 ## Target Architecture
 

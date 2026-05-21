@@ -246,7 +246,6 @@ std::expected<void, ErrorCode> RollbackManager::saveValidatedReadState(
 
     try
     {
-        std::optional<std::uint64_t> creationTime;
         auto openedThread = openThreadForRollback(threadId);
         if (openedThread)
         {
@@ -254,13 +253,19 @@ std::expected<void, ErrorCode> RollbackManager::saveValidatedReadState(
             const auto queriedCreationTime = queryThreadCreationTime100ns(threadHandle.get());
             if (queriedCreationTime)
             {
-                const auto queriedCreationTime100ns = *queriedCreationTime;
-                creationTime = queriedCreationTime100ns;
+                const std::uint64_t creationTime100ns = queriedCreationTime.value();
+                Logger::info(
+                    "soft-apply validated scheduling baseline captured for TID {} (audit-only, not stored as rollback state; affinity=0x{:X}, group={}, priority={}, creationTime100ns={})",
+                    threadId,
+                    static_cast<unsigned long long>(currentAffinityMask),
+                    static_cast<unsigned int>(processorGroup),
+                    currentPriority,
+                    creationTime100ns);
             }
             else
             {
                 Logger::warn(
-                    "soft-apply identity timestamp capture failed for TID {}: {}; rollback will use best-effort identity",
+                    "soft-apply identity timestamp capture failed for TID {}: {}; validated baseline was not stored as rollback state",
                     threadId,
                     toString(queriedCreationTime.error()));
             }
@@ -268,29 +273,11 @@ std::expected<void, ErrorCode> RollbackManager::saveValidatedReadState(
         else
         {
             Logger::warn(
-                "soft-apply identity timestamp capture skipped for TID {}: {}; rollback will use best-effort identity",
+                "soft-apply identity timestamp capture skipped for TID {}: {}; validated baseline was not stored as rollback state",
                 threadId,
                 toString(openedThread.error()));
         }
 
-        std::scoped_lock lock(mutex_);
-        states_.insert_or_assign(
-            threadId,
-            ThreadRollbackState{
-                .creationTime100ns = creationTime,
-                .originalAffinityMask = currentAffinityMask,
-                .originalProcessorGroup = processorGroup,
-                .originalPriority = currentPriority,
-                .threadId = threadId,
-                .kind = RollbackStateKind::SoftApplyValidatedRead});
-
-        Logger::info(
-            "soft-apply validated scheduling baseline captured for TID {} (affinity=0x{:X}, group={}, priority={}, creationTime100ns={})",
-            threadId,
-            static_cast<unsigned long long>(currentAffinityMask),
-            static_cast<unsigned int>(processorGroup),
-            currentPriority,
-            creationTime.value_or(0));
         return {};
     }
     catch (const std::bad_alloc&)
@@ -329,10 +316,11 @@ std::expected<RollbackManager::SaveStateDisposition, ErrorCode> RollbackManager:
             }
             else
             {
-                Logger::warn(
-                    "rollback identity timestamp capture failed for TID {}: {}; rollback will use best-effort identity",
+                Logger::error(
+                    "rollback identity timestamp capture failed for TID {}: {}; applied rollback state will not be saved",
                     threadId,
                     toString(queriedCreationTime.error()));
+                return std::unexpected(queriedCreationTime.error());
             }
         }
         else
@@ -375,7 +363,7 @@ std::expected<RollbackManager::SaveStateDisposition, ErrorCode> RollbackManager:
     }
 }
 
-std::expected<void, ErrorCode> RollbackManager::rollbackThread(DWORD threadId) noexcept
+std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::rollbackThread(DWORD threadId) noexcept
 {
     try
     {
@@ -385,7 +373,8 @@ std::expected<void, ErrorCode> RollbackManager::rollbackThread(DWORD threadId) n
             const auto found = states_.find(threadId);
             if (found == states_.end())
             {
-                return std::unexpected(ErrorCode::RollbackStateNotFound);
+                Logger::info("rollback skipped for TID {} because no rollback state is tracked", threadId);
+                return RollbackDisposition::NoState;
             }
 
             state = found->second;
@@ -400,8 +389,12 @@ std::expected<void, ErrorCode> RollbackManager::rollbackThread(DWORD threadId) n
         }
 
         removeThreadState(threadId);
-        Logger::info("rollback completed for TID {}", threadId);
-        return {};
+        if (rollbackResult.value() == RollbackDisposition::RolledBack)
+        {
+            Logger::info("rollback completed for TID {}", threadId);
+        }
+
+        return rollbackResult.value();
     }
     catch (const std::bad_alloc&)
     {
@@ -589,7 +582,7 @@ std::expected<RollbackManager::SaveStateDisposition, ErrorCode> RollbackManager:
     }
 }
 
-std::expected<void, ErrorCode> RollbackManager::rollbackProcess(DWORD processId) noexcept
+std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::rollbackProcess(DWORD processId) noexcept
 {
     try
     {
@@ -599,7 +592,8 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcess(DWORD processId)
             const auto found = processStates_.find(processId);
             if (found == processStates_.end())
             {
-                return std::unexpected(ErrorCode::RollbackStateNotFound);
+                Logger::info("background rollback skipped for PID {} because no rollback state is tracked", processId);
+                return RollbackDisposition::NoState;
             }
 
             state = found->second;
@@ -614,8 +608,12 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcess(DWORD processId)
         }
 
         removeProcessState(processId);
-        Logger::info("background rollback completed for PID {}", processId);
-        return {};
+        if (rollbackResult.value() == RollbackDisposition::RolledBack)
+        {
+            Logger::info("background rollback completed for PID {}", processId);
+        }
+
+        return rollbackResult.value();
     }
     catch (const std::bad_alloc&)
     {
@@ -651,7 +649,7 @@ bool RollbackManager::hasProcessState(DWORD processId) const noexcept
     return processStates_.contains(processId);
 }
 
-std::expected<void, ErrorCode> RollbackManager::rollbackState(
+std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::rollbackState(
     const ThreadRollbackState& state) noexcept
 {
     if (state.kind == RollbackStateKind::DryRunMarker)
@@ -659,15 +657,7 @@ std::expected<void, ErrorCode> RollbackManager::rollbackState(
         Logger::info(
             "dry-run rollback completed for TID {} without touching target thread",
             state.threadId);
-        return {};
-    }
-
-    if (state.kind == RollbackStateKind::SoftApplyValidatedRead)
-    {
-        Logger::info(
-            "soft-apply validated scheduling baseline verified for TID {} (no scheduling state was changed)",
-            state.threadId);
-        return {};
+        return RollbackDisposition::NoState;
     }
 
     auto openedThread = openThreadForRollback(state.threadId);
@@ -679,7 +669,7 @@ std::expected<void, ErrorCode> RollbackManager::rollbackState(
                 "rollback skipped for TID {} because the original thread is no longer openable ({})",
                 state.threadId,
                 toString(openedThread.error()));
-            return {};
+            return RollbackDisposition::StaleOrMissingIdentity;
         }
 
         return std::unexpected(openedThread.error());
@@ -709,7 +699,7 @@ std::expected<void, ErrorCode> RollbackManager::rollbackState(
             currentCreationTime100ns,
             delta.deltaMs,
             delta.deltaSeconds);
-        return {};
+        return RollbackDisposition::StaleOrMissingIdentity;
     }
 
     if (state.originalAffinityMask.has_value())
@@ -776,10 +766,10 @@ std::expected<void, ErrorCode> RollbackManager::rollbackState(
             currentState.priority);
     }
 
-    return {};
+    return RollbackDisposition::RolledBack;
 }
 
-std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
+std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::rollbackProcessState(
     const ProcessRollbackState& state) noexcept
 {
     enum class IdentityCheckResult
@@ -799,7 +789,7 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
                 "background rollback skipped for PID {} because the original process is no longer openable or is blocked by an access boundary ({})",
                 state.processId,
                 toString(openedProcess.error()));
-            return {};
+            return RollbackDisposition::StaleOrMissingIdentity;
         }
 
         return std::unexpected(openedProcess.error());
@@ -828,7 +818,7 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
             currentCreationTime100ns,
             delta.deltaMs,
             delta.deltaSeconds);
-        return {};
+        return RollbackDisposition::StaleOrMissingIdentity;
     }
 
     if (state.rollbackMode == ProcessRollbackState::RollbackMode::GroupAwareUnsupported)
@@ -896,7 +886,7 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
                 "background rollback skipped for PID {} because process identity became stale after affinity restore failure (lastError={})",
                 state.processId,
                 affinityError);
-            return {};
+            return RollbackDisposition::StaleOrMissingIdentity;
         }
 
         if (identityCheck == IdentityCheckResult::VerificationFailed)
@@ -920,7 +910,7 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
                 "background rollback skipped for PID {} because process identity became stale after priority restore failure (lastError={})",
                 state.processId,
                 priorityError);
-            return {};
+            return RollbackDisposition::StaleOrMissingIdentity;
         }
 
         if (identityCheck == IdentityCheckResult::VerificationFailed)
@@ -942,5 +932,5 @@ std::expected<void, ErrorCode> RollbackManager::rollbackProcessState(
         static_cast<unsigned long long>(state.originalAffinityMask),
         static_cast<unsigned int>(state.originalPriorityClass));
 
-    return {};
+    return RollbackDisposition::RolledBack;
 }

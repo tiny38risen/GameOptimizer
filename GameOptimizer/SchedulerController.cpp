@@ -58,6 +58,15 @@ namespace
                currentState.processorGroup == policy.processorGroup &&
                currentState.priority == policy.threadPriority;
     }
+
+    [[nodiscard]] bool matchesOriginalState(
+        const CurrentSchedulingState& currentState,
+        const CurrentSchedulingState& originalState) noexcept
+    {
+        return currentState.affinityMask == originalState.affinityMask &&
+               currentState.processorGroup == originalState.processorGroup &&
+               currentState.priority == originalState.priority;
+    }
 }
 
 SchedulerController::SchedulerController(
@@ -257,7 +266,47 @@ std::expected<void, ErrorCode> SchedulerController::applyMainThreadPolicy(
     if (!SetThreadGroupAffinity(threadHandle.get(), &targetAffinity, &previousAffinity))
     {
         const ErrorCode mappedError = mapLastErrorToErrorCode(GetLastError());
-        applyGuard.discardSavedState();
+        const auto stateAfterFailedAffinityApply = queryCurrentSchedulingState(threadHandle.get());
+        if (stateAfterFailedAffinityApply && matchesOriginalState(stateAfterFailedAffinityApply.value(), original))
+        {
+            Logger::info(
+                "main-thread affinity apply failed for TID {}, but post-failure audit matched the original state; saved rollback state discarded",
+                threadId);
+            applyGuard.discardSavedState();
+        }
+        else
+        {
+            if (!stateAfterFailedAffinityApply)
+            {
+                Logger::error(
+                    "main-thread affinity apply failed for TID {}, and post-failure audit could not query current state: {}; invoking rollback",
+                    threadId,
+                    toString(stateAfterFailedAffinityApply.error()));
+            }
+            else
+            {
+                const auto& current = stateAfterFailedAffinityApply.value();
+                Logger::error(
+                    "main-thread affinity apply failed for TID {}, and post-failure audit found state drift: current(group={}, affinity=0x{:X}, priority={}) original(group={}, affinity=0x{:X}, priority={}); invoking rollback",
+                    threadId,
+                    static_cast<unsigned int>(current.processorGroup),
+                    static_cast<unsigned long long>(current.affinityMask),
+                    current.priority,
+                    static_cast<unsigned int>(original.processorGroup),
+                    static_cast<unsigned long long>(original.affinityMask),
+                    original.priority);
+            }
+
+            auto rollbackResult = applyGuard.rollbackNow();
+            if (!rollbackResult)
+            {
+                Logger::error(
+                    "affinity apply failed and rollback also failed for TID {}: {}; rollback state is preserved for shutdown recovery",
+                    threadId,
+                    toString(rollbackResult.error()));
+            }
+        }
+
         if (isRecoverableAccessLimitation(mappedError))
         {
             Logger::warn(
@@ -438,15 +487,19 @@ std::expected<void, ErrorCode> SchedulerController::rollbackThread(DWORD threadI
 {
     clearDriftCounter(threadId);
 
-    if (!rollbackManager_.hasThreadState(threadId))
-    {
-        return {};
-    }
-
     auto rollbackResult = rollbackManager_.rollbackThread(threadId);
     if (!rollbackResult)
     {
         return std::unexpected(rollbackResult.error());
+    }
+
+    if (rollbackResult.value() == RollbackManager::RollbackDisposition::NoState)
+    {
+        Logger::info("scheduler rollback skipped for TID {} because no rollback state is tracked", threadId);
+    }
+    else if (rollbackResult.value() == RollbackManager::RollbackDisposition::StaleOrMissingIdentity)
+    {
+        Logger::warn("scheduler rollback skipped for TID {} because the original thread identity is stale or missing", threadId);
     }
 
     return {};

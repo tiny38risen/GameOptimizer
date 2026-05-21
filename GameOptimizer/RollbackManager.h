@@ -33,6 +33,13 @@ public:
         ReusedExistingState
     };
 
+    enum class RollbackDisposition
+    {
+        RolledBack,
+        NoState,
+        StaleOrMissingIdentity
+    };
+
     [[nodiscard]] std::expected<void, ErrorCode>
     saveDryRunState(DWORD threadId) noexcept;
 
@@ -50,7 +57,7 @@ public:
         WORD processorGroup,
         int originalPriority) noexcept;
 
-    [[nodiscard]] std::expected<void, ErrorCode> rollbackThread(DWORD threadId) noexcept;
+    [[nodiscard]] std::expected<RollbackDisposition, ErrorCode> rollbackThread(DWORD threadId) noexcept;
 
     [[nodiscard]] std::expected<SaveStateDisposition, ErrorCode>
     saveProcessState(
@@ -59,7 +66,7 @@ public:
         WORD processorGroup,
         DWORD originalPriorityClass) noexcept;
 
-    [[nodiscard]] std::expected<void, ErrorCode> rollbackProcess(DWORD processId) noexcept;
+    [[nodiscard]] std::expected<RollbackDisposition, ErrorCode> rollbackProcess(DWORD processId) noexcept;
     [[nodiscard]] std::expected<void, ErrorCode> rollbackAll() noexcept;
 
     void removeThreadState(DWORD threadId) noexcept;
@@ -71,7 +78,6 @@ private:
     enum class RollbackStateKind
     {
         DryRunMarker,
-        SoftApplyValidatedRead,
         Applied
     };
 
@@ -107,8 +113,8 @@ private:
     [[nodiscard]] static std::expected<std::uint64_t, ErrorCode> queryProcessCreationTime100ns(HANDLE processHandle) noexcept;
     [[nodiscard]] static bool isSameIdentity(std::optional<std::uint64_t> expectedCreationTime, std::uint64_t currentCreationTime) noexcept;
     [[nodiscard]] static std::string_view processRollbackModeToString(ProcessRollbackState::RollbackMode rollbackMode) noexcept;
-    [[nodiscard]] std::expected<void, ErrorCode> rollbackState(const ThreadRollbackState& state) noexcept;
-    [[nodiscard]] std::expected<void, ErrorCode> rollbackProcessState(const ProcessRollbackState& state) noexcept;
+    [[nodiscard]] std::expected<RollbackDisposition, ErrorCode> rollbackState(const ThreadRollbackState& state) noexcept;
+    [[nodiscard]] std::expected<RollbackDisposition, ErrorCode> rollbackProcessState(const ProcessRollbackState& state) noexcept;
 
 private:
     mutable std::mutex mutex_;

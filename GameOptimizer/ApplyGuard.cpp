@@ -141,16 +141,17 @@ std::expected<void, ErrorCode> ApplyGuard::rollbackNow() noexcept
     }
 
     auto rollbackResult = rollbackTarget();
-    releaseWithoutAction();
     if (!rollbackResult)
     {
+        const DWORD failedTargetId = targetId_;
         Logger::error(
-            "apply guard explicit rollback failed for target {}: {}",
-            targetId_,
+            "apply guard explicit rollback failed for target {}; guard remains armed so destructor can retry and rollback state remains owned: {}",
+            failedTargetId,
             toString(rollbackResult.error()));
         return std::unexpected(rollbackResult.error());
     }
 
+    releaseWithoutAction();
     return {};
 }
 

@@ -349,7 +349,7 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
         summary.blockedByUnsupportedProcessorGroup = true;
         summary.blockedProcessorGroup = policy.processorGroup;
         Logger::warn(
-            "background restriction blocked: processor group {} is selected, but process-wide SetProcessAffinityMask is only safe for group 0 policies; thread-level SetThreadGroupAffinity remains supported",
+            "background restriction blocked: processor group {} is selected, but process-wide SetProcessAffinityMask is only safe for group 0 policies; priority-class-only background restriction is also blocked until affinity and priority rollback state are split; thread-level SetThreadGroupAffinity remains supported",
             static_cast<unsigned int>(policy.processorGroup));
         return summary;
     }

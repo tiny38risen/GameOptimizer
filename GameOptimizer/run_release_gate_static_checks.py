@@ -419,6 +419,9 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         "blockedByUnsupportedProcessorGroup",
         "blockedProcessorGroup",
         "background restriction blocked: processor group",
+        "priority-class-only background restriction is also blocked until affinity and priority rollback state are split",
+        "priority-only process rollback",
+        "priority rollback state",
         "thread-level SetThreadGroupAffinity remains supported",
         "SetThreadGroupAffinity",
         "saveProcessState(",
@@ -527,6 +530,30 @@ def check_project_language_contracts() -> list[str]:
         if standard != "stdcpplatest":
             failures.append(
                 f"[FAIL] MSVC language gate: LanguageStandard must be stdcpplatest, found {standard}")
+
+    warning_levels = re.findall(r"<WarningLevel>([^<]+)</WarningLevel>", text)
+    if not warning_levels:
+        failures.append("[FAIL] MSVC warning gate: no WarningLevel entries found")
+    for warning_level in warning_levels:
+        if warning_level != "Level4":
+            failures.append(
+                f"[FAIL] MSVC warning gate: WarningLevel must be Level4, found {warning_level}")
+
+    treat_warning_as_error = re.findall(r"<TreatWarningAsError>([^<]+)</TreatWarningAsError>", text)
+    if not treat_warning_as_error:
+        failures.append("[FAIL] MSVC warning gate: TreatWarningAsError entries missing")
+    for setting in treat_warning_as_error:
+        if setting != "true":
+            failures.append(
+                f"[FAIL] MSVC warning gate: TreatWarningAsError must be true, found {setting}")
+
+    conformance_modes = re.findall(r"<ConformanceMode>([^<]+)</ConformanceMode>", text)
+    if not conformance_modes:
+        failures.append("[FAIL] MSVC conformance gate: no ConformanceMode entries found")
+    for conformance_mode in conformance_modes:
+        if conformance_mode != "true":
+            failures.append(
+                f"[FAIL] MSVC conformance gate: ConformanceMode must be true, found {conformance_mode}")
 
     return failures
 

@@ -27,7 +27,8 @@ Current scope:
 15. Logger formatting templates are concept-constrained before std::vformat dispatch.
 16. TopologyAnalyzer exposes a deterministic process-affinity fallback helper with group-preserving mask provenance so HEDT/processor-group behavior can be regression-tested without 64+ core hardware.
 17. BackgroundController blocks process-wide restriction for processor group 1+, records the blocked group in the non-fatal summary, and leaves thread-level group affinity support in SchedulerController.
-18. Group 1+ process-wide background restriction is an explicit safety limitation, not an implementation defect; per-thread group-aware background restriction is a LOW-priority Future Phase item.
+18. Group 1+ process-wide background restriction is an explicit safety limitation, not an implementation defect; priority-class-only background restriction is also blocked until process affinity and priority rollback state are split.
+19. Per-thread group-aware background restriction and priority-only process rollback are LOW-priority Future Phase items.
 19. Development priority is tracked in DevelopmentRoadmap.md: RC stabilization first, release hardening second, future HEDT/hybrid/NUMA architecture third.
 18. Long soak RC gate requires both a 30-minute dry-run and a 60-minute soft-apply run, with hang detection, runtime timeline monotonicity checks, runtime validation summary, and runtime validation failure exit-code gating.
 19. Release gate smoke and soak runs create run-id scoped RC evidence reports with logs, exit codes, schema version, git commit, build hash, GameOptimizer.exe SHA-256, and BLOCKER/WARN/INFO severity summaries.
