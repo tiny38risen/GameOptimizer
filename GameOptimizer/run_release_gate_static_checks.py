@@ -358,6 +358,68 @@ def check_thread_tracker_runtime_contracts() -> list[str]:
     return failures
 
 
+def check_runtime_orchestrator_signal_contracts() -> list[str]:
+    failures: list[str] = []
+    runtime_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
+    header_text = (ROOT / "RuntimeOrchestrator.h").read_text(encoding="utf-8", errors="replace")
+    signal_text = (ROOT / "RuntimeSignalState.h").read_text(encoding="utf-8", errors="replace")
+
+    required_patterns = [
+        (header_text, r"RuntimeSignalState\s+signalState_", "RuntimeOrchestrator must own signal state"),
+        (runtime_text, r"std::atomic\s*<\s*RuntimeSignalState\s*\*\s*>\s+gActiveSignalState", "console handler bridge must only hold an active signal-state pointer"),
+        (runtime_text, r"class\s+ConsoleControlRegistration", "console control registration must be RAII-owned"),
+        (runtime_text, r"SetConsoleCtrlHandler\s*\(\s*handleConsoleControl\s*,\s*FALSE\s*\)", "console control handler must be unregistered"),
+        (runtime_text, r"kRuntimeTimeoutHardGrace", "max-runtime hard timeout grace must be explicit"),
+        (runtime_text, r"signalState_\.requestShutdown\s*\(\s*\)", "hard timeout must be able to request shutdown from RuntimeOrchestrator"),
+        (signal_text, r"void\s+requestShutdown\s*\(\s*\)\s+noexcept", "RuntimeSignalState must expose requestShutdown"),
+        (signal_text, r"runtimeTimeoutRequested", "RuntimeSignalState must own timeout request state"),
+    ]
+    for text, pattern, message in required_patterns:
+        if not re.search(pattern, text):
+            failures.append(f"[FAIL] RuntimeOrchestrator signal gate: {message}")
+
+    forbidden_patterns = [
+        (runtime_text, r"std::atomic_bool\s+gRunning", "RuntimeOrchestrator must not reintroduce global gRunning ownership"),
+        (runtime_text, r"std::atomic_bool\s+gRuntimeTimeoutRequested", "RuntimeOrchestrator must not reintroduce global timeout flag ownership"),
+        (runtime_text, r"std::condition_variable\s+gRunStateChanged", "RuntimeOrchestrator must not reintroduce global condition_variable ownership"),
+        (runtime_text, r"SetConsoleCtrlHandler\s*\(\s*handleConsoleControl\s*,\s*TRUE\s*\)\s*;\s*(?:\r?\n|\s)*auto\s+contextResult", "console handler registration must be guarded before StartupPipeline returns"),
+    ]
+    for text, pattern, message in forbidden_patterns:
+        if re.search(pattern, text):
+            failures.append(f"[FAIL] RuntimeOrchestrator signal gate: {message}")
+
+    return failures
+
+
+def check_apply_guard_rollback_failure_ownership() -> list[str]:
+    failures: list[str] = []
+    apply_guard_text = (ROOT / "ApplyGuard.cpp").read_text(encoding="utf-8", errors="replace")
+    rollback_body = extract_function_body(apply_guard_text, "ApplyGuard::rollbackNow")
+    if rollback_body is None:
+        return ["[FAIL] ApplyGuard ownership gate: rollbackNow body not found"]
+
+    for marker in [
+        "guard remains armed",
+        "destructor can retry",
+        "rollback state remains owned",
+        "return std::unexpected(rollbackResult.error())",
+    ]:
+        if marker not in rollback_body:
+            failures.append(f"[FAIL] ApplyGuard ownership gate: rollback failure path missing marker: {marker}")
+
+    failure_index = rollback_body.find("if (!rollbackResult)")
+    unexpected_index = rollback_body.find("return std::unexpected", failure_index)
+    release_index = rollback_body.find("releaseWithoutAction()", failure_index)
+    if failure_index < 0:
+        failures.append("[FAIL] ApplyGuard ownership gate: rollbackNow failure branch missing")
+    if unexpected_index < 0:
+        failures.append("[FAIL] ApplyGuard ownership gate: rollbackNow must return explicit failure")
+    if release_index >= 0 and unexpected_index >= 0 and release_index < unexpected_index:
+        failures.append("[FAIL] ApplyGuard ownership gate: rollbackNow must not release guard before returning rollback failure")
+
+    return failures
+
+
 def check_dpc_monitoring_is_not_placeholder() -> list[str]:
     text = (ROOT / "LatencyMetricsCollector.cpp").read_text(encoding="utf-8", errors="replace")
     body = extract_function_body(text, "LatencyMetricsCollector::estimateDpcSpikeCount")
@@ -1031,6 +1093,8 @@ def main() -> int:
 
     failures.extend(check_apply_guard_transaction_patterns())
     failures.extend(check_thread_tracker_runtime_contracts())
+    failures.extend(check_runtime_orchestrator_signal_contracts())
+    failures.extend(check_apply_guard_rollback_failure_ownership())
     failures.extend(check_dpc_monitoring_is_not_placeholder())
     failures.extend(check_network_irq_unsupported_policy_is_warn_only())
     failures.extend(check_background_processor_group_policy_is_explicit())
