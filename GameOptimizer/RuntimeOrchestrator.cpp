@@ -16,12 +16,12 @@
 #include <Windows.h>
 #include <atomic>
 #include <chrono>
-#include <condition_variable>
-#include <mutex>
+#include <optional>
 #include <utility>
 
 #include "ErrorCode.h"
 #include "Logger.h"
+#include "RuntimeSignalState.h"
 #include "ShutdownPipeline.h"
 #include "StartupPipeline.h"
 #include "TrackingWatchdog.h"
@@ -29,15 +29,16 @@
 
 namespace
 {
-    std::atomic_bool gRunning = true;
-    std::atomic_bool gRuntimeTimeoutRequested = false;
-    std::mutex gRunStateMutex;
-    std::condition_variable gRunStateChanged;
+    constexpr auto kRuntimeTimeoutHardGrace = std::chrono::seconds(3);
+    std::atomic<RuntimeSignalState*> gActiveSignalState = nullptr;
 
     void requestShutdown() noexcept
     {
-        gRunning.store(false, std::memory_order_release);
-        gRunStateChanged.notify_all();
+        RuntimeSignalState* signalState = gActiveSignalState.load(std::memory_order_acquire);
+        if (signalState != nullptr)
+        {
+            signalState->requestShutdown();
+        }
     }
 
     BOOL WINAPI handleConsoleControl(DWORD controlType) noexcept
@@ -55,6 +56,47 @@ namespace
             return FALSE;
         }
     }
+
+    class ConsoleControlRegistration
+    {
+    public:
+        explicit ConsoleControlRegistration(RuntimeSignalState& signalState) noexcept
+            : signalState_(&signalState)
+        {
+            gActiveSignalState.store(signalState_, std::memory_order_release);
+            registered_ = SetConsoleCtrlHandler(handleConsoleControl, TRUE) != FALSE;
+            if (!registered_)
+            {
+                gActiveSignalState.store(nullptr, std::memory_order_release);
+            }
+        }
+
+        ~ConsoleControlRegistration() noexcept
+        {
+            if (registered_)
+            {
+                SetConsoleCtrlHandler(handleConsoleControl, FALSE);
+            }
+
+            gActiveSignalState.compare_exchange_strong(
+                signalState_,
+                nullptr,
+                std::memory_order_acq_rel,
+                std::memory_order_acquire);
+        }
+
+        ConsoleControlRegistration(const ConsoleControlRegistration&) = delete;
+        ConsoleControlRegistration& operator=(const ConsoleControlRegistration&) = delete;
+
+        [[nodiscard]] bool registered() const noexcept
+        {
+            return registered_;
+        }
+
+    private:
+        RuntimeSignalState* signalState_ = nullptr;
+        bool registered_ = false;
+    };
 }
 
 RuntimeOrchestrator::RuntimeOrchestrator(int argc, wchar_t* argv[]) noexcept
@@ -64,10 +106,10 @@ RuntimeOrchestrator::RuntimeOrchestrator(int argc, wchar_t* argv[]) noexcept
 
 int RuntimeOrchestrator::run() noexcept
 {
-    gRunning.store(true, std::memory_order_release);
-    gRuntimeTimeoutRequested.store(false, std::memory_order_release);
+    signalState_.reset();
 
-    if (!SetConsoleCtrlHandler(handleConsoleControl, TRUE))
+    ConsoleControlRegistration consoleControl(signalState_);
+    if (!consoleControl.registered())
     {
         Logger::error("startup failed: {}", toString(ErrorCode::ConsoleControlHandlerFailed));
         return 1;
@@ -82,7 +124,7 @@ int RuntimeOrchestrator::run() noexcept
     context_ = std::move(contextResult.value());
 
     TrackingWatchdog watchdog;
-    WatchdogCycleRunner cycleRunner(context_, gRuntimeTimeoutRequested, requestShutdown);
+    WatchdogCycleRunner cycleRunner(context_, signalState_.runtimeTimeoutRequested, requestShutdown);
     const bool watchdogStarted = watchdog.start(
         [&](std::stop_token stopToken) noexcept
         {
@@ -97,30 +139,35 @@ int RuntimeOrchestrator::run() noexcept
     }
 
     const auto runtimeStart = std::chrono::steady_clock::now();
-    while (gRunning.load(std::memory_order_acquire))
+    std::optional<std::chrono::steady_clock::time_point> softTimeoutAt;
+    while (signalState_.isRunning())
     {
+        const auto now = std::chrono::steady_clock::now();
         if (context_.options.maxRuntime.has_value())
         {
-            const auto elapsed = std::chrono::steady_clock::now() - runtimeStart;
+            const auto elapsed = now - runtimeStart;
             if (elapsed >= context_.options.maxRuntime.value())
             {
-                if (!gRuntimeTimeoutRequested.exchange(true, std::memory_order_acq_rel))
+                if (signalState_.requestRuntimeTimeout())
                 {
+                    softTimeoutAt = now;
                     Logger::info(
                         "max runtime limit reached: {} seconds; shutdown will be requested at the next watchdog safe point",
                         context_.options.maxRuntime.value().count());
                 }
+                else if (softTimeoutAt.has_value() && now - softTimeoutAt.value() >= kRuntimeTimeoutHardGrace)
+                {
+                    Logger::warn(
+                        "max runtime hard-timeout grace exceeded: {} ms after soft timeout; forcing clean shutdown request",
+                        kRuntimeTimeoutHardGrace.count() * 1000);
+                    signalState_.requestShutdown();
+                    watchdog.requestStop();
+                    break;
+                }
             }
         }
 
-        std::unique_lock lock(gRunStateMutex);
-        gRunStateChanged.wait_for(
-            lock,
-            std::chrono::milliseconds(100),
-            []() noexcept
-            {
-                return !gRunning.load(std::memory_order_acquire);
-            });
+        (void)signalState_.waitForShutdownFor(std::chrono::milliseconds(100));
     }
 
     const ShutdownResult shutdownResult = ShutdownPipeline::execute(context_, watchdog);

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "RuntimeContext.h"
+#include "RuntimeSignalState.h"
 
 class RuntimeOrchestrator
 {
@@ -17,5 +18,6 @@ public:
 private:
     int argc_ = 0;
     wchar_t** argv_ = nullptr;
+    RuntimeSignalState signalState_{};
     RuntimeContext context_{};
 };

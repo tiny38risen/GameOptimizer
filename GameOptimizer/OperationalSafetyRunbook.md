@@ -67,18 +67,22 @@ The candidate is blocked when any of the following is missing:
 
 ## Runtime timeout safe-point invariant
 
-`--max-runtime-seconds` must not stop the process from an arbitrary point in the main polling loop. The main loop may only set the timeout request flag. The watchdog callback owns the final transition to shutdown and may only call `gRunning.store(false, std::memory_order_release)` after:
+`--max-runtime-seconds` must not stop the process from an arbitrary point in the main polling loop. The main loop first sets the timeout request flag and gives the watchdog one safe-point grace window. The watchdog callback owns the preferred transition to shutdown and may only call `RuntimeSignalState::requestShutdown()` after:
 
 1. thread tracking update has completed,
 2. policy feedback dispatch has completed,
 3. latency decision dispatch has completed,
 4. the current watchdog cycle has reached its rollback-safe boundary.
 
+If the watchdog safe point does not arrive within the hard-timeout grace window, `RuntimeOrchestrator` must request clean shutdown itself and stop the watchdog so max-runtime cannot hang indefinitely.
+
 Required log sequence:
 
 1. `max runtime limit reached: ... shutdown will be requested at the next watchdog safe point`
-2. `runtime timeout reached at watchdog cycle boundary; requesting clean shutdown`
-3. `shutdown requested; stopping watchdog and latency sensor before rollback`
-4. `shutdown completed cleanly`
+2. either `runtime timeout reached at watchdog cycle boundary; requesting clean shutdown` or `max runtime hard-timeout grace exceeded: ... forcing clean shutdown request`
+3. `shutdown requested; stopping policy cycles before rollback`
+4. `runtime validation pre-rollback evidence snapshot begin`
+5. `runtime validation post-rollback evidence snapshot begin`
+6. `shutdown completed cleanly`
 
-Any timeout path that skips the cycle-boundary message or emits the required timeout logs out of order is a release blocker.
+Any timeout path that emits neither the cycle-boundary message nor the hard-timeout grace message is a release blocker.

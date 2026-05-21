@@ -25,6 +25,8 @@ REQUIRED_MAIN_PATTERNS = [
     ("RuntimeContext.h", r"CliOptions\s+options", "RuntimeContext must retain parsed options state"),
     ("RuntimeContext.h", r"StartupPlan\s+startupPlan", "RuntimeContext must retain startup plan state"),
     ("RuntimeOrchestrator.h", r"RuntimeContext\s+context_", "RuntimeOrchestrator must own RuntimeContext"),
+    ("RuntimeOrchestrator.h", r"RuntimeSignalState\s+signalState_", "RuntimeOrchestrator must own RuntimeSignalState"),
+    ("RuntimeSignalState.h", r"struct\s+RuntimeSignalState", "RuntimeSignalState contract missing"),
     ("RuntimeContext.h", r"struct\s+StartupPlan", "StartupPlan contract missing"),
     ("StartupPipeline.cpp", r"std::expected\s*<\s*RuntimeContext\s*,\s*ErrorCode\s*>\s+StartupPipeline::run", "StartupPipeline run missing"),
     ("StartupPipeline.cpp", r"std::expected\s*<\s*StartupPlan\s*,\s*ErrorCode\s*>\s+StartupPipeline::prepare", "StartupPipeline prepare missing"),
@@ -39,6 +41,10 @@ REQUIRED_MAIN_PATTERNS = [
     ("WatchdogCycleRunner.cpp", r"const\s+auto&\s+observedThreads\s*=\s*topThreads\.value\s*\(\s*\)\s*;", "topThreads bind missing"),
     ("WatchdogCycleRunner.cpp", r"const\s+auto&\s+commands\s*=\s*commandsResult\.value\s*\(\s*\)\s*;", "commandsResult bind missing"),
     ("WatchdogCycleRunner.cpp", r"runtime timeout reached at watchdog cycle boundary", "runtime timeout safe-point log missing"),
+    ("RuntimeOrchestrator.cpp", r"kRuntimeTimeoutHardGrace", "runtime timeout hard grace missing"),
+    ("RuntimeOrchestrator.cpp", r"max runtime hard-timeout grace exceeded", "runtime timeout hard-grace log missing"),
+    ("ShutdownPipeline.cpp", r"pre-rollback", "shutdown pre-rollback evidence snapshot missing"),
+    ("ShutdownPipeline.cpp", r"post-rollback", "shutdown post-rollback evidence snapshot missing"),
     ("ShutdownPipeline.cpp", r"shutdown result: timerRollbackFailed=\{\}, schedulerRollbackFailed=\{\}, runtimeValidationFailed=\{\}, rollbackStatePreserved=\{\}", "shutdown result summary log missing"),
 ]
 

@@ -12,6 +12,7 @@
 TrackingWatchdog::~TrackingWatchdog() noexcept
 {
     requestStop();
+    join();
 }
 
 bool TrackingWatchdog::start(

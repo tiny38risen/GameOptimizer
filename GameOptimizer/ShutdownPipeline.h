@@ -26,4 +26,10 @@ class ShutdownPipeline
 public:
     [[nodiscard]] static ShutdownResult execute(RuntimeContext& context, TrackingWatchdog& watchdog) noexcept;
     [[nodiscard]] static int shutdownAfterStartupFailure(RuntimeContext& context) noexcept;
+
+private:
+    static void logRuntimeValidationSnapshot(
+        const RuntimeContext& context,
+        const char* evidencePhase,
+        ShutdownResult& shutdownResult) noexcept;
 };

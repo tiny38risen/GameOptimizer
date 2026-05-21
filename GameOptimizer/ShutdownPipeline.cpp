@@ -10,7 +10,7 @@
 
 ShutdownResult ShutdownPipeline::execute(RuntimeContext& context, TrackingWatchdog& watchdog) noexcept
 {
-    Logger::info("shutdown requested; stopping watchdog and latency sensor before rollback");
+    Logger::info("shutdown requested; stopping policy cycles before rollback");
     watchdog.requestStop();
     if (context.latencyMetricsCollector)
     {
@@ -24,11 +24,7 @@ ShutdownResult ShutdownPipeline::execute(RuntimeContext& context, TrackingWatchd
     }
 
     ShutdownResult shutdownResult{};
-    if (context.runtimeValidationMonitor)
-    {
-        context.runtimeValidationMonitor->logSummary();
-        shutdownResult.runtimeValidationFailed = context.runtimeValidationMonitor->hasCriticalFailure();
-    }
+    logRuntimeValidationSnapshot(context, "pre-rollback", shutdownResult);
 
     if (context.timerResolutionController)
     {
@@ -51,6 +47,8 @@ ShutdownResult ShutdownPipeline::execute(RuntimeContext& context, TrackingWatchd
         }
     }
 
+    logRuntimeValidationSnapshot(context, "post-rollback", shutdownResult);
+
     Logger::info(
         "shutdown result: timerRollbackFailed={}, schedulerRollbackFailed={}, runtimeValidationFailed={}, rollbackStatePreserved={}",
         shutdownResult.timerRollbackFailed,
@@ -65,5 +63,30 @@ int ShutdownPipeline::shutdownAfterStartupFailure(RuntimeContext& context) noexc
 {
     TrackingWatchdog watchdog;
     const ShutdownResult shutdownResult = execute(context, watchdog);
-    return shutdownResult.failed() ? 1 : 1;
+    if (shutdownResult.failed())
+    {
+        Logger::error("startup failure cleanup also completed with shutdown failures");
+    }
+
+    return 1;
+}
+
+void ShutdownPipeline::logRuntimeValidationSnapshot(
+    const RuntimeContext& context,
+    const char* evidencePhase,
+    ShutdownResult& shutdownResult) noexcept
+{
+    if (!context.runtimeValidationMonitor)
+    {
+        Logger::info("runtime validation {} evidence snapshot: monitor unavailable", evidencePhase);
+        return;
+    }
+
+    Logger::info("runtime validation {} evidence snapshot begin", evidencePhase);
+    context.runtimeValidationMonitor->logSummary();
+    shutdownResult.runtimeValidationFailed = context.runtimeValidationMonitor->hasCriticalFailure();
+    Logger::info(
+        "runtime validation {} evidence snapshot end: critical_failure={}",
+        evidencePhase,
+        context.runtimeValidationMonitor->hasCriticalFailure());
 }

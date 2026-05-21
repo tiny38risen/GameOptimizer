@@ -112,6 +112,7 @@
     <ClInclude Include="RollbackManager.h" />
     <ClInclude Include="RuntimeContext.h" />
     <ClInclude Include="RuntimeOrchestrator.h" />
+    <ClInclude Include="RuntimeSignalState.h" />
     <ClInclude Include="RuntimeValidationMonitor.h" />
     <ClInclude Include="SchedulerController.h" />
     <ClInclude Include="ShutdownPipeline.h" />
