@@ -46,6 +46,16 @@ REQUIRED_MAIN_PATTERNS = [
     ("ShutdownPipeline.cpp", r"pre-rollback", "shutdown pre-rollback evidence snapshot missing"),
     ("ShutdownPipeline.cpp", r"post-rollback", "shutdown post-rollback evidence snapshot missing"),
     ("ShutdownPipeline.cpp", r"shutdown result: timerRollbackFailed=\{\}, schedulerRollbackFailed=\{\}, runtimeValidationFailed=\{\}, rollbackStatePreserved=\{\}", "shutdown result summary log missing"),
+    ("ThreadTracker.h", r"enum class\s+ThreadTrackerUpdateDisposition", "ThreadTracker update disposition contract missing"),
+    ("ThreadTracker.h", r"struct\s+ThreadTrackerTelemetry", "ThreadTracker telemetry contract missing"),
+    ("ThreadTracker.cpp", r"std::expected\s*<\s*ThreadTrackerUpdateDisposition\s*,\s*ErrorCode\s*>\s+ThreadTracker::update", "ThreadTracker update must return disposition"),
+    ("ThreadTracker.cpp", r"recordOpenThreadFailure\s*\(", "ThreadTracker OpenThread telemetry missing"),
+    ("ThreadTracker.cpp", r"recordThreadTimeQueryFailure\s*\(", "ThreadTracker GetThreadTimes telemetry missing"),
+    ("ThreadTracker.cpp", r"sample\.eligibleForCandidate\s*=\s*false", "ThreadTracker failed samples must be excluded from candidates"),
+    ("ThreadTracker.cpp", r"sampleWaitCondition_\.wait_for", "ThreadTracker sample wait must use persistent wait condition"),
+    ("WatchdogCycleRunner.cpp", r"ResetAfterInvariantFailure", "WatchdogCycleRunner must surface ThreadTracker reset disposition"),
+    ("RuntimeValidationMonitor.h", r"threadTrackerResetEvent", "RuntimeValidationMonitor must record ThreadTracker reset events"),
+    ("RuntimeValidationMonitor.cpp", r"thread_tracker_reset_events", "RuntimeValidationMonitor summary must include ThreadTracker reset events"),
 ]
 
 ALLOWED_EXPECTED_BIND_LINES = [
@@ -310,6 +320,38 @@ def check_apply_guard_transaction_patterns() -> list[str]:
     for text, pattern, message in forbidden_patterns:
         if re.search(pattern, text):
             failures.append(f"[FAIL] ApplyGuard transaction gate: {message}")
+    return failures
+
+
+def check_thread_tracker_runtime_contracts() -> list[str]:
+    failures: list[str] = []
+    header_text = (ROOT / "ThreadTracker.h").read_text(encoding="utf-8", errors="replace")
+    source_text = (ROOT / "ThreadTracker.cpp").read_text(encoding="utf-8", errors="replace")
+    watchdog_text = (ROOT / "WatchdogCycleRunner.cpp").read_text(encoding="utf-8", errors="replace")
+
+    forbidden_patterns = [
+        (source_text, r"return\s+update\s*\(\s*std::stop_token\s*\{\s*\}\s*\)\s*;", "ThreadTracker::update() must not use unchecked return update(...) propagation"),
+        (source_text, r"std::condition_variable_any\s+\w+\s*;", "ThreadTracker must not create a temporary condition_variable_any inside waitForNextSample"),
+        (source_text, r"std::mutex\s+\w+\s*;\s*\n\s*std::condition_variable_any", "ThreadTracker must not allocate a temporary mutex/condition pair per sample wait"),
+    ]
+    for text, pattern, message in forbidden_patterns:
+        if re.search(pattern, text):
+            failures.append(f"[FAIL] ThreadTracker runtime gate: {message}")
+
+    required_patterns = [
+        (header_text, r"ThreadTrackerUpdateDisposition::ResetAfterInvariantFailure|ResetAfterInvariantFailure", "reset disposition must be declared"),
+        (header_text, r"ThreadTrackerTelemetry", "telemetry struct must be declared"),
+        (source_text, r"recordOpenThreadFailure\s*\(\s*openedHandle\.error\s*\(\s*\)\s*\)", "OpenThread failures must be recorded"),
+        (source_text, r"recordThreadTimeQueryFailure\s*\(\s*currentCpuTime\.error\s*\(\s*\)\s*\)", "GetThreadTimes failures must be recorded"),
+        (source_text, r"sample->eligibleForCandidate\s*=\s*false", "failed GetThreadTimes sample must be excluded"),
+        (source_text, r"if\s*\(\s*!sample\.hasEma\s*\|\|\s*!sample\.eligibleForCandidate\s*\)", "candidate calculation must skip ineligible samples"),
+        (source_text, r"sampleWaitCondition_\.wait_for", "waitForNextSample must use a persistent condition_variable"),
+        (watchdog_text, r"ThreadTrackerUpdateDisposition::ResetAfterInvariantFailure", "upper layer must observe reset disposition"),
+    ]
+    for text, pattern, message in required_patterns:
+        if not re.search(pattern, text):
+            failures.append(f"[FAIL] ThreadTracker runtime gate: {message}")
+
     return failures
 
 
@@ -983,6 +1025,7 @@ def main() -> int:
         failures.extend(check_expected_access(path))
 
     failures.extend(check_apply_guard_transaction_patterns())
+    failures.extend(check_thread_tracker_runtime_contracts())
     failures.extend(check_dpc_monitoring_is_not_placeholder())
     failures.extend(check_network_irq_unsupported_policy_is_warn_only())
     failures.extend(check_background_processor_group_policy_is_explicit())

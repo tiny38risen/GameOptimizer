@@ -28,6 +28,14 @@ void RuntimeValidationMonitor::observe(const RuntimeValidationSample& sample) no
         ++summary_.totalRollbackRequests;
     }
 
+    if (sample.threadTrackerResetEvent)
+    {
+        ++summary_.totalThreadTrackerResetEvents;
+        Logger::error(
+            "runtime validation: thread tracker reset event observed (total_reset_events={})",
+            summary_.totalThreadTrackerResetEvents);
+    }
+
     if (sample.mainThreadDetected)
     {
         ++summary_.cyclesWithMainThread;
@@ -91,7 +99,7 @@ void RuntimeValidationMonitor::observe(const RuntimeValidationSample& sample) no
     updateCriticalFailureState();
 
     Logger::info(
-        "runtime validation sample: cycle={}, main_detected={}, main_policy_applied={}, decision_commands={}, feedback_commands={}, dispatch_failures={}, rollback_requested={}, rtt_jitter={:.3f} ms, dpc_spikes={}, migrations={}",
+        "runtime validation sample: cycle={}, main_detected={}, main_policy_applied={}, decision_commands={}, feedback_commands={}, dispatch_failures={}, rollback_requested={}, thread_tracker_reset={}, rtt_jitter={:.3f} ms, dpc_spikes={}, migrations={}",
         summary_.observedCycles,
         sample.mainThreadDetected,
         sample.mainThreadPolicyApplied,
@@ -99,6 +107,7 @@ void RuntimeValidationMonitor::observe(const RuntimeValidationSample& sample) no
         sample.feedbackCommandCount,
         sample.dispatchFailureCount,
         sample.rollbackRequested,
+        sample.threadTrackerResetEvent,
         sample.metrics.rttJitterMs,
         sample.metrics.dpcSpikeCount,
         sample.metrics.threadMigrationCount);
@@ -109,7 +118,7 @@ void RuntimeValidationMonitor::logSummary() const noexcept
     const bool passedMinimumCycles = summary_.observedCycles >= config_.minimumCyclesForSummary;
 
     Logger::info(
-        "runtime validation summary: cycles={}, minimum_required={}, minimum_satisfied={}, main_detected_cycles={}, main_policy_applied_cycles={}, decision_commands={}, feedback_commands={}, dispatch_failures={}, rollback_requests={}, high_rtt_cycles={}, high_dpc_cycles={}, high_migration_cycles={}, consecutive_no_main_cycles={}, critical_failure={}",
+        "runtime validation summary: cycles={}, minimum_required={}, minimum_satisfied={}, main_detected_cycles={}, main_policy_applied_cycles={}, decision_commands={}, feedback_commands={}, dispatch_failures={}, rollback_requests={}, thread_tracker_reset_events={}, high_rtt_cycles={}, high_dpc_cycles={}, high_migration_cycles={}, consecutive_no_main_cycles={}, critical_failure={}",
         summary_.observedCycles,
         config_.minimumCyclesForSummary,
         passedMinimumCycles,
@@ -119,6 +128,7 @@ void RuntimeValidationMonitor::logSummary() const noexcept
         summary_.totalFeedbackCommands,
         summary_.totalDispatchFailures,
         summary_.totalRollbackRequests,
+        summary_.totalThreadTrackerResetEvents,
         summary_.highRttJitterCycles,
         summary_.highDpcSpikeCycles,
         summary_.highThreadMigrationCycles,
@@ -164,6 +174,11 @@ void RuntimeValidationMonitor::updateCriticalFailureState() noexcept
     }
 
     if (summary_.totalRollbackRequests > config_.maxRollbackRequests)
+    {
+        summary_.criticalFailureDetected = true;
+    }
+
+    if (summary_.totalThreadTrackerResetEvents > 0)
     {
         summary_.criticalFailureDetected = true;
     }

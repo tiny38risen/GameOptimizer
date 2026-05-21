@@ -86,10 +86,23 @@ void WatchdogCycleRunner::runCycle(std::stop_token stopToken) noexcept
 
 bool WatchdogCycleRunner::updateThreads(std::stop_token stopToken) noexcept
 {
+    threadTrackerResetEventThisCycle_ = false;
     const auto updateResult = context_.threadTracker->update(stopToken);
     if (!updateResult)
     {
         Logger::warn("thread update failed: {}; retrying next cycle", toString(updateResult.error()));
+        return false;
+    }
+
+    const ThreadTrackerUpdateDisposition disposition = updateResult.value();
+    if (disposition == ThreadTrackerUpdateDisposition::ResetAfterInvariantFailure)
+    {
+        threadTrackerResetEventThisCycle_ = true;
+        Logger::error("thread tracker reported a reset event; runtime evidence will retain the reset disposition");
+    }
+    else if (disposition == ThreadTrackerUpdateDisposition::StopRequested)
+    {
+        Logger::info("thread tracker update stopped by shutdown request");
         return false;
     }
 
@@ -310,6 +323,7 @@ RuntimeValidationSample WatchdogCycleRunner::makeValidationSample(
         mainThreadId.has_value() &&
         context_.lastAppliedThreadId.has_value() &&
         context_.lastAppliedThreadId.value() == mainThreadId.value();
+    validationSample.threadTrackerResetEvent = threadTrackerResetEventThisCycle_;
     return validationSample;
 }
 

@@ -82,6 +82,8 @@ void ThreadTracker::resetFixedStorageAfterInvariantFailure() noexcept
 
     initializeFixedStorage();
     sampleCapacityWarned_ = false;
+    resetOccurredDuringUpdate_ = true;
+    ++telemetry_.totalResetEvents;
     resetCandidateState();
 }
 
@@ -401,6 +403,7 @@ void ThreadTracker::resetMultiSampleAccumulators() noexcept
         ThreadSample& sample = samples_[activeSlots_[index]];
         sample.accumulatedDelta100ns = 0;
         sample.accumulatedDeltaCount = 0;
+        sample.eligibleForCandidate = false;
         sample.hasWindowBaseline = false;
     }
 }
@@ -454,6 +457,7 @@ std::expected<void, ErrorCode> ThreadTracker::observeOnce() noexcept
             auto openedHandle = openThreadHandle(entry.th32ThreadID);
             if (!openedHandle)
             {
+                recordOpenThreadFailure(openedHandle.error());
                 continue;
             }
 
@@ -464,7 +468,9 @@ std::expected<void, ErrorCode> ThreadTracker::observeOnce() noexcept
         auto currentCpuTime = queryThreadCpuTime100ns(sample->threadHandle.get());
         if (!currentCpuTime)
         {
+            recordThreadTimeQueryFailure(currentCpuTime.error());
             sample->threadHandle.reset();
+            sample->eligibleForCandidate = false;
             continue;
         }
 
@@ -504,11 +510,13 @@ void ThreadTracker::finalizeMultiSample() noexcept
         if (sample.accumulatedDeltaCount <= 0)
         {
             sample.deltaCpuTime100ns = 0;
+            sample.eligibleForCandidate = false;
             continue;
         }
 
         sample.deltaCpuTime100ns =
             sample.accumulatedDelta100ns / static_cast<std::uint64_t>(sample.accumulatedDeltaCount);
+        sample.eligibleForCandidate = true;
 
         const double currentDelta = static_cast<double>(sample.deltaCpuTime100ns);
         if (sample.hasEma)
@@ -525,13 +533,20 @@ void ThreadTracker::finalizeMultiSample() noexcept
     }
 }
 
-std::expected<void, ErrorCode> ThreadTracker::update() noexcept
+std::expected<ThreadTrackerUpdateDisposition, ErrorCode> ThreadTracker::update() noexcept
 {
-    return update(std::stop_token{});
+    auto updateResult = update(std::stop_token{});
+    if (!updateResult)
+    {
+        return std::unexpected(updateResult.error());
+    }
+
+    return updateResult.value();
 }
 
-std::expected<void, ErrorCode> ThreadTracker::update(std::stop_token stopToken) noexcept
+std::expected<ThreadTrackerUpdateDisposition, ErrorCode> ThreadTracker::update(std::stop_token stopToken) noexcept
 {
+    resetLastUpdateTelemetry();
     resetMultiSampleAccumulators();
 
     const int sampleCount = config_.sampleCount;
@@ -539,7 +554,8 @@ std::expected<void, ErrorCode> ThreadTracker::update(std::stop_token stopToken) 
     {
         if (stopToken.stop_requested())
         {
-            return {};
+            logLastUpdateTelemetry();
+            return ThreadTrackerUpdateDisposition::StopRequested;
         }
 
         auto observeResult = observeOnce();
@@ -557,14 +573,18 @@ std::expected<void, ErrorCode> ThreadTracker::update(std::stop_token stopToken) 
         {
             if (!waitForNextSample(stopToken, config_.sampleInterval))
             {
-                return {};
+                logLastUpdateTelemetry();
+                return ThreadTrackerUpdateDisposition::StopRequested;
             }
         }
     }
 
     finalizeMultiSample();
     updateCandidateState(std::chrono::steady_clock::now());
-    return {};
+    logLastUpdateTelemetry();
+    return resetOccurredDuringUpdate_
+        ? ThreadTrackerUpdateDisposition::ResetAfterInvariantFailure
+        : ThreadTrackerUpdateDisposition::Updated;
 }
 
 bool ThreadTracker::waitForNextSample(
@@ -578,10 +598,8 @@ bool ThreadTracker::waitForNextSample(
 
     try
     {
-        std::mutex waitMutex;
-        std::condition_variable_any condition;
-        std::unique_lock lock(waitMutex);
-        condition.wait_for(
+        std::unique_lock lock(sampleWaitMutex_);
+        sampleWaitCondition_.wait_for(
             lock,
             stopToken,
             interval,
@@ -680,6 +698,11 @@ std::optional<DWORD> ThreadTracker::getMainThreadId() const noexcept
     return mainThreadId_;
 }
 
+ThreadTrackerTelemetry ThreadTracker::telemetry() const noexcept
+{
+    return telemetry_;
+}
+
 int ThreadTracker::consumeThreadMigrationCount() noexcept
 {
     const int value = threadMigrationCount_;
@@ -725,7 +748,7 @@ void ThreadTracker::updateCandidateState(
     for (std::size_t index = 0; index < activeSlotCount_; ++index)
     {
         const ThreadSample& sample = samples_[activeSlots_[index]];
-        if (!sample.hasEma)
+        if (!sample.hasEma || !sample.eligibleForCandidate)
         {
             continue;
         }
@@ -786,4 +809,72 @@ void ThreadTracker::resetCandidateState() noexcept
     mainThreadId_.reset();
     lastConfirmedMainThreadId_.reset();
     candidateStartedAt_.reset();
+}
+
+void ThreadTracker::resetLastUpdateTelemetry() noexcept
+{
+    telemetry_.lastUpdateOpenThreadFailures = 0;
+    telemetry_.lastUpdateOpenThreadAccessDeniedFailures = 0;
+    telemetry_.lastUpdateThreadTimeQueryFailures = 0;
+    telemetry_.lastUpdateThreadTimeAccessDeniedFailures = 0;
+    resetOccurredDuringUpdate_ = false;
+}
+
+void ThreadTracker::recordOpenThreadFailure(ErrorCode errorCode) noexcept
+{
+    ++telemetry_.lastUpdateOpenThreadFailures;
+    ++telemetry_.totalOpenThreadFailures;
+
+    if (errorCode == ErrorCode::AccessDenied)
+    {
+        ++telemetry_.lastUpdateOpenThreadAccessDeniedFailures;
+        ++telemetry_.totalOpenThreadAccessDeniedFailures;
+        Logger::warn("thread tracker OpenThread denied by access boundary; sample excluded from candidate calculation");
+        return;
+    }
+
+    Logger::warn(
+        "thread tracker OpenThread failed; sample excluded from candidate calculation: {}",
+        toString(errorCode));
+}
+
+void ThreadTracker::recordThreadTimeQueryFailure(ErrorCode errorCode) noexcept
+{
+    ++telemetry_.lastUpdateThreadTimeQueryFailures;
+    ++telemetry_.totalThreadTimeQueryFailures;
+
+    if (errorCode == ErrorCode::AccessDenied)
+    {
+        ++telemetry_.lastUpdateThreadTimeAccessDeniedFailures;
+        ++telemetry_.totalThreadTimeAccessDeniedFailures;
+        Logger::warn(
+            "thread tracker GetThreadTimes denied by access boundary; sample excluded from candidate calculation");
+        return;
+    }
+
+    Logger::warn(
+        "thread tracker GetThreadTimes failed; sample excluded from candidate calculation: {}",
+        toString(errorCode));
+}
+
+void ThreadTracker::logLastUpdateTelemetry() const noexcept
+{
+    if (telemetry_.lastUpdateOpenThreadFailures == 0 &&
+        telemetry_.lastUpdateThreadTimeQueryFailures == 0 &&
+        !resetOccurredDuringUpdate_)
+    {
+        return;
+    }
+
+    Logger::warn(
+        "thread tracker telemetry: open_thread_failures={}, open_thread_access_denied={}, get_thread_times_failures={}, get_thread_times_access_denied={}, reset_event={}, total_open_thread_failures={}, total_open_thread_access_denied={}, total_get_thread_times_failures={}, total_reset_events={}",
+        telemetry_.lastUpdateOpenThreadFailures,
+        telemetry_.lastUpdateOpenThreadAccessDeniedFailures,
+        telemetry_.lastUpdateThreadTimeQueryFailures,
+        telemetry_.lastUpdateThreadTimeAccessDeniedFailures,
+        resetOccurredDuringUpdate_,
+        telemetry_.totalOpenThreadFailures,
+        telemetry_.totalOpenThreadAccessDeniedFailures,
+        telemetry_.totalThreadTimeQueryFailures,
+        telemetry_.totalResetEvents);
 }

@@ -93,6 +93,26 @@ struct ThreadTrackerConfig
     std::chrono::milliseconds sampleInterval = std::chrono::milliseconds(50);
 };
 
+enum class ThreadTrackerUpdateDisposition
+{
+    Updated,
+    StopRequested,
+    ResetAfterInvariantFailure
+};
+
+struct ThreadTrackerTelemetry
+{
+    std::uint64_t totalOpenThreadFailures = 0;
+    std::uint64_t totalOpenThreadAccessDeniedFailures = 0;
+    std::uint64_t totalThreadTimeQueryFailures = 0;
+    std::uint64_t totalThreadTimeAccessDeniedFailures = 0;
+    std::uint64_t totalResetEvents = 0;
+    std::uint32_t lastUpdateOpenThreadFailures = 0;
+    std::uint32_t lastUpdateOpenThreadAccessDeniedFailures = 0;
+    std::uint32_t lastUpdateThreadTimeQueryFailures = 0;
+    std::uint32_t lastUpdateThreadTimeAccessDeniedFailures = 0;
+};
+
 class ThreadTracker
 {
 public:
@@ -100,14 +120,15 @@ public:
         DWORD processId,
         ThreadTrackerConfig config = ThreadTrackerConfig{}) noexcept;
 
-    [[nodiscard]] std::expected<void, ErrorCode> update() noexcept;
-    [[nodiscard]] std::expected<void, ErrorCode> update(std::stop_token stopToken) noexcept;
+    [[nodiscard]] std::expected<ThreadTrackerUpdateDisposition, ErrorCode> update() noexcept;
+    [[nodiscard]] std::expected<ThreadTrackerUpdateDisposition, ErrorCode> update(std::stop_token stopToken) noexcept;
 
     [[nodiscard]] std::expected<ThreadInfoBuffer, ErrorCode>
     getTopThreads(std::size_t maxCount) const noexcept;
 
     [[nodiscard]] std::optional<DWORD> getEmaCandidateThreadId() const noexcept;
     [[nodiscard]] std::optional<DWORD> getMainThreadId() const noexcept;
+    [[nodiscard]] ThreadTrackerTelemetry telemetry() const noexcept;
     [[nodiscard]] int consumeThreadMigrationCount() noexcept;
     void increaseStickinessBy(std::chrono::milliseconds delta) noexcept;
 
@@ -139,6 +160,7 @@ private:
             accumulatedDeltaCount = 0;
             emaCpuTime100ns = 0.0;
             hasEma = false;
+            eligibleForCandidate = false;
             hasWindowBaseline = false;
             active = false;
             seenInCycle = false;
@@ -153,6 +175,7 @@ private:
         int accumulatedDeltaCount = 0;
         double emaCpuTime100ns = 0.0;
         bool hasEma = false;
+        bool eligibleForCandidate = false;
         bool hasWindowBaseline = false;
         bool active = false;
         bool seenInCycle = false;
@@ -179,7 +202,7 @@ private:
     void deactivateMissingSamples() noexcept;
     [[nodiscard]] std::size_t activeSampleCount() const noexcept;
     [[nodiscard]] std::expected<void, ErrorCode> observeOnce() noexcept;
-    [[nodiscard]] static bool waitForNextSample(
+    [[nodiscard]] bool waitForNextSample(
         std::stop_token stopToken,
         std::chrono::milliseconds interval) noexcept;
     void finalizeMultiSample() noexcept;
@@ -187,6 +210,10 @@ private:
 
     void updateCandidateState(std::chrono::steady_clock::time_point now) noexcept;
     void resetCandidateState() noexcept;
+    void resetLastUpdateTelemetry() noexcept;
+    void recordOpenThreadFailure(ErrorCode errorCode) noexcept;
+    void recordThreadTimeQueryFailure(ErrorCode errorCode) noexcept;
+    void logLastUpdateTelemetry() const noexcept;
 
 private:
     DWORD processId_ = 0;
@@ -206,4 +233,8 @@ private:
     std::optional<DWORD> lastConfirmedMainThreadId_;
     std::optional<std::chrono::steady_clock::time_point> candidateStartedAt_;
     int threadMigrationCount_ = 0;
+    ThreadTrackerTelemetry telemetry_{};
+    bool resetOccurredDuringUpdate_ = false;
+    std::mutex sampleWaitMutex_;
+    std::condition_variable_any sampleWaitCondition_;
 };

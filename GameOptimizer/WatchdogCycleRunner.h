@@ -42,4 +42,5 @@ private:
     RuntimeContext& context_;
     std::atomic_bool& runtimeTimeoutRequested_;
     RuntimeShutdownRequest requestShutdown_ = nullptr;
+    bool threadTrackerResetEventThisCycle_ = false;
 };

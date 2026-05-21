@@ -29,6 +29,7 @@ struct RuntimeValidationSample
     std::uint32_t feedbackCommandCount = 0;
     std::uint32_t dispatchFailureCount = 0;
     bool rollbackRequested = false;
+    bool threadTrackerResetEvent = false;
 };
 
 struct RuntimeValidationSummary
@@ -40,6 +41,7 @@ struct RuntimeValidationSummary
     std::uint32_t totalFeedbackCommands = 0;
     std::uint32_t totalDispatchFailures = 0;
     std::uint32_t totalRollbackRequests = 0;
+    std::uint32_t totalThreadTrackerResetEvents = 0;
     std::uint32_t highRttJitterCycles = 0;
     std::uint32_t highDpcSpikeCycles = 0;
     std::uint32_t highThreadMigrationCycles = 0;
