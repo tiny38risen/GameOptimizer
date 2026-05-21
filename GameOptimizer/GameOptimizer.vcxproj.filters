@@ -69,6 +69,15 @@
     <ClCompile Include="RuntimeOrchestrator.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="ShutdownPipeline.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="StartupPipeline.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="WatchdogCycleRunner.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="RuntimeValidationMonitorTests.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -102,6 +111,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Logger.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="LogString.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="ProcessFinder.h">
@@ -162,6 +174,18 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="RuntimeOrchestrator.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="RuntimeContext.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="ShutdownPipeline.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="StartupPipeline.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="WatchdogCycleRunner.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="NetworkInterruptController.h">

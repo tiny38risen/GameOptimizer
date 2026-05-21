@@ -11,7 +11,8 @@ Goal: reach an RC that can be applied safely.
 | Work item | Priority | Status |
 | --- | --- | --- |
 | Split `main.cpp` | HIGH | Done |
-| Structure shutdown pipeline | HIGH | In progress |
+| Structure startup/shutdown pipeline | HIGH | In progress |
+| Introduce `RuntimeContext` ownership | HIGH | Done |
 | Strengthen RC evidence automation | HIGH | In progress |
 | Timestamp and sequence logging | MEDIUM | Done |
 | Normalize process-name comparison | MEDIUM | Done |

@@ -1,7 +1,7 @@
-// Build: cl /std:c++latest /O2 /W4 /WX /permissive- RuntimeOrchestrator.cpp CliOptions.cpp ProcessFinder.cpp ThreadTracker.cpp TopologyAnalyzer.cpp RollbackManager.cpp SchedulerController.cpp TrackingWatchdog.cpp PolicyDispatcher.cpp LatencyDecisionLayer.cpp LatencyMetricsCollector.cpp NetworkInterruptController.cpp TimerResolutionController.cpp InputLatencyController.cpp AppliedPolicyTracker.cpp BackgroundController.cpp RuntimeValidationMonitor.cpp ApplyGuard.cpp
+// Build: cl /std:c++latest /O2 /W4 /WX /permissive- RuntimeOrchestrator.cpp StartupPipeline.cpp WatchdogCycleRunner.cpp ShutdownPipeline.cpp
 // MODULE: RuntimeOrchestrator
 // ERROR-POLICY: expected
-// Reason: runtime orchestrator owns startup, watchdog loop, and shutdown sequencing.
+// Reason: runtime orchestrator owns execution order while pipelines own startup, cycle, and shutdown logic.
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -14,38 +14,18 @@
 #include "RuntimeOrchestrator.h"
 
 #include <Windows.h>
-#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
-#include <expected>
 #include <mutex>
-#include <optional>
-#include <cstdint>
-#include <string>
-#include <string_view>
-#include <vector>
+#include <utility>
 
-#include "AppliedPolicyTracker.h"
-#include "BackgroundController.h"
-#include "CliOptions.h"
 #include "ErrorCode.h"
-#include "InputLatencyController.h"
-#include "LatencyDecisionLayer.h"
-#include "LatencyMetricsCollector.h"
 #include "Logger.h"
-#include "NetworkInterruptController.h"
-#include "PolicyDispatcher.h"
-#include "ProcessFinder.h"
-#include "RollbackManager.h"
-#include "RuntimeValidationMonitor.h"
-#include "SchedulerController.h"
-#include "ThreadInfo.h"
-#include "ThreadTracker.h"
-#include "TimerResolutionController.h"
-#include "TopologyAnalyzer.h"
+#include "ShutdownPipeline.h"
+#include "StartupPipeline.h"
 #include "TrackingWatchdog.h"
-#include "WinHandle.h"
+#include "WatchdogCycleRunner.h"
 
 namespace
 {
@@ -75,284 +55,6 @@ namespace
             return FALSE;
         }
     }
-
-
-    [[nodiscard]] std::string narrowForLog(std::wstring_view value)
-    {
-        std::string result;
-        result.reserve(value.size());
-
-        for (const wchar_t ch : value)
-        {
-            result.push_back(ch >= 0 && ch <= 0x7F ? static_cast<char>(ch) : '?');
-        }
-
-        return result;
-    }
-
-    struct ShutdownResult
-    {
-        bool timerRollbackFailed = false;
-        bool schedulerRollbackFailed = false;
-        bool runtimeValidationFailed = false;
-        bool rollbackStatePreserved = false;
-
-        [[nodiscard]] bool failed() const noexcept
-        {
-            return timerRollbackFailed || schedulerRollbackFailed || runtimeValidationFailed;
-        }
-    };
-
-    void logObservedThreads(const ThreadInfoBuffer& threads) noexcept
-    {
-        constexpr double kFileTimeUnitsPerMillisecond = 10000.0;
-
-        Logger::info("observed top thread count: {}", threads.size());
-
-        for (const ThreadInfo& thread : threads)
-        {
-            const double deltaMilliseconds =
-                static_cast<double>(thread.deltaCpuTime100ns) / kFileTimeUnitsPerMillisecond;
-            const double emaMilliseconds =
-                thread.emaCpuTime100ns / kFileTimeUnitsPerMillisecond;
-
-            Logger::info(
-                "TID: {} | avg-sample-cpu: {:.3f} ms | EMA-sample-cpu: {:.3f} ms | candidate: {} | main: {}",
-                thread.threadId,
-                deltaMilliseconds,
-                emaMilliseconds,
-                thread.isEmaCandidate,
-                thread.isMainThread);
-        }
-    }
-
-    void logDecisionState(const ThreadTracker& threadTracker) noexcept
-    {
-        const auto candidateThreadId = threadTracker.getEmaCandidateThreadId();
-        const auto mainThreadId = threadTracker.getMainThreadId();
-
-        if (candidateThreadId.has_value())
-        {
-            Logger::info("EMA candidate TID: {}", *candidateThreadId);
-        }
-        else
-        {
-            Logger::info("EMA candidate TID: none");
-        }
-
-        if (mainThreadId.has_value())
-        {
-            Logger::info("confirmed main TID: {}", *mainThreadId);
-        }
-        else
-        {
-            Logger::info("confirmed main TID: none");
-        }
-    }
-
-    void applyPolicyWhenMainThreadChanges(
-        SchedulerController& schedulerController,
-        std::optional<DWORD>& lastAppliedThreadId,
-        DWORD mainThreadId,
-        const SchedulerPolicy& policy) noexcept
-    {
-        const auto policyShapeResult = SchedulerController::validatePolicyShape(policy);
-        if (!policyShapeResult)
-        {
-            Logger::warn(
-                "pre-apply gate blocked scheduler validation for main TID {}: {}",
-                mainThreadId,
-                toString(policyShapeResult.error()));
-            return;
-        }
-
-        if (lastAppliedThreadId.has_value() && *lastAppliedThreadId == mainThreadId)
-        {
-            return;
-        }
-
-        const std::optional<DWORD> previousMainThreadId = lastAppliedThreadId;
-        if (previousMainThreadId.has_value())
-        {
-            Logger::info(
-                "main thread handoff started: previous TID {} remains active until new TID {} passes apply verification",
-                *previousMainThreadId,
-                mainThreadId);
-        }
-
-        const auto applyResult = schedulerController.applyMainThreadPolicy(mainThreadId, policy);
-        if (!applyResult)
-        {
-            if (SchedulerController::isRecoverableAccessLimitation(applyResult.error()))
-            {
-                Logger::warn(
-                    "main-thread policy limited by access boundary for TID {}; monitoring-only fallback remains active: {}",
-                    mainThreadId,
-                    toString(applyResult.error()));
-                return;
-            }
-
-            Logger::error(
-                "failed to validate/apply policy for new main TID {}; previous main TID {} remains the active optimized thread: {}",
-                mainThreadId,
-                previousMainThreadId.value_or(0),
-                toString(applyResult.error()));
-            return;
-        }
-
-        if (previousMainThreadId.has_value())
-        {
-            Logger::info(
-                "new main TID {} passed apply verification; rolling back previous main TID {}",
-                mainThreadId,
-                *previousMainThreadId);
-
-            const auto rollbackResult = schedulerController.rollbackThread(*previousMainThreadId);
-            if (!rollbackResult)
-            {
-                if (rollbackResult.error() == ErrorCode::ThreadOpenFailed)
-                {
-                    Logger::warn(
-                        "handoff rollback skipped for previous main TID {} after new TID {} was applied: previous thread is no longer openable, so dual optimization risk is gone ({})",
-                        *previousMainThreadId,
-                        mainThreadId,
-                        toString(rollbackResult.error()));
-                }
-                else
-                {
-                    Logger::error(
-                        "handoff rollback failed for previous main TID {} after new TID {} was applied: {}; rolling back new TID to avoid dual optimized threads",
-                        *previousMainThreadId,
-                        mainThreadId,
-                        toString(rollbackResult.error()));
-
-                    const auto newRollbackResult = schedulerController.rollbackThread(mainThreadId);
-                    if (!newRollbackResult)
-                    {
-                        Logger::error(
-                            "failed to rollback newly applied main TID {} after handoff failure: {}",
-                            mainThreadId,
-                            toString(newRollbackResult.error()));
-                    }
-                    return;
-                }
-            }
-        }
-
-        lastAppliedThreadId = mainThreadId;
-    }
-
-    void reconcilePolicyIfNeeded(
-        SchedulerController& schedulerController,
-        std::optional<DWORD> lastAppliedThreadId,
-        DWORD currentMainThreadId,
-        const SchedulerPolicy& policy,
-        SchedulerMode schedulerMode,
-        std::uint32_t& auditCycleCounter,
-        std::uint32_t auditIntervalCycles) noexcept
-    {
-        if (schedulerMode != SchedulerMode::Apply)
-        {
-            return;
-        }
-
-        if (!lastAppliedThreadId.has_value() || *lastAppliedThreadId != currentMainThreadId)
-        {
-            auditCycleCounter = 0;
-            return;
-        }
-
-        ++auditCycleCounter;
-        if (auditCycleCounter < auditIntervalCycles)
-        {
-            return;
-        }
-
-        auditCycleCounter = 0;
-
-        const auto reconcileResult = schedulerController.reconcileMainThreadPolicy(currentMainThreadId, policy);
-        if (!reconcileResult)
-        {
-            if (SchedulerController::isRecoverableAccessLimitation(reconcileResult.error()))
-            {
-                Logger::warn(
-                    "policy drift audit limited by access boundary for main TID {}; monitoring-only fallback remains active: {}",
-                    currentMainThreadId,
-                    toString(reconcileResult.error()));
-                return;
-            }
-
-            Logger::error(
-                "policy drift audit failed for main TID {}: {}",
-                currentMainThreadId,
-                toString(reconcileResult.error()));
-        }
-    }
-
-    [[nodiscard]] std::expected<WORD, ErrorCode> queryPrimaryProcessGroup(HANDLE processHandle) noexcept
-    {
-        USHORT groupCount = 0;
-        if (GetProcessGroupAffinity(processHandle, &groupCount, nullptr) ||
-            GetLastError() != ERROR_INSUFFICIENT_BUFFER ||
-            groupCount == 0)
-        {
-            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
-        }
-
-        std::array<USHORT, 64> groups{};
-        if (groupCount > groups.size())
-        {
-            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
-        }
-
-        if (!GetProcessGroupAffinity(processHandle, &groupCount, groups.data()) || groupCount == 0)
-        {
-            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
-        }
-
-        return groups.front();
-    }
-
-    [[nodiscard]] std::expected<SchedulerPolicy, ErrorCode>
-    buildProcessAffinityFallbackPolicy(DWORD processId) noexcept
-    {
-        HANDLE rawHandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
-        if (rawHandle == nullptr)
-        {
-            return std::unexpected(ErrorCode::ProcessOpenFailed);
-        }
-
-        WinHandle processHandle(rawHandle);
-        DWORD_PTR processMask = 0;
-        DWORD_PTR systemMask = 0;
-        if (!GetProcessAffinityMask(processHandle.get(), &processMask, &systemMask) || processMask == 0)
-        {
-            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
-        }
-
-        const auto processorGroupResult = queryPrimaryProcessGroup(processHandle.get());
-        if (!processorGroupResult)
-        {
-            return std::unexpected(processorGroupResult.error());
-        }
-
-        const WORD processorGroup = *processorGroupResult;
-        const auto fallbackTopology = TopologyAnalyzer::buildProcessAffinityFallbackMask(
-            processMask,
-            systemMask,
-            processorGroup);
-        if (!fallbackTopology)
-        {
-            return std::unexpected(fallbackTopology.error());
-        }
-
-        const TopologyResult& topology = fallbackTopology.value();
-        return SchedulerPolicy{
-            .affinityMask = topology.validatedMask,
-            .processorGroup = topology.processorGroup,
-            .threadPriority = THREAD_PRIORITY_ABOVE_NORMAL};
-    }
-
 }
 
 RuntimeOrchestrator::RuntimeOrchestrator(int argc, wchar_t* argv[]) noexcept
@@ -362,31 +64,8 @@ RuntimeOrchestrator::RuntimeOrchestrator(int argc, wchar_t* argv[]) noexcept
 
 int RuntimeOrchestrator::run() noexcept
 {
-    const int argc = argc_;
-    wchar_t** argv = argv_;
-    constexpr std::size_t kMaxDisplayedThreads = 8;
-    constexpr double kEmaAlpha = 0.25;
-    constexpr auto kStickinessDuration = std::chrono::milliseconds(4000);
-    constexpr int kSampleCount = 3;
-    constexpr auto kSampleInterval = std::chrono::milliseconds(50);
-    constexpr auto kWatchdogInterval = std::chrono::milliseconds(3000);
-    constexpr std::uint32_t kPolicyAuditIntervalCycles = 4;
-
-    const auto optionsResult = parseCliOptions(argc, argv);
-    if (!optionsResult)
-    {
-        Logger::error("usage: GameOptimizer.exe <process-name.exe> [--dry-run|--apply] [--background-filter <path>] [--latency-ping <ipv4>] [--background-detail-log] [--thread-detail-log] [--thread-log-interval <cycles>] [--max-runtime-seconds <seconds>]");
-        return 1;
-    }
-
-    const CliOptions& options = optionsResult.value();
-    const std::wstring& processName = options.processName;
-    const SchedulerMode schedulerMode = options.schedulerMode;
-    const std::wstring& backgroundFilterConfigPath = options.backgroundFilterConfigPath;
-    const std::wstring& latencyPingTarget = options.latencyPingTarget;
-    const bool backgroundDetailLogEnabled = options.backgroundDetailLogEnabled;
-    const RuntimeLogConfig& runtimeLogConfig = options.runtimeLogConfig;
-    const std::optional<std::chrono::seconds>& maxRuntime = options.maxRuntime;
+    gRunning.store(true, std::memory_order_release);
+    gRuntimeTimeoutRequested.store(false, std::memory_order_release);
 
     if (!SetConsoleCtrlHandler(handleConsoleControl, TRUE))
     {
@@ -394,357 +73,42 @@ int RuntimeOrchestrator::run() noexcept
         return 1;
     }
 
-    const auto processId = ProcessFinder::findProcessIdByName(processName);
-    if (!processId)
+    auto contextResult = StartupPipeline::run(argc_, argv_);
+    if (!contextResult)
     {
-        Logger::error("failed to find process: {}", toString(processId.error()));
         return 1;
     }
 
-    const DWORD targetProcessId = *processId;
-    Logger::info("target PID: {}", targetProcessId);
-    Logger::info("scheduler mode: {}", schedulerModeName(schedulerMode));
-    if (schedulerMode == SchedulerMode::Apply)
-    {
-        Logger::warn("apply mode enabled: SetThreadGroupAffinity and SetThreadPriority may modify the target thread until shutdown rollback");
-    }
-    else if (schedulerMode == SchedulerMode::SoftApply)
-    {
-        Logger::info("soft-apply: OpenThread scheduling-rights validation is enabled, but SetThread* calls are blocked");
-    }
-    else
-    {
-        Logger::info("dry-run: target thread will not be opened or modified");
-    }
-    Logger::info("pre-apply gate enabled: non-zero affinity mask and valid processor group are required before thread access");
-    Logger::info(
-        "policy drift watchdog enabled for apply mode: current thread policy will be audited every {} watchdog cycle(s)",
-        kPolicyAuditIntervalCycles);
-    Logger::info(
-        "multi-sampling enabled: {} samples, {} ms interval",
-        kSampleCount,
-        kSampleInterval.count());
-    Logger::info("policy command router enabled: E2E decision layer can emit BG_RESTRICT_UP, IRQ_REPIN, STICKY_UP, ROLLBACK");
-    Logger::info("policy stabilizer enabled: hysteresis + debounce + per-command cooldown are active");
-    Logger::info("background controller enabled: BG_RESTRICT_UP can isolate non-target processes from the selected game mask");
-    if (runtimeLogConfig.threadDetailLogEnabled)
-    {
-        Logger::info(
-            "thread detail log enabled: interval={} watchdog cycle(s)",
-            runtimeLogConfig.threadDetailLogIntervalCycles);
-    }
-    else
-    {
-        Logger::info("thread detail log disabled by default: pass --thread-detail-log to print top thread rows");
-    }
-    if (!backgroundFilterConfigPath.empty())
-    {
-        Logger::info("background filter config path: {}", narrowForLog(backgroundFilterConfigPath));
-    }
-    if (!latencyPingTarget.empty())
-    {
-        Logger::info("ICMP RTT fallback enabled: target={}", narrowForLog(latencyPingTarget));
-    }
-    else
-    {
-        Logger::info("ICMP RTT fallback disabled: pass --latency-ping <ipv4> to enable RTT jitter metrics");
-    }
-    if (maxRuntime.has_value())
-    {
-        Logger::info("max runtime limit enabled: {} seconds", maxRuntime->count());
-    }
-
-    SchedulerPolicy mainThreadPolicy{
-        .affinityMask = 0,
-        .processorGroup = 0,
-        .threadPriority = THREAD_PRIORITY_ABOVE_NORMAL};
-
-    const auto topologyResult = TopologyAnalyzer::buildMainThreadMask(targetProcessId);
-    if (topologyResult)
-    {
-        const auto& topology = *topologyResult;
-        mainThreadPolicy.affinityMask = topology.validatedMask;
-        mainThreadPolicy.processorGroup = topology.processorGroup;
-    }
-    else
-    {
-        Logger::warn(
-            "topology analyzer unavailable: {}; attempting process-affinity fallback policy",
-            toString(topologyResult.error()));
-
-        const auto fallbackPolicy = buildProcessAffinityFallbackPolicy(targetProcessId);
-        if (fallbackPolicy)
-        {
-            const auto& fallback = *fallbackPolicy;
-            mainThreadPolicy = fallback;
-            Logger::warn(
-                "topology fallback policy selected from process affinity: group={}, affinity=0x{:X}",
-                static_cast<unsigned int>(mainThreadPolicy.processorGroup),
-                static_cast<unsigned long long>(mainThreadPolicy.affinityMask));
-        }
-        else
-        {
-            Logger::error(
-                "topology fallback policy unavailable: {}; scheduler/background policies will remain disabled until a valid mask is available",
-                toString(fallbackPolicy.error()));
-        }
-    }
-
-    BackgroundRestrictionPolicy backgroundPolicy{
-        .targetProcessId = targetProcessId,
-        .gameAffinityMask = mainThreadPolicy.affinityMask,
-        .processorGroup = mainThreadPolicy.processorGroup};
-
-    const ThreadTrackerConfig trackerConfig{
-        .emaAlpha = kEmaAlpha,
-        .stickinessDuration = kStickinessDuration,
-        .sampleCount = kSampleCount,
-        .sampleInterval = kSampleInterval};
-
-    ThreadTracker threadTracker(targetProcessId, trackerConfig);
-    RollbackManager rollbackManager;
-    SchedulerController schedulerController(rollbackManager, schedulerMode);
-    TimerResolutionController timerResolutionController(schedulerMode);
-    const auto timerResolutionResult = timerResolutionController.apply();
-    if (!timerResolutionResult)
-    {
-        Logger::error("startup failed: timer resolution apply failed: {}", toString(timerResolutionResult.error()));
-        return 1;
-    }
-
-    InputLatencyController inputLatencyController(schedulerMode);
-    const auto inputLatencyResult = inputLatencyController.detectAndApply(targetProcessId, mainThreadPolicy);
-    if (!inputLatencyResult)
-    {
-        Logger::warn("input latency controller unavailable: {}", toString(inputLatencyResult.error()));
-    }
-
-    BackgroundFilterConfig backgroundFilterConfig =
-        BackgroundController::loadFilterConfigFromFile(backgroundFilterConfigPath);
-    backgroundFilterConfig.logRestrictedProcessDetails = backgroundDetailLogEnabled;
-    backgroundFilterConfig.logSkippedProcessDetails = backgroundDetailLogEnabled;
-    if (backgroundDetailLogEnabled)
-    {
-        Logger::info("background detail log enabled: per-process restriction and skip lines will be printed");
-    }
-    if (schedulerMode == SchedulerMode::Apply &&
-        backgroundFilterConfig.requireExplicitRestrictionTargetsInApply &&
-        backgroundFilterConfig.restrictionTargetProcessNames.empty())
-    {
-        Logger::warn(
-            "apply mode safety: background restriction will be blocked because no deny/restrict targets were loaded; "
-            "main-thread scheduling may still run, but BG_RESTRICT_UP will not change other processes");
-    }
-    else if (!backgroundFilterConfig.restrictionTargetProcessNames.empty())
-    {
-        Logger::info(
-            "background apply safety: explicit restriction target count={}",
-            backgroundFilterConfig.restrictionTargetProcessNames.size());
-    }
-    BackgroundController backgroundController(rollbackManager, schedulerMode, backgroundFilterConfig);
-    NetworkInterruptController networkInterruptController;
-    (void)networkInterruptController.initialize();
-    PolicyDispatcher policyDispatcher(
-        schedulerController,
-        threadTracker,
-        backgroundController,
-        backgroundPolicy,
-        &networkInterruptController);
-    LatencyDecisionLayer latencyDecisionLayer;
-    AppliedPolicyTracker appliedPolicyTracker;
-    RuntimeValidationMonitor runtimeValidationMonitor;
-    LatencyMetricsCollector latencyMetricsCollector(LatencyMetricsCollectorConfig{
-        .icmpTargetIpv4 = latencyPingTarget,
-        .icmpTimeout = std::chrono::milliseconds(50),
-        .icmpSampleInterval = std::chrono::milliseconds(1000),
-        .rttWindowSize = 10,
-        .interruptAffinitySupported = false,
-        .networkInterruptController = &networkInterruptController});
-    if (!latencyMetricsCollector.start())
-    {
-        Logger::error("startup failed: latency metrics sensor start failed");
-        (void)timerResolutionController.rollback();
-        return 1;
-    }
-
-    std::optional<DWORD> lastAppliedThreadId;
-    std::uint32_t policyAuditCycleCounter = 0;
-    std::uint32_t threadDetailLogCycleCounter = 0;
+    context_ = std::move(contextResult.value());
 
     TrackingWatchdog watchdog;
+    WatchdogCycleRunner cycleRunner(context_, gRuntimeTimeoutRequested, requestShutdown);
     const bool watchdogStarted = watchdog.start(
         [&](std::stop_token stopToken) noexcept
         {
-            const auto updateResult = threadTracker.update(stopToken);
-            if (!updateResult)
-            {
-                Logger::warn("thread update failed: {}; retrying next cycle", toString(updateResult.error()));
-                return;
-            }
-
-            bool shouldLogThreadDetails = runtimeLogConfig.threadDetailLogEnabled;
-            if (shouldLogThreadDetails)
-            {
-                ++threadDetailLogCycleCounter;
-                if (threadDetailLogCycleCounter < runtimeLogConfig.threadDetailLogIntervalCycles)
-                {
-                    shouldLogThreadDetails = false;
-                }
-                else
-                {
-                    threadDetailLogCycleCounter = 0;
-                }
-            }
-
-            if (shouldLogThreadDetails)
-            {
-                const auto topThreads = threadTracker.getTopThreads(kMaxDisplayedThreads);
-                if (!topThreads)
-                {
-                    Logger::warn("thread data collection failed: {}; retrying next cycle", toString(topThreads.error()));
-                    return;
-                }
-
-                const auto& observedThreads = *topThreads;
-                logObservedThreads(observedThreads);
-            }
-            logDecisionState(threadTracker);
-
-            const auto mainThreadId = threadTracker.getMainThreadId();
-            if (mainThreadId.has_value())
-            {
-                applyPolicyWhenMainThreadChanges(
-                    schedulerController,
-                    lastAppliedThreadId,
-                    *mainThreadId,
-                    mainThreadPolicy);
-
-                reconcilePolicyIfNeeded(
-                    schedulerController,
-                    lastAppliedThreadId,
-                    *mainThreadId,
-                    mainThreadPolicy,
-                    schedulerMode,
-                    policyAuditCycleCounter,
-                    kPolicyAuditIntervalCycles);
-            }
-
-            RuntimeMetrics runtimeMetrics = latencyMetricsCollector.collect(
-                threadTracker.consumeThreadMigrationCount());
-            runtimeMetrics.timestamp = std::chrono::steady_clock::now();
-
-            RuntimeValidationSample validationSample{};
-            validationSample.metrics = runtimeMetrics;
-            validationSample.mainThreadDetected = mainThreadId.has_value();
-            validationSample.mainThreadPolicyApplied =
-                mainThreadId.has_value() &&
-                lastAppliedThreadId.has_value() &&
-                *lastAppliedThreadId == *mainThreadId;
-
-            const auto feedbackCommands = appliedPolicyTracker.evaluate(runtimeMetrics, runtimeMetrics.timestamp);
-            for (PolicyCommand command : feedbackCommands)
-            {
-                ++validationSample.feedbackCommandCount;
-                if (command == PolicyCommand::Rollback)
-                {
-                    validationSample.rollbackRequested = true;
-                }
-
-                const auto dispatchResult = policyDispatcher.dispatch(command);
-                const bool dispatchSucceeded = dispatchResult.has_value();
-                appliedPolicyTracker.recordDispatchResult(
-                    command,
-                    runtimeMetrics,
-                    dispatchSucceeded,
-                    runtimeMetrics.timestamp);
-
-                if (!dispatchResult)
-                {
-                    ++validationSample.dispatchFailureCount;
-                    Logger::error(
-                        "policy feedback command dispatch failed (command={}): {}",
-                        toString(command),
-                        toString(dispatchResult.error()));
-                    continue;
-                }
-
-                if (command == PolicyCommand::Rollback)
-                {
-                    Logger::error("policy feedback requested rollback; shutting down watchdog loop");
-                    runtimeValidationMonitor.observe(validationSample);
-                    requestShutdown();
-                    return;
-                }
-            }
-
-            const auto commandsResult = latencyDecisionLayer.evaluate(runtimeMetrics, runtimeMetrics.timestamp);
-            if (!commandsResult)
-            {
-                Logger::error(
-                    "latency decision evaluation failed: {}",
-                    toString(commandsResult.error()));
-                return;
-            }
-
-            const auto& commands = *commandsResult;
-            for (PolicyCommand command : commands)
-            {
-                ++validationSample.decisionCommandCount;
-                if (command == PolicyCommand::Rollback)
-                {
-                    validationSample.rollbackRequested = true;
-                }
-
-                const auto dispatchResult = policyDispatcher.dispatch(command);
-                const bool dispatchSucceeded = dispatchResult.has_value();
-                appliedPolicyTracker.recordDispatchResult(
-                    command,
-                    runtimeMetrics,
-                    dispatchSucceeded,
-                    runtimeMetrics.timestamp);
-
-                if (!dispatchResult)
-                {
-                    ++validationSample.dispatchFailureCount;
-                    Logger::error(
-                        "policy command dispatch failed (command={}): {}",
-                        toString(command),
-                        toString(dispatchResult.error()));
-                }
-            }
-
-            runtimeValidationMonitor.observe(validationSample);
-
-            if (gRuntimeTimeoutRequested.load(std::memory_order_acquire))
-            {
-                Logger::info("runtime timeout reached at watchdog cycle boundary; requesting clean shutdown");
-                requestShutdown();
-            }
+            cycleRunner.runCycle(stopToken);
         },
-        kWatchdogInterval);
+        context_.startupPlan.watchdogInterval);
 
     if (!watchdogStarted)
     {
         Logger::error("startup failed: watchdog start failed");
-        latencyMetricsCollector.requestStop();
-        latencyMetricsCollector.join();
-        (void)timerResolutionController.rollback();
-        return 1;
+        return ShutdownPipeline::shutdownAfterStartupFailure(context_);
     }
 
     const auto runtimeStart = std::chrono::steady_clock::now();
     while (gRunning.load(std::memory_order_acquire))
     {
-        if (maxRuntime.has_value())
+        if (context_.options.maxRuntime.has_value())
         {
             const auto elapsed = std::chrono::steady_clock::now() - runtimeStart;
-            if (elapsed >= *maxRuntime)
+            if (elapsed >= context_.options.maxRuntime.value())
             {
                 if (!gRuntimeTimeoutRequested.exchange(true, std::memory_order_acq_rel))
                 {
                     Logger::info(
                         "max runtime limit reached: {} seconds; shutdown will be requested at the next watchdog safe point",
-                        maxRuntime->count());
+                        context_.options.maxRuntime.value().count());
                 }
             }
         }
@@ -759,37 +123,7 @@ int RuntimeOrchestrator::run() noexcept
             });
     }
 
-    Logger::info("shutdown requested; stopping watchdog and latency sensor before rollback");
-    watchdog.requestStop();
-    latencyMetricsCollector.requestStop();
-    watchdog.join();
-    latencyMetricsCollector.join();
-
-    runtimeValidationMonitor.logSummary();
-    ShutdownResult shutdownResult{};
-    shutdownResult.runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();
-
-    const auto timerRollbackResult = timerResolutionController.rollback();
-    if (!timerRollbackResult)
-    {
-        shutdownResult.timerRollbackFailed = true;
-        Logger::error("shutdown timer rollback failed: {}", toString(timerRollbackResult.error()));
-    }
-
-    const auto rollbackResult = schedulerController.rollbackAll();
-    if (!rollbackResult)
-    {
-        shutdownResult.schedulerRollbackFailed = true;
-        shutdownResult.rollbackStatePreserved = true;
-        Logger::error("shutdown rollback failed: {}", toString(rollbackResult.error()));
-    }
-
-    Logger::info(
-        "shutdown result: timerRollbackFailed={}, schedulerRollbackFailed={}, runtimeValidationFailed={}, rollbackStatePreserved={}",
-        shutdownResult.timerRollbackFailed,
-        shutdownResult.schedulerRollbackFailed,
-        shutdownResult.runtimeValidationFailed,
-        shutdownResult.rollbackStatePreserved);
+    const ShutdownResult shutdownResult = ShutdownPipeline::execute(context_, watchdog);
 
     if (shutdownResult.failed())
     {
@@ -810,4 +144,3 @@ int RuntimeOrchestrator::run() noexcept
     Logger::info("shutdown completed cleanly");
     return 0;
 }
-

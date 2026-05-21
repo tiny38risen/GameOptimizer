@@ -71,7 +71,7 @@ namespace
         const std::string schedulerText = readTextFile("SchedulerController.cpp");
         const std::string backgroundText = readTextFile("BackgroundController.cpp");
         const std::string rollbackText = readTextFile("RollbackManager.cpp");
-        const std::string runtimeText = readTextFile("RuntimeOrchestrator.cpp");
+        const std::string runtimeText = readTextFile("WatchdogCycleRunner.cpp");
         const std::string assertionsText = readTextFile("run_release_gate_log_assertions.py");
 
         REQUIRE(schedulerText.find("monitoring-only fallback remains active") != std::string::npos,

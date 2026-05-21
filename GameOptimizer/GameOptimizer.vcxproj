@@ -73,6 +73,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SchedulerController.cpp" />
+    <ClCompile Include="ShutdownPipeline.cpp" />
+    <ClCompile Include="StartupPipeline.cpp" />
     <ClCompile Include="ThreadTracker.cpp" />
     <ClCompile Include="TimerInputControllerTests.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -89,6 +91,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="TrackingWatchdog.cpp" />
+    <ClCompile Include="WatchdogCycleRunner.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppliedPolicyTracker.h" />
@@ -101,19 +104,24 @@
     <ClInclude Include="LatencyDecisionLayer.h" />
     <ClInclude Include="LatencyMetricsCollector.h" />
     <ClInclude Include="Logger.h" />
+    <ClInclude Include="LogString.h" />
     <ClInclude Include="NetworkInterruptController.h" />
     <ClInclude Include="PolicyCommand.h" />
     <ClInclude Include="PolicyDispatcher.h" />
     <ClInclude Include="ProcessFinder.h" />
     <ClInclude Include="RollbackManager.h" />
+    <ClInclude Include="RuntimeContext.h" />
     <ClInclude Include="RuntimeOrchestrator.h" />
     <ClInclude Include="RuntimeValidationMonitor.h" />
     <ClInclude Include="SchedulerController.h" />
+    <ClInclude Include="ShutdownPipeline.h" />
+    <ClInclude Include="StartupPipeline.h" />
     <ClInclude Include="ThreadInfo.h" />
     <ClInclude Include="ThreadTracker.h" />
     <ClInclude Include="TimerResolutionController.h" />
     <ClInclude Include="TopologyAnalyzer.h" />
     <ClInclude Include="TrackingWatchdog.h" />
+    <ClInclude Include="WatchdogCycleRunner.h" />
     <ClInclude Include="WinApiError.h" />
     <ClInclude Include="WinHandle.h" />
   </ItemGroup>

@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "Logger.h"
+#include "LogString.h"
 #include "WinApiError.h"
 #include "WinHandle.h"
 
@@ -57,23 +58,6 @@ namespace
         L"easyanticheat.exe",
         L"easyanticheat_eos.exe",
     };
-
-    void narrowForLogInto(std::wstring_view value, std::string& outputBuffer)
-    {
-        outputBuffer.clear();
-        outputBuffer.reserve(value.size());
-        for (const wchar_t ch : value)
-        {
-            outputBuffer.push_back(ch >= 0 && ch <= 0x7F ? static_cast<char>(ch) : '?');
-        }
-    }
-
-    [[nodiscard]] std::string narrowForLog(std::wstring_view value)
-    {
-        std::string result;
-        narrowForLogInto(value, result);
-        return result;
-    }
 
     [[nodiscard]] std::wstring trim(std::wstring_view value)
     {

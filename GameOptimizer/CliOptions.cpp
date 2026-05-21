@@ -8,6 +8,7 @@
 #include <cwchar>
 #include <limits>
 
+#include "LogString.h"
 #include "Logger.h"
 
 namespace
@@ -56,19 +57,6 @@ namespace
         }
 
         return false;
-    }
-
-    [[nodiscard]] std::string narrowForLog(std::wstring_view value)
-    {
-        std::string result;
-        result.reserve(value.size());
-
-        for (const wchar_t ch : value)
-        {
-            result.push_back(ch >= 0 && ch <= 0x7F ? static_cast<char>(ch) : '?');
-        }
-
-        return result;
     }
 
     [[nodiscard]] std::uint32_t parsePositiveUIntArgument(

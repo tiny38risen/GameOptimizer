@@ -18,16 +18,28 @@ CREATE_RC_EVIDENCE_BUNDLE_FILE = ROOT / "create_rc_evidence_bundle.py"
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"RuntimeOrchestrator\s+orchestrator\s*\(\s*argc\s*,\s*argv\s*\)", "main must delegate to RuntimeOrchestrator"),
     ("RuntimeOrchestrator.cpp", r"RuntimeOrchestrator::run\s*\(\s*\)", "RuntimeOrchestrator run entry missing"),
-    ("RuntimeOrchestrator.cpp", r"parseCliOptions\s*\(\s*argc\s*,\s*argv\s*\)", "RuntimeOrchestrator must delegate CLI parsing"),
+    ("RuntimeOrchestrator.cpp", r"StartupPipeline::run\s*\(\s*argc_\s*,\s*argv_\s*\)", "RuntimeOrchestrator must delegate startup execution"),
+    ("RuntimeOrchestrator.cpp", r"WatchdogCycleRunner\s+cycleRunner", "RuntimeOrchestrator must delegate watchdog cycles"),
+    ("RuntimeOrchestrator.cpp", r"ShutdownPipeline::execute\s*\(\s*context_\s*,\s*watchdog\s*\)", "RuntimeOrchestrator must delegate shutdown sequencing"),
+    ("RuntimeContext.h", r"struct\s+RuntimeContext", "RuntimeContext contract missing"),
+    ("RuntimeContext.h", r"CliOptions\s+options", "RuntimeContext must retain parsed options state"),
+    ("RuntimeContext.h", r"StartupPlan\s+startupPlan", "RuntimeContext must retain startup plan state"),
+    ("RuntimeOrchestrator.h", r"RuntimeContext\s+context_", "RuntimeOrchestrator must own RuntimeContext"),
+    ("RuntimeContext.h", r"struct\s+StartupPlan", "StartupPlan contract missing"),
+    ("StartupPipeline.cpp", r"std::expected\s*<\s*RuntimeContext\s*,\s*ErrorCode\s*>\s+StartupPipeline::run", "StartupPipeline run missing"),
+    ("StartupPipeline.cpp", r"std::expected\s*<\s*StartupPlan\s*,\s*ErrorCode\s*>\s+StartupPipeline::prepare", "StartupPipeline prepare missing"),
+    ("WatchdogCycleRunner.h", r"class\s+WatchdogCycleRunner", "WatchdogCycleRunner contract missing"),
+    ("WatchdogCycleRunner.cpp", r"void\s+WatchdogCycleRunner::runCycle\s*\(", "WatchdogCycleRunner cycle entry missing"),
+    ("ShutdownPipeline.h", r"struct\s+ShutdownResult", "shutdown result classification missing"),
+    ("ShutdownPipeline.cpp", r"ShutdownPipeline::execute\s*\(", "ShutdownPipeline execute missing"),
     ("CliOptions.h", r"struct\s+CliOptions", "CliOptions contract missing"),
     ("CliOptions.cpp", r"std::expected\s*<\s*CliOptions\s*,\s*ErrorCode\s*>\s+parseCliOptions", "CliOptions parser missing"),
-    ("RuntimeOrchestrator.cpp", r"const\s+DWORD\s+targetProcessId\s*=\s*\*processId\s*;", "targetProcessId bind missing"),
-    ("RuntimeOrchestrator.cpp", r"const\s+auto&\s+topology\s*=\s*\*topologyResult\s*;", "topologyResult bind missing"),
-    ("RuntimeOrchestrator.cpp", r"const\s+auto&\s+observedThreads\s*=\s*\*topThreads\s*;", "topThreads bind missing"),
-    ("RuntimeOrchestrator.cpp", r"const\s+auto&\s+commands\s*=\s*\*commandsResult\s*;", "commandsResult bind missing"),
-    ("RuntimeOrchestrator.cpp", r"runtime timeout reached at watchdog cycle boundary", "runtime timeout safe-point log missing"),
-    ("RuntimeOrchestrator.cpp", r"struct\s+ShutdownResult", "shutdown result classification missing"),
-    ("RuntimeOrchestrator.cpp", r"shutdown result: timerRollbackFailed=\{\}, schedulerRollbackFailed=\{\}, runtimeValidationFailed=\{\}, rollbackStatePreserved=\{\}", "shutdown result summary log missing"),
+    ("StartupPipeline.cpp", r"const\s+auto&\s+topology\s*=\s*topologyResult\.value\s*\(\s*\)\s*;", "topologyResult bind missing"),
+    ("StartupPipeline.cpp", r"context\.startupPlan\.targetProcessId", "targetProcessId context bind missing"),
+    ("WatchdogCycleRunner.cpp", r"const\s+auto&\s+observedThreads\s*=\s*topThreads\.value\s*\(\s*\)\s*;", "topThreads bind missing"),
+    ("WatchdogCycleRunner.cpp", r"const\s+auto&\s+commands\s*=\s*commandsResult\.value\s*\(\s*\)\s*;", "commandsResult bind missing"),
+    ("WatchdogCycleRunner.cpp", r"runtime timeout reached at watchdog cycle boundary", "runtime timeout safe-point log missing"),
+    ("ShutdownPipeline.cpp", r"shutdown result: timerRollbackFailed=\{\}, schedulerRollbackFailed=\{\}, runtimeValidationFailed=\{\}, rollbackStatePreserved=\{\}", "shutdown result summary log missing"),
 ]
 
 ALLOWED_EXPECTED_BIND_LINES = [
@@ -373,6 +385,11 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
     processor_group_tests_text = (ROOT / "ProcessorGroupHedtEvidenceTests.cpp").read_text(encoding="utf-8", errors="replace")
     scheduler_text = (ROOT / "SchedulerController.cpp").read_text(encoding="utf-8", errors="replace")
     runtime_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
+    startup_text = (ROOT / "StartupPipeline.cpp").read_text(encoding="utf-8", errors="replace")
+    shutdown_text = (ROOT / "ShutdownPipeline.cpp").read_text(encoding="utf-8", errors="replace")
+    runtime_context_text = (ROOT / "RuntimeContext.h").read_text(encoding="utf-8", errors="replace")
+    runtime_integration_text = "\n".join([runtime_text, startup_text, shutdown_text, runtime_context_text])
+    watchdog_text = (ROOT / "WatchdogCycleRunner.cpp").read_text(encoding="utf-8", errors="replace")
     processor_group_design_text = (ROOT / "ProcessorGroupPhase2Design.md").read_text(encoding="utf-8", errors="replace")
     safety_runbook_text = (ROOT / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
     readme_text = (ROOT / "README.txt").read_text(encoding="utf-8", errors="replace")
@@ -531,6 +548,10 @@ def check_timer_input_module_registration() -> list[str]:
     build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     runtime_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
+    startup_text = (ROOT / "StartupPipeline.cpp").read_text(encoding="utf-8", errors="replace")
+    shutdown_text = (ROOT / "ShutdownPipeline.cpp").read_text(encoding="utf-8", errors="replace")
+    runtime_context_text = (ROOT / "RuntimeContext.h").read_text(encoding="utf-8", errors="replace")
+    runtime_integration_text = "\n".join([runtime_text, startup_text, shutdown_text, runtime_context_text])
 
     required_project_entries = [
         "TimerResolutionController.cpp",
@@ -564,12 +585,12 @@ def check_timer_input_module_registration() -> list[str]:
     required_main_markers = [
         '#include "TimerResolutionController.h"',
         '#include "InputLatencyController.h"',
-        "TimerResolutionController timerResolutionController",
-        "InputLatencyController inputLatencyController",
-        "timerResolutionController.rollback()",
+        "std::unique_ptr<TimerResolutionController> timerResolutionController",
+        "std::unique_ptr<InputLatencyController> inputLatencyController",
+        "context.timerResolutionController->rollback()",
     ]
     for marker in required_main_markers:
-        if marker not in runtime_text:
+        if marker not in runtime_integration_text:
             failures.append(f"[FAIL] Timer/Input gate: runtime integration missing: {marker}")
 
     input_latency_text = (ROOT / "InputLatencyController.cpp").read_text(encoding="utf-8", errors="replace")
@@ -621,6 +642,7 @@ def check_anti_cheat_fallback_contract() -> list[str]:
     background_header_text = (ROOT / "BackgroundController.h").read_text(encoding="utf-8", errors="replace")
     rollback_text = (ROOT / "RollbackManager.cpp").read_text(encoding="utf-8", errors="replace")
     runtime_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
+    watchdog_text = (ROOT / "WatchdogCycleRunner.cpp").read_text(encoding="utf-8", errors="replace")
     tests_text = (ROOT / "AntiCheatFallbackTests.cpp").read_text(encoding="utf-8", errors="replace")
     assertions_text = (ROOT / "run_release_gate_log_assertions.py").read_text(encoding="utf-8", errors="replace")
     winapi_text = (ROOT / "WinApiError.h").read_text(encoding="utf-8", errors="replace")
@@ -633,6 +655,7 @@ def check_anti_cheat_fallback_contract() -> list[str]:
         background_header_text,
         rollback_text,
         runtime_text,
+        watchdog_text,
         tests_text,
         assertions_text,
         winapi_text,
@@ -886,23 +909,25 @@ def check_rc_candidate_contract() -> list[str]:
 
 
 def check_runtime_validation_failure_exit_code_contract() -> list[str]:
-    main_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
-    ordered_markers = [
-        "ShutdownResult shutdownResult{};",
-        "shutdownResult.runtimeValidationFailed = runtimeValidationMonitor.hasCriticalFailure();",
-        "shutdown result: timerRollbackFailed={}, schedulerRollbackFailed={}, runtimeValidationFailed={}, rollbackStatePreserved={}",
+    failures: list[str] = []
+    orchestrator_text = (ROOT / "RuntimeOrchestrator.cpp").read_text(encoding="utf-8", errors="replace")
+    shutdown_text = (ROOT / "ShutdownPipeline.cpp").read_text(encoding="utf-8", errors="replace")
+    for marker in [
+        "ShutdownPipeline::execute(",
         "if (shutdownResult.failed())",
         'Logger::error("shutdown completed with runtime validation failure");',
         "return 1;",
-    ]
-    failures: list[str] = []
-    search_from = 0
-    for marker in ordered_markers:
-        index = main_text.find(marker, search_from)
-        if index < 0:
-            failures.append(f"[FAIL] Runtime validation exit-code gate: missing ordered marker: {marker}")
-            continue
-        search_from = index + len(marker)
+    ]:
+        if marker not in orchestrator_text:
+            failures.append(f"[FAIL] Runtime validation exit-code gate: orchestrator missing marker: {marker}")
+
+    for marker in [
+        "ShutdownResult shutdownResult{};",
+        "shutdownResult.runtimeValidationFailed = context.runtimeValidationMonitor->hasCriticalFailure();",
+        "shutdown result: timerRollbackFailed={}, schedulerRollbackFailed={}, runtimeValidationFailed={}, rollbackStatePreserved={}",
+    ]:
+        if marker not in shutdown_text:
+            failures.append(f"[FAIL] Runtime validation exit-code gate: shutdown pipeline missing marker: {marker}")
 
     assertions_text = (ROOT / "run_release_gate_log_assertions.py").read_text(encoding="utf-8", errors="replace")
     if "runtime validation result: FAILED" not in assertions_text:

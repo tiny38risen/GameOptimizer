@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "RuntimeContext.h"
+
 class RuntimeOrchestrator
 {
 public:
@@ -15,4 +17,5 @@ public:
 private:
     int argc_ = 0;
     wchar_t** argv_ = nullptr;
+    RuntimeContext context_{};
 };
