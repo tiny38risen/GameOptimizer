@@ -80,8 +80,8 @@ namespace
             "scheduler access-denied priority path must leave rollback-path evidence");
         REQUIRE(backgroundText.find("background process skipped by recoverable access limitation") != std::string::npos,
             "background OpenProcess access-denied path must leave skip evidence");
-        REQUIRE(backgroundText.find("saved state discarded before mutation") != std::string::npos,
-            "background affinity access-denied path must prove saved state was discarded before mutation");
+        REQUIRE(backgroundText.find("post-failure audit completed before state cleanup") != std::string::npos,
+            "background affinity access-denied path must prove post-failure audit before state cleanup");
         REQUIRE(backgroundText.find("rollback path was invoked when needed") != std::string::npos,
             "background priority access-denied path must leave rollback-path evidence");
         REQUIRE(rollbackText.find("blocked by an access boundary") != std::string::npos,

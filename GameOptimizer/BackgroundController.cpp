@@ -33,6 +33,12 @@ namespace
         PROCESS_SET_INFORMATION;
     constexpr auto kBackgroundRestrictionCooldown = std::chrono::seconds(10);
 
+    struct ProcessAffinityState
+    {
+        DWORD_PTR processMask = 0;
+        DWORD_PTR systemMask = 0;
+    };
+
     constexpr std::array<const wchar_t*, 23> kProtectedProcessNames = {
         L"system",
         L"registry",
@@ -79,6 +85,27 @@ namespace
         }
 
         return std::wstring(value.substr(begin, end - begin));
+    }
+
+    [[nodiscard]] std::expected<ProcessAffinityState, ErrorCode> queryProcessAffinityState(HANDLE processHandle) noexcept
+    {
+        DWORD_PTR processMask = 0;
+        DWORD_PTR systemMask = 0;
+        if (!GetProcessAffinityMask(processHandle, &processMask, &systemMask) || processMask == 0)
+        {
+            return std::unexpected(ErrorCode::ProcessAffinityQueryFailed);
+        }
+
+        return ProcessAffinityState{
+            .processMask = processMask,
+            .systemMask = systemMask};
+    }
+
+    [[nodiscard]] bool matchesOriginalAffinity(
+        const ProcessAffinityState& currentState,
+        DWORD_PTR originalProcessMask) noexcept
+    {
+        return currentState.processMask == originalProcessMask;
     }
 
 }
@@ -351,6 +378,20 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
         Logger::warn(
             "background restriction blocked: processor group {} is selected, but process-wide SetProcessAffinityMask is only safe for group 0 policies; priority-class-only background restriction is also blocked until affinity and priority rollback state are split; thread-level SetThreadGroupAffinity remains supported",
             static_cast<unsigned int>(policy.processorGroup));
+        Logger::warn(
+            "background restriction evidence: background_restriction_mode=monitoring_only_due_to_processor_group, blocked_processor_group={}, process_wide_affinity_supported=false",
+            static_cast<unsigned int>(policy.processorGroup));
+        return summary;
+    }
+
+    if (mode_ == SchedulerMode::Apply &&
+        filterConfig_.requireExplicitRestrictionTargetsInApply &&
+        filterConfig_.restrictionTargetProcessNames.empty())
+    {
+        BackgroundRestrictionSummary summary{};
+        summary.blockedByMissingDenylist = true;
+        Logger::warn(
+            "background restriction blocked: apply mode requires explicit deny/restrict targets; unknown background processes remain monitoring-only");
         return summary;
     }
 
@@ -365,13 +406,13 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
         return BackgroundRestrictionSummary{};
     }
 
-    lastRestrictionTime_ = std::chrono::steady_clock::now();
-
     const auto processEntries = enumerateProcesses();
     if (!processEntries)
     {
         return std::unexpected(processEntries.error());
     }
+
+    lastRestrictionTime_ = std::chrono::steady_clock::now();
 
     const auto& entries = *processEntries;
 
@@ -464,9 +505,8 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
 
         auto& openedProcessHandle = *openedProcess;
         WinHandle processHandle(std::move(openedProcessHandle));
-        DWORD_PTR processMask = 0;
-        DWORD_PTR systemMask = 0;
-        if (!GetProcessAffinityMask(processHandle.get(), &processMask, &systemMask) || processMask == 0)
+        const auto affinityState = queryProcessAffinityState(processHandle.get());
+        if (!affinityState)
         {
             ++summary.skippedProcessCount;
             if (filterConfig_.logSkippedProcessDetails)
@@ -479,14 +519,15 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
             continue;
         }
 
+        const auto& processAffinity = affinityState.value();
+        const DWORD_PTR processMask = processAffinity.processMask;
         const DWORD_PTR targetMask = buildBackgroundMask(processMask, policy.gameAffinityMask);
         ++summary.candidateProcessCount;
 
-        if (mode_ == SchedulerMode::DryRun || mode_ == SchedulerMode::SoftApply)
+        if (mode_ == SchedulerMode::DryRun)
         {
             Logger::info(
-                "{}: would restrict background process {} (pid={}, currentAffinity=0x{:X}, targetAffinity=0x{:X}, priority=IDLE)",
-                mode_ == SchedulerMode::DryRun ? "dry-run" : "soft-apply",
+                "dry-run: would restrict background process {} (pid={}, currentAffinity=0x{:X}, targetAffinity=0x{:X}, priority=IDLE)",
                 processNameForLog,
                 processId,
                 static_cast<unsigned long long>(processMask),
@@ -505,6 +546,34 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
                     processNameForLog,
                     processId);
             }
+            continue;
+        }
+
+        if (mode_ == SchedulerMode::SoftApply)
+        {
+            const auto baselineValidationResult = rollbackManager_.validateProcessRollbackState(
+                processId,
+                processMask,
+                policy.processorGroup,
+                currentPriority);
+            if (!baselineValidationResult)
+            {
+                ++summary.skippedProcessCount;
+                Logger::warn(
+                    "soft-apply: background process rollback baseline validation failed: {} (pid={}, error={})",
+                    processNameForLog,
+                    processId,
+                    toString(baselineValidationResult.error()));
+                continue;
+            }
+
+            Logger::info(
+                "soft-apply: validated background restriction path for {} (pid={}, currentAffinity=0x{:X}, targetAffinity=0x{:X}, currentPriority=0x{:X}, targetPriority=IDLE)",
+                processNameForLog,
+                processId,
+                static_cast<unsigned long long>(processMask),
+                static_cast<unsigned long long>(targetMask),
+                static_cast<unsigned int>(currentPriority));
             continue;
         }
 
@@ -534,13 +603,53 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
         if (targetMask != processMask && !SetProcessAffinityMask(processHandle.get(), targetMask))
         {
             const ErrorCode mappedError = mapLastErrorToErrorCode(GetLastError());
-            applyGuard.discardSavedState();
+            const auto stateAfterFailedAffinityApply = queryProcessAffinityState(processHandle.get());
+            if (stateAfterFailedAffinityApply &&
+                matchesOriginalAffinity(stateAfterFailedAffinityApply.value(), processMask))
+            {
+                Logger::info(
+                    "background affinity restriction failed for {} (pid={}), but post-failure audit matched the original affinity; saved rollback state discarded",
+                    processNameForLog,
+                    processId);
+                applyGuard.discardSavedState();
+            }
+            else
+            {
+                if (!stateAfterFailedAffinityApply)
+                {
+                    Logger::error(
+                        "background affinity restriction failed for {} (pid={}), and post-failure audit could not query affinity: {}; invoking rollback",
+                        processNameForLog,
+                        processId,
+                        toString(stateAfterFailedAffinityApply.error()));
+                }
+                else
+                {
+                    const auto& currentState = stateAfterFailedAffinityApply.value();
+                    Logger::error(
+                        "background affinity restriction failed for {} (pid={}), and post-failure audit found affinity drift: current=0x{:X}, original=0x{:X}; invoking rollback",
+                        processNameForLog,
+                        processId,
+                        static_cast<unsigned long long>(currentState.processMask),
+                        static_cast<unsigned long long>(processMask));
+                }
+
+                auto rollbackResult = applyGuard.rollbackNow();
+                if (!rollbackResult)
+                {
+                    Logger::error(
+                        "background affinity restriction failed for {} (pid={}); rollback also failed: {}; rollback state is preserved for shutdown recovery",
+                        processNameForLog,
+                        processId,
+                        toString(rollbackResult.error()));
+                }
+            }
 
             ++summary.skippedProcessCount;
             if (isRecoverableAccessLimitation(mappedError))
             {
                 Logger::warn(
-                    "background affinity restriction blocked by recoverable access limitation: {} (pid={}, error={}); saved state discarded before mutation",
+                    "background affinity restriction blocked by recoverable access limitation: {} (pid={}, error={}); post-failure audit completed before state cleanup",
                     processNameForLog,
                     processId,
                     toString(mappedError));

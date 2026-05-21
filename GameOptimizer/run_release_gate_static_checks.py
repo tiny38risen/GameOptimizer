@@ -280,6 +280,8 @@ def check_apply_guard_transaction_patterns() -> list[str]:
         (background_text, r"applyGuard\.arm\s*\(\s*\)", "BackgroundController ApplyGuard must be armed"),
         (background_text, r"applyGuard\.commit\s*\(\s*\)", "BackgroundController ApplyGuard must commit after successful apply"),
         (background_text, r"applyGuard\.rollbackNow\s*\(\s*\)", "BackgroundController priority failure path must rollback through ApplyGuard"),
+        (background_text, r"validateProcessRollbackState\s*\(", "BackgroundController SoftApply must validate process rollback baseline"),
+        (background_text, r"post-failure audit", "BackgroundController apply failure must audit current state before discarding rollback state"),
         (apply_guard_text, r"enum class RollbackStateOwnership", "ApplyGuard must own rollback-state disposition internally"),
     ]
     for text, pattern, message in required_patterns:
@@ -315,6 +317,7 @@ def check_apply_guard_transaction_patterns() -> list[str]:
 
     forbidden_patterns = [
         (background_text, r"hasProcessState\s*\(", "BackgroundController must not use hasProcessState TOCTOU query"),
+        (background_text, r"saved state discarded before mutation", "BackgroundController must not discard saved state without a post-failure audit"),
         (apply_guard_text, r"newlyCreated|preExisting|createdRollbackState", "ApplyGuard must not expose bool ownership naming"),
     ]
     for text, pattern, message in forbidden_patterns:
@@ -468,6 +471,8 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         "blockedProcessorGroup",
         "background restriction blocked: processor group",
         "priority-class-only background restriction is also blocked until affinity and priority rollback state are split",
+        "background_restriction_mode=monitoring_only_due_to_processor_group",
+        "process_wide_affinity_supported=false",
         "priority-only process rollback",
         "priority rollback state",
         "thread-level SetThreadGroupAffinity remains supported",

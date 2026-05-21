@@ -66,6 +66,13 @@ public:
         WORD processorGroup,
         DWORD originalPriorityClass) noexcept;
 
+    [[nodiscard]] std::expected<void, ErrorCode>
+    validateProcessRollbackState(
+        DWORD processId,
+        DWORD_PTR originalAffinityMask,
+        WORD processorGroup,
+        DWORD originalPriorityClass) noexcept;
+
     [[nodiscard]] std::expected<RollbackDisposition, ErrorCode> rollbackProcess(DWORD processId) noexcept;
     [[nodiscard]] std::expected<void, ErrorCode> rollbackAll() noexcept;
 

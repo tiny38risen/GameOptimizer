@@ -582,6 +582,50 @@ std::expected<RollbackManager::SaveStateDisposition, ErrorCode> RollbackManager:
     }
 }
 
+std::expected<void, ErrorCode> RollbackManager::validateProcessRollbackState(
+    DWORD processId,
+    DWORD_PTR originalAffinityMask,
+    WORD processorGroup,
+    DWORD originalPriorityClass) noexcept
+{
+    if (processId == 0 || originalAffinityMask == 0 || originalPriorityClass == 0)
+    {
+        return std::unexpected(ErrorCode::InvalidArgument);
+    }
+
+    if (processorGroup != 0)
+    {
+        Logger::warn(
+            "background rollback baseline validation blocked for PID {} observedGroup={}: SetProcessAffinityMask cannot restore processor-group-specific process affinity",
+            processId,
+            static_cast<unsigned int>(processorGroup));
+        return std::unexpected(ErrorCode::UnsupportedProcessorGroupRollback);
+    }
+
+    auto openedProcess = openProcessForRollback(processId);
+    if (!openedProcess)
+    {
+        return std::unexpected(openedProcess.error());
+    }
+
+    WinHandle& processHandle = *openedProcess;
+    const auto queriedCreationTime = queryProcessCreationTime100ns(processHandle.get());
+    if (!queriedCreationTime)
+    {
+        return std::unexpected(queriedCreationTime.error());
+    }
+
+    const std::uint64_t creationTime100ns = queriedCreationTime.value();
+    Logger::info(
+        "background rollback baseline validated for PID {} (observedGroup={}, affinity=0x{:X}, priorityClass=0x{:X}, creationTime100ns={})",
+        processId,
+        static_cast<unsigned int>(processorGroup),
+        static_cast<unsigned long long>(originalAffinityMask),
+        static_cast<unsigned int>(originalPriorityClass),
+        creationTime100ns);
+    return {};
+}
+
 std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::rollbackProcess(DWORD processId) noexcept
 {
     try
