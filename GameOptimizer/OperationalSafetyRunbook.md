@@ -26,6 +26,8 @@ Apply:
 GameOptimizer.exe target.exe --apply --latency-ping 8.8.8.8 --background-filter background_filter_example.txt --max-runtime-seconds 180
 ```
 
+Apply mode remains conservative. Do not use broad background restriction without an explicit `--background-filter` deny/restrict configuration and clean dry-run plus soft-apply evidence for the same target.
+
 ## Rollback interpretation
 
 Non-fatal background rollback cases:
@@ -63,6 +65,19 @@ The candidate is blocked when any of the following is missing:
 2. Release blocker list.
 3. Current-commit smoke/soak evidence bundle.
 4. Final regression result with `failed=0`.
+5. Real game validation notes for the intended RC target set.
+
+## Real game validation invariant
+
+Before proposing `v3.0-rc1`, validate 2-3 representative game processes with `RealGameValidationRunbook.md`.
+
+Required order:
+
+1. dry-run with no mutation evidence.
+2. soft-apply with validated scheduling and rollback baseline evidence.
+3. apply only when Access Denied, anti-cheat fallback, DPC/IRQ, Raw Input confidence, and rollback evidence are all documented and no BLOCKER is present.
+
+Access Denied, IRQ unsupported, Raw Input unavailable, and group 1+ process-wide background monitoring-only are WARN findings when fallback evidence is present. They become BLOCKER findings only when the fallback/rollback evidence is missing or the runtime treats the unsupported path as ERROR/FAIL.
 
 
 ## Runtime timeout safe-point invariant

@@ -10,6 +10,7 @@ set TARGET=%~1
 set SCRIPT_DIR=%~dp0
 set VCVARS64=
 set RC_BLOCKER=unknown
+set FINAL_REGRESSION_LOG=
 
 pushd "%SCRIPT_DIR%"
 
@@ -86,8 +87,14 @@ if errorlevel 1 (
 )
 
 echo [RC-2] regression
-call run_regression_tests.bat
-if errorlevel 1 (
+if not exist "%SCRIPT_DIR%release_gate_logs" mkdir "%SCRIPT_DIR%release_gate_logs"
+for /f %%I in ('powershell -NoProfile -Command "(Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')"') do set RC_TIMESTAMP=%%I
+set FINAL_REGRESSION_LOG=%SCRIPT_DIR%release_gate_logs\%RC_TIMESTAMP%_final_regression.log
+echo [INFO] final regression log: "%FINAL_REGRESSION_LOG%"
+call run_regression_tests.bat > "%FINAL_REGRESSION_LOG%" 2>&1
+set REGRESSION_EXIT=%ERRORLEVEL%
+type "%FINAL_REGRESSION_LOG%"
+if not "%REGRESSION_EXIT%"=="0" (
     set RC_BLOCKER=regression failed
     goto fail
 )
@@ -113,7 +120,21 @@ if errorlevel 1 (
     goto fail
 )
 
-echo [PASS] RC gate passed. Required evidence reports were generated under release_gate_logs.
+echo [RC-6] verify RC candidate package inputs
+%PYTHON_CMD% verify_rc_candidate.py --target "%TARGET%" --regression-log "%FINAL_REGRESSION_LOG%"
+if errorlevel 1 (
+    set RC_BLOCKER=RC candidate verification failed
+    goto fail
+)
+
+echo [RC-7] create final RC evidence bundle
+%PYTHON_CMD% create_rc_evidence_bundle.py --target "%TARGET%" --regression-log "%FINAL_REGRESSION_LOG%"
+if errorlevel 1 (
+    set RC_BLOCKER=RC evidence bundle creation failed
+    goto fail
+)
+
+echo [PASS] RC gate passed. Required evidence reports and the final RC evidence bundle were generated under release_gate_logs.
 popd
 exit /b 0
 

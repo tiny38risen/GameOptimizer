@@ -11,7 +11,7 @@ The full RC entry command is:
 run_rc_gate.bat <target.exe>
 ```
 
-It must pass static gate, regression, release smoke, the combined 30m+60m soak evidence gate, and final RC evidence verification for the current commit.
+It must pass static gate, regression, release smoke, the combined 30m+60m soak evidence gate, final RC evidence verification for the current commit, and final RC evidence bundle creation.
 
 RC report severity is split into three levels:
 
@@ -84,7 +84,12 @@ The Release Gate smoke script now runs two assertion layers before accepting a b
    - runs the same RC candidate checks before writing any bundle manifest.
    - creates `rc_evidence_bundle_manifest.json` and `rc_evidence_bundle_manifest.txt`.
    - copies smoke evidence, soak evidence, step logs, and the final regression log into one run-id directory.
+   - records ThreadTracker telemetry, Input Latency fallback state, Network/IRQ monitoring-only state, Access Denied fallback evidence, runtime validation summaries, processor group mode summaries, rollback preserved-state summaries, and the fixed BLOCKER/WARN/INFO severity policy.
    - records `RC_CANDIDATE_PASS` only when there are no `BLOCKER` findings.
+
+6. `RealGameValidationRunbook.md`
+   - defines the required dry-run -> soft-apply evidence table for 2-3 real game processes.
+   - keeps Apply mode blocked until dry-run/soft-apply evidence is clean and the deny/restrict configuration is explicit.
 
 RG-3 identity rule remains strict: background rollback failures are non-fatal only when stale identity evidence is logged. Same PID + same creation time + live process rollback failure is a release blocker.
 

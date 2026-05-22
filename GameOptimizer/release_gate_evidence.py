@@ -15,6 +15,28 @@ LOG_ROOT = ROOT / "release_gate_logs"
 STATE_FILE_NAME = "evidence_state.json"
 MAX_OBSERVATION_SAMPLES = 20
 EXPECTED_SCHEMA = "gameoptimizer.rc_evidence.v1"
+SEVERITY_POLICY = {
+    "BLOCKER": [
+        "runtime validation FAILED",
+        "rollback failure or preserved rollback state",
+        "hang detection failure",
+        "timeline monotonicity failure",
+        "missing evidence",
+        "schema version, git commit, build hash, or exe SHA-256 mismatch",
+        "unsafe rollback state discard regression",
+    ],
+    "WARN": [
+        "IRQ unsupported monitoring-only",
+        "Raw Input not detected or unsupported",
+        "Access Denied fallback",
+        "Processor Group 1+ background monitoring-only",
+    ],
+    "INFO": [
+        "telemetry",
+        "dry-run decision",
+        "unsupported feature observation",
+    ],
+}
 
 
 def utc_now() -> str:
@@ -220,6 +242,125 @@ def extract_processor_group_mode_summary(log_text: str) -> dict[str, Any]:
     }
 
 
+def extract_thread_tracker_telemetry_summary(log_text: str) -> dict[str, Any]:
+    pattern = re.compile(
+        r"thread tracker telemetry:\s*"
+        r"open_thread_failures=(\d+),\s*"
+        r"open_thread_access_denied=(\d+),\s*"
+        r"get_thread_times_failures=(\d+),\s*"
+        r"get_thread_times_access_denied=(\d+),\s*"
+        r"reset_event=(true|false|0|1),\s*"
+        r"total_open_thread_failures=(\d+),\s*"
+        r"total_open_thread_access_denied=(\d+),\s*"
+        r"total_get_thread_times_failures=(\d+),\s*"
+        r"total_reset_events=(\d+)",
+        re.IGNORECASE,
+    )
+    samples: list[dict[str, Any]] = []
+    for match in pattern.finditer(log_text):
+        samples.append({
+            "open_thread_failures": int(match.group(1)),
+            "open_thread_access_denied": int(match.group(2)),
+            "get_thread_times_failures": int(match.group(3)),
+            "get_thread_times_access_denied": int(match.group(4)),
+            "reset_event": parse_bool_text(match.group(5)),
+            "total_open_thread_failures": int(match.group(6)),
+            "total_open_thread_access_denied": int(match.group(7)),
+            "total_get_thread_times_failures": int(match.group(8)),
+            "total_reset_events": int(match.group(9)),
+        })
+
+    last_sample = samples[-1] if samples else None
+    return {
+        "summary_present": bool(samples),
+        "sample_count": len(samples),
+        "last_sample": last_sample,
+        "max_total_open_thread_failures": max((sample["total_open_thread_failures"] for sample in samples), default=0),
+        "max_total_open_thread_access_denied": max((sample["total_open_thread_access_denied"] for sample in samples), default=0),
+        "max_total_get_thread_times_failures": max((sample["total_get_thread_times_failures"] for sample in samples), default=0),
+        "max_total_reset_events": max((sample["total_reset_events"] for sample in samples), default=0),
+    }
+
+
+def extract_input_latency_summary(log_text: str) -> dict[str, Any]:
+    lowered = log_text.lower()
+    return {
+        "raw_input_detected": "raw input detected" in lowered,
+        "raw_input_not_found": "raw input local-process registration not found" in lowered,
+        "remote_detection_unsupported": "raw input remote-process detection is unavailable" in lowered,
+        "fallback_monitoring_only": "fallback input policy" in lowered or "monitoring-only fallback" in lowered,
+        "concrete_tid_seen": "concretetid" in lowered or "concrete input tid" in lowered,
+        "pinning_skipped": "input thread pinning skipped" in lowered or "input thread pinning disabled" in lowered,
+        "pinning_attempted": "would pin an input thread" in lowered or "input pinning is not wired" in lowered,
+    }
+
+
+def extract_network_irq_summary(log_text: str) -> dict[str, Any]:
+    lowered = log_text.lower()
+    unsupported_count = len(re.findall(r"irq_repin .*unsupported|interrupt affinity .*unsupported", lowered))
+    suppressed_count = len(re.findall(r"irq_repin suppressed|suppressed monitoring-only", lowered))
+    return {
+        "irq_repin_requested": "irq_repin" in lowered,
+        "interrupt_affinity_unsupported": "interrupt affinity" in lowered and "unsupported" in lowered,
+        "unsupported_count": unsupported_count,
+        "suppressed_monitoring_only_count": suppressed_count,
+        "monitoring_only": "monitoring-only" in lowered and ("irq" in lowered or "interrupt" in lowered),
+        "dispatch_path_reached": "irq_repin dispatch path reached" in lowered,
+    }
+
+
+def extract_access_denied_fallback_summary(log_text: str) -> dict[str, Any]:
+    access_markers = (
+        "access denied",
+        "access boundary",
+        "openthread failure",
+        "openprocess failure",
+    )
+    fallback_markers = (
+        "monitoring-only fallback remains active",
+        "recoverable access limitation",
+        "rollback path was invoked when needed",
+        "saved state discarded before mutation",
+        "blocked by an access boundary",
+        "skipped",
+    )
+    access_lines: list[str] = []
+    fallback_lines: list[str] = []
+    for line in log_text.splitlines():
+        lowered = line.lower()
+        if any(marker in lowered for marker in access_markers):
+            access_lines.append(line.strip())
+            if any(marker in lowered for marker in fallback_markers):
+                fallback_lines.append(line.strip())
+    return {
+        "access_boundary_count": len(access_lines),
+        "fallback_evidence_count": len(fallback_lines),
+        "samples": access_lines[:MAX_OBSERVATION_SAMPLES],
+    }
+
+
+def extract_runtime_validation_summary(log_text: str) -> dict[str, Any]:
+    match = re.search(
+        r"runtime validation summary:\s*cycles=(\d+),\s*"
+        r"minimum_required=(\d+),\s*"
+        r"minimum_satisfied=(true|false|0|1).*?"
+        r"thread_tracker_reset_events=(\d+).*?"
+        r"critical_failure=(true|false|0|1)",
+        log_text,
+        re.IGNORECASE,
+    )
+    if not match:
+        return {"summary_present": False}
+    return {
+        "summary_present": True,
+        "cycles": int(match.group(1)),
+        "minimum_required": int(match.group(2)),
+        "minimum_satisfied": parse_bool_text(match.group(3)),
+        "thread_tracker_reset_events": int(match.group(4)),
+        "critical_failure": parse_bool_text(match.group(5)),
+    }
+
+
 def record_step(args: argparse.Namespace) -> int:
     run_dir = pathlib.Path(args.run_dir)
     state = load_state(run_dir)
@@ -241,6 +382,11 @@ def record_step(args: argparse.Namespace) -> int:
         "shutdown_failure_classification": extract_shutdown_failure_classification(log_text),
         "rollback_preserved_state_summary": extract_rollback_preserved_state_summary(log_text),
         "processor_group_mode_summary": extract_processor_group_mode_summary(log_text),
+        "thread_tracker_telemetry_summary": extract_thread_tracker_telemetry_summary(log_text),
+        "input_latency_summary": extract_input_latency_summary(log_text),
+        "network_irq_summary": extract_network_irq_summary(log_text),
+        "access_denied_fallback_summary": extract_access_denied_fallback_summary(log_text),
+        "runtime_validation_summary": extract_runtime_validation_summary(log_text),
         "warn_count": len(extract_log_lines(log_text, "[WARN]")),
         "warn_samples": extract_log_lines(log_text, "[WARN]")[:MAX_OBSERVATION_SAMPLES],
         "info_count": len(extract_log_lines(log_text, "[INFO]")),
@@ -273,6 +419,9 @@ def summarize_failures(state: dict[str, Any]) -> list[str]:
             failures.append(
                 f"{label}: preserved rollback state remains "
                 f"(thread={rollback.get('thread')}, process={rollback.get('process')})")
+        runtime_summary = step.get("runtime_validation_summary") or {}
+        if runtime_summary.get("critical_failure"):
+            failures.append(f"{label}: runtime validation summary reports critical failure")
     return failures
 
 
@@ -286,6 +435,19 @@ def summarize_warnings(state: dict[str, Any]) -> list[str]:
         samples = step.get("warn_samples") or []
         warnings.append(f"{label}: {warn_count} warning log line(s) observed")
         warnings.extend(f"{label}: {sample}" for sample in samples)
+        network = step.get("network_irq_summary") or {}
+        if network.get("interrupt_affinity_unsupported"):
+            warnings.append(f"{label}: IRQ unsupported path recorded as WARN + monitoring-only")
+        input_summary = step.get("input_latency_summary") or {}
+        if input_summary.get("raw_input_not_found") or input_summary.get("remote_detection_unsupported"):
+            warnings.append(f"{label}: Raw Input detection unavailable; fallback input policy recorded")
+        processor = step.get("processor_group_mode_summary") or {}
+        if processor.get("process_wide_group_1_plus_blocked"):
+            warnings.append(f"{label}: Processor Group 1+ background restriction recorded as monitoring-only")
+        access = step.get("access_denied_fallback_summary") or {}
+        if access.get("access_boundary_count"):
+            warnings.append(
+                f"{label}: Access Denied/access-boundary fallback evidence lines={access.get('fallback_evidence_count')}")
     return warnings
 
 
@@ -315,9 +477,25 @@ def summarize_info(state: dict[str, Any]) -> list[str]:
     info.append(f"processor_group_mode_summary: {processor_group_summaries}")
     info.append(f"shutdown_failure_classification: {shutdown_summaries}")
     info.append(f"rollback_preserved_state_summary: {rollback_summaries}")
+    info.append(f"thread_tracker_telemetry_summary: {collect_step_summaries(state, 'thread_tracker_telemetry_summary')}")
+    info.append(f"input_latency_summary: {collect_step_summaries(state, 'input_latency_summary')}")
+    info.append(f"network_irq_summary: {collect_step_summaries(state, 'network_irq_summary')}")
+    info.append(f"access_denied_fallback_summary: {collect_step_summaries(state, 'access_denied_fallback_summary')}")
+    info.append(f"runtime_validation_summary: {collect_step_summaries(state, 'runtime_validation_summary')}")
     for step in state["steps"]:
         info.append(f"{step['step']}: {int(step.get('info_count') or 0)} info log line(s) observed")
     return info
+
+
+def collect_step_summaries(state: dict[str, Any], field_name: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "step": step.get("step"),
+            "value": step.get(field_name),
+        }
+        for step in state.get("steps", [])
+        if step.get(field_name) is not None
+    ]
 
 
 def apply_severity_summary(state: dict[str, Any]) -> None:
@@ -422,6 +600,10 @@ def validate_report_identity(state: dict[str, Any], label: str, git_commit: str)
     if state.get("git_commit") != git_commit:
         failures.append(
             f"{label} evidence git commit mismatch: expected {git_commit}, found {state.get('git_commit')}")
+    if not state.get("build_hash"):
+        failures.append(f"{label} evidence build hash is missing")
+    if not state.get("binary_fingerprint"):
+        failures.append(f"{label} evidence binary fingerprint is missing")
 
     recorded_hash = state.get("exe_sha256")
     exe_path_text = state.get("exe_path")
@@ -532,14 +714,22 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
             f"  command exit code: {step['exit_code']}",
             f"  assertion exit code: {step['assertion_exit_code']}",
             f"  runtime validation failed: {step['runtime_validation_failed']}",
+            f"  runtime validation summary: {step.get('runtime_validation_summary')}",
             f"  shutdown failure classification: {step.get('shutdown_failure_classification')}",
             f"  rollback preserved state summary: {step.get('rollback_preserved_state_summary')}",
             f"  processor group mode summary: {step.get('processor_group_mode_summary')}",
+            f"  thread tracker telemetry summary: {step.get('thread_tracker_telemetry_summary')}",
+            f"  input latency summary: {step.get('input_latency_summary')}",
+            f"  network IRQ summary: {step.get('network_irq_summary')}",
+            f"  access denied fallback summary: {step.get('access_denied_fallback_summary')}",
             f"  warn count: {step.get('warn_count', 0)}",
             f"  info count: {step.get('info_count', 0)}",
             f"  log: {step['log_file']}",
             f"  log sha256: {step['log_sha256']}",
         ])
+    lines.extend(["", "Severity Policy:"])
+    for severity, items in SEVERITY_POLICY.items():
+        lines.append(f"- {severity}: " + "; ".join(items))
     lines.extend(["", "BLOCKER:"])
     if state["blockers"]:
         lines.extend(f"- {blocker}" for blocker in state["blockers"])

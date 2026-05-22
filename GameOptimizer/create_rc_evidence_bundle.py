@@ -84,10 +84,21 @@ def write_text_manifest(path: pathlib.Path, manifest: dict[str, Any]) -> None:
         f"Rollback preserved state summary: {manifest['rollback_preserved_state_summary']}",
         f"Shutdown failure classification: {manifest['shutdown_failure_classification']}",
         f"Processor group mode summary: {manifest['processor_group_mode_summary']}",
+        f"ThreadTracker telemetry summary: {manifest['thread_tracker_telemetry_summary']}",
+        f"Input latency summary: {manifest['input_latency_summary']}",
+        f"Network IRQ summary: {manifest['network_irq_summary']}",
+        f"Access Denied fallback summary: {manifest['access_denied_fallback_summary']}",
+        f"Runtime validation summary: {manifest['runtime_validation_summary']}",
         f"Created UTC: {manifest['created_utc']}",
         "",
-        "Artifacts:",
+        "Severity policy:",
     ]
+    for severity, items in manifest["severity_policy"].items():
+        lines.append(f"- {severity}: " + "; ".join(items))
+    lines.extend([
+        "",
+        "Artifacts:",
+    ])
     for artifact in manifest["artifacts"]:
         lines.append(f"- {artifact['label']}: {artifact['path']} sha256={artifact['sha256']}")
     lines.extend([
@@ -188,6 +199,27 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
             "processor_group_mode_summary",
             smoke_state,
             soak_state),
+        "thread_tracker_telemetry_summary": collect_step_field(
+            "thread_tracker_telemetry_summary",
+            smoke_state,
+            soak_state),
+        "input_latency_summary": collect_step_field(
+            "input_latency_summary",
+            smoke_state,
+            soak_state),
+        "network_irq_summary": collect_step_field(
+            "network_irq_summary",
+            smoke_state,
+            soak_state),
+        "access_denied_fallback_summary": collect_step_field(
+            "access_denied_fallback_summary",
+            smoke_state,
+            soak_state),
+        "runtime_validation_summary": collect_step_field(
+            "runtime_validation_summary",
+            smoke_state,
+            soak_state),
+        "severity_policy": evidence.SEVERITY_POLICY,
         "created_utc": evidence.utc_now(),
         "warnings": collect_warnings(smoke_state, soak_state),
         "source_reports": {

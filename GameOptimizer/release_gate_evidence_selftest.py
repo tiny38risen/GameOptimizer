@@ -57,6 +57,11 @@ def make_report(
         "target": target,
         "exe_path": str(exe_path),
         "exe_sha256": exe_sha256 or sha256_file(exe_path),
+        "binary_fingerprint": {
+            "path": str(exe_path),
+            "sha256": exe_sha256 or sha256_file(exe_path),
+            "bytes": exe_path.stat().st_size,
+        },
         "git_commit": resolved_commit,
         "build_hash": evidence.run_git(["rev-parse", "HEAD^{tree}"]),
         "steps": steps,
@@ -79,6 +84,11 @@ def make_running_state(kind: str, run_id: str, target: str, exe_path: pathlib.Pa
         "target": target,
         "exe_path": str(exe_path),
         "exe_sha256": sha256_file(exe_path),
+        "binary_fingerprint": {
+            "path": str(exe_path),
+            "sha256": sha256_file(exe_path),
+            "bytes": exe_path.stat().st_size,
+        },
         "git_commit": commit,
         "build_hash": evidence.run_git(["rev-parse", "HEAD^{tree}"]),
         "steps": [],

@@ -37,6 +37,7 @@ def validate_runbooks() -> list[str]:
             "v3.0-rc1",
             "BLOCKER",
             "evidence bundle",
+            "RealGameValidationRunbook.md",
         ],
         "RC runbook"))
     failures.extend(require_markers(
@@ -59,8 +60,21 @@ def validate_runbooks() -> list[str]:
             "Fatal background rollback cases",
             "Runtime timeout safe-point invariant",
             "release blocker",
+            "Real game validation invariant",
         ],
         "operational runbook"))
+    failures.extend(require_markers(
+        ROOT / "RealGameValidationRunbook.md",
+        [
+            "Dry-run",
+            "Soft-apply",
+            "Access Denied / anti-cheat fallback",
+            "DPC / IRQ evidence",
+            "Raw Input / TID confidence",
+            "Processor Group evidence",
+            "Apply mode must stay disabled",
+        ],
+        "real game validation runbook"))
     return failures
 
 
