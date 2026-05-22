@@ -29,15 +29,33 @@
 
 namespace
 {
-    constexpr auto kRuntimeTimeoutHardGrace = std::chrono::seconds(3);
+    constexpr auto kMinimumRuntimeTimeoutHardGrace = std::chrono::seconds(3);
+    constexpr auto kMaximumRuntimeTimeoutHardGrace = std::chrono::seconds(10);
     std::atomic<RuntimeSignalState*> gActiveSignalState = nullptr;
 
-    void requestShutdown() noexcept
+    [[nodiscard]] std::chrono::milliseconds calculateRuntimeTimeoutHardGrace(
+        std::chrono::milliseconds watchdogInterval) noexcept
+    {
+        const auto intervalBasedGrace = watchdogInterval * 2;
+        if (intervalBasedGrace < kMinimumRuntimeTimeoutHardGrace)
+        {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(kMinimumRuntimeTimeoutHardGrace);
+        }
+
+        if (intervalBasedGrace > kMaximumRuntimeTimeoutHardGrace)
+        {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(kMaximumRuntimeTimeoutHardGrace);
+        }
+
+        return intervalBasedGrace;
+    }
+
+    void requestShutdown(ShutdownReason reason) noexcept
     {
         RuntimeSignalState* signalState = gActiveSignalState.load(std::memory_order_acquire);
         if (signalState != nullptr)
         {
-            signalState->requestShutdown();
+            signalState->requestShutdown(reason);
         }
     }
 
@@ -50,7 +68,7 @@ namespace
         case CTRL_CLOSE_EVENT:
         case CTRL_LOGOFF_EVENT:
         case CTRL_SHUTDOWN_EVENT:
-            requestShutdown();
+            requestShutdown(ShutdownReason::ConsoleControl);
             return TRUE;
         default:
             return FALSE;
@@ -75,7 +93,12 @@ namespace
         {
             if (registered_)
             {
-                SetConsoleCtrlHandler(handleConsoleControl, FALSE);
+                if (SetConsoleCtrlHandler(handleConsoleControl, FALSE) == FALSE)
+                {
+                    Logger::error(
+                        "console control handler unregister failed: win32_error={}",
+                        GetLastError());
+                }
             }
 
             gActiveSignalState.compare_exchange_strong(
@@ -135,10 +158,11 @@ int RuntimeOrchestrator::run() noexcept
     if (!watchdogStarted)
     {
         Logger::error("startup failed: watchdog start failed");
-        return ShutdownPipeline::shutdownAfterStartupFailure(context_);
+        return ShutdownPipeline::shutdownAfterStartupFailure(context_, ShutdownReason::WatchdogFailure);
     }
 
     const auto runtimeStart = std::chrono::steady_clock::now();
+    const auto runtimeTimeoutHardGrace = calculateRuntimeTimeoutHardGrace(context_.startupPlan.watchdogInterval);
     std::optional<std::chrono::steady_clock::time_point> softTimeoutAt;
     while (signalState_.isRunning())
     {
@@ -155,12 +179,13 @@ int RuntimeOrchestrator::run() noexcept
                         "max runtime limit reached: {} seconds; shutdown will be requested at the next watchdog safe point",
                         context_.options.maxRuntime.value().count());
                 }
-                else if (softTimeoutAt.has_value() && now - softTimeoutAt.value() >= kRuntimeTimeoutHardGrace)
+                else if (softTimeoutAt.has_value() && now - softTimeoutAt.value() >= runtimeTimeoutHardGrace)
                 {
                     Logger::warn(
-                        "max runtime hard-timeout grace exceeded: {} ms after soft timeout; forcing clean shutdown request",
-                        kRuntimeTimeoutHardGrace.count() * 1000);
-                    signalState_.requestShutdown();
+                        "max runtime hard-timeout grace exceeded: hard_grace_ms={}, watchdog_interval_ms={}; forcing clean shutdown request",
+                        runtimeTimeoutHardGrace.count(),
+                        context_.startupPlan.watchdogInterval.count());
+                    signalState_.requestShutdown(ShutdownReason::MaxRuntimeHardTimeout);
                     watchdog.requestStop();
                     break;
                 }
@@ -170,7 +195,10 @@ int RuntimeOrchestrator::run() noexcept
         (void)signalState_.waitForShutdownFor(std::chrono::milliseconds(100));
     }
 
-    const ShutdownResult shutdownResult = ShutdownPipeline::execute(context_, watchdog);
+    const ShutdownResult shutdownResult = ShutdownPipeline::execute(
+        context_,
+        watchdog,
+        signalState_.currentShutdownReason());
 
     if (shutdownResult.failed())
     {

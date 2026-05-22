@@ -9,8 +9,9 @@
 #include <stop_token>
 
 #include "RuntimeContext.h"
+#include "RuntimeSignalState.h"
 
-using RuntimeShutdownRequest = void (*)() noexcept;
+using RuntimeShutdownRequest = void (*)(ShutdownReason reason) noexcept;
 
 class WatchdogCycleRunner
 {

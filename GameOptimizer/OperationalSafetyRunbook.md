@@ -82,7 +82,7 @@ Access Denied, IRQ unsupported, Raw Input unavailable, and group 1+ process-wide
 
 ## Runtime timeout safe-point invariant
 
-`--max-runtime-seconds` must not stop the process from an arbitrary point in the main polling loop. The main loop first sets the timeout request flag and gives the watchdog one safe-point grace window. The watchdog callback owns the preferred transition to shutdown and may only call `RuntimeSignalState::requestShutdown()` after:
+`--max-runtime-seconds` must not stop the process from an arbitrary point in the main polling loop. The main loop first sets the timeout request flag and records `ShutdownReason::MaxRuntimeSoftTimeout`, then gives the watchdog one safe-point grace window. The watchdog callback owns the preferred transition to shutdown and may only call `RuntimeSignalState::requestShutdown(ShutdownReason::MaxRuntimeSoftTimeout)` after:
 
 1. thread tracking update has completed,
 2. policy feedback dispatch has completed,
@@ -95,7 +95,7 @@ Required log sequence:
 
 1. `max runtime limit reached: ... shutdown will be requested at the next watchdog safe point`
 2. either `runtime timeout reached at watchdog cycle boundary; requesting clean shutdown` or `max runtime hard-timeout grace exceeded: ... forcing clean shutdown request`
-3. `shutdown requested; stopping policy cycles before rollback`
+3. `shutdown requested; reason=MaxRuntimeSoftTimeout; stopping policy cycles before rollback` or `shutdown requested; reason=MaxRuntimeHardTimeout; stopping policy cycles before rollback`
 4. `runtime validation pre-rollback evidence snapshot begin`
 5. `runtime validation post-rollback evidence snapshot begin`
 6. `shutdown completed cleanly`

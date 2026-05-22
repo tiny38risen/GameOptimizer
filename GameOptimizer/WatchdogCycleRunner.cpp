@@ -79,7 +79,7 @@ void WatchdogCycleRunner::runCycle(std::stop_token stopToken) noexcept
         Logger::info("runtime timeout reached at watchdog cycle boundary; requesting clean shutdown");
         if (requestShutdown_ != nullptr)
         {
-            requestShutdown_();
+            requestShutdown_(ShutdownReason::MaxRuntimeSoftTimeout);
         }
     }
 }
@@ -364,7 +364,7 @@ bool WatchdogCycleRunner::dispatchFeedbackCommands(
             context_.runtimeValidationMonitor->observe(validationSample);
             if (requestShutdown_ != nullptr)
             {
-                requestShutdown_();
+                requestShutdown_(ShutdownReason::PolicyRollbackRequest);
             }
             return false;
         }

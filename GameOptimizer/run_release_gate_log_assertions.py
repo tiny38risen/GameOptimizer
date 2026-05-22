@@ -36,15 +36,29 @@ def ordered_indices(text: str, needles: list[str]) -> list[int] | None:
 
 def validate_timeout_sequence(log_text: str) -> list[str]:
     failures: list[str] = []
-    required_sequence = [
+    soft_sequence = [
         "shutdown will be requested at the next watchdog safe point",
         "runtime timeout reached at watchdog cycle boundary; requesting clean shutdown",
-        "shutdown requested; stopping watchdog and latency sensor before rollback",
+        "shutdown requested; reason=MaxRuntimeSoftTimeout; stopping policy cycles before rollback",
         "shutdown completed cleanly",
     ]
-    indices = ordered_indices(log_text, required_sequence)
+    hard_sequence = [
+        "shutdown will be requested at the next watchdog safe point",
+        "max runtime hard-timeout grace exceeded",
+        "shutdown requested; reason=MaxRuntimeHardTimeout; stopping policy cycles before rollback",
+        "shutdown completed cleanly",
+    ]
+    indices = ordered_indices(log_text, soft_sequence) or ordered_indices(log_text, hard_sequence)
     if indices is None:
-        for marker in required_sequence:
+        if not contains(log_text, "runtime timeout reached at watchdog cycle boundary; requesting clean shutdown") and not contains(
+            log_text,
+            "max runtime hard-timeout grace exceeded"):
+            failures.append("timeout path missing both watchdog safe-point and hard-timeout recovery marker")
+        for marker in (
+            "shutdown will be requested at the next watchdog safe point",
+            "shutdown requested; reason=",
+            "shutdown completed cleanly",
+        ):
             if not contains(log_text, marker):
                 failures.append(f"timeout safe-point sequence missing marker: {marker}")
         if not failures:
@@ -159,7 +173,7 @@ def validate(mode: str, log_text: str) -> list[str]:
 
     if not contains(log_text, "shutdown completed cleanly"):
         failures.append("missing clean shutdown log")
-    if not contains(log_text, "shutdown result: timerRollbackFailed="):
+    if not contains(log_text, "shutdown result: reason="):
         failures.append("shutdown result summary missing")
     if contains(log_text, "shutdown rollback failed"):
         failures.append("shutdown rollback failed")

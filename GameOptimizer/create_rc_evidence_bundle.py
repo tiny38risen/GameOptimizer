@@ -89,6 +89,7 @@ def write_text_manifest(path: pathlib.Path, manifest: dict[str, Any]) -> None:
         f"Network IRQ summary: {manifest['network_irq_summary']}",
         f"Access Denied fallback summary: {manifest['access_denied_fallback_summary']}",
         f"Runtime validation summary: {manifest['runtime_validation_summary']}",
+        f"SoftApply baseline summary: {manifest['soft_apply_baseline_summary']}",
         f"Created UTC: {manifest['created_utc']}",
         "",
         "Severity policy:",
@@ -217,6 +218,10 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
             soak_state),
         "runtime_validation_summary": collect_step_field(
             "runtime_validation_summary",
+            smoke_state,
+            soak_state),
+        "soft_apply_baseline_summary": collect_step_field(
+            "soft_apply_baseline_summary",
             smoke_state,
             soak_state),
         "severity_policy": evidence.SEVERITY_POLICY,

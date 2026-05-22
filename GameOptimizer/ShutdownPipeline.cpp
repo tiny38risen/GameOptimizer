@@ -8,9 +8,14 @@
 #include "ErrorCode.h"
 #include "Logger.h"
 
-ShutdownResult ShutdownPipeline::execute(RuntimeContext& context, TrackingWatchdog& watchdog) noexcept
+ShutdownResult ShutdownPipeline::execute(
+    RuntimeContext& context,
+    TrackingWatchdog& watchdog,
+    ShutdownReason reason) noexcept
 {
-    Logger::info("shutdown requested; stopping policy cycles before rollback");
+    Logger::info(
+        "shutdown requested; reason={}; stopping policy cycles before rollback",
+        toString(reason));
     watchdog.requestStop();
     if (context.latencyMetricsCollector)
     {
@@ -24,6 +29,7 @@ ShutdownResult ShutdownPipeline::execute(RuntimeContext& context, TrackingWatchd
     }
 
     ShutdownResult shutdownResult{};
+    shutdownResult.reason = reason;
     logRuntimeValidationSnapshot(context, "pre-rollback", shutdownResult);
 
     if (context.timerResolutionController)
@@ -50,7 +56,8 @@ ShutdownResult ShutdownPipeline::execute(RuntimeContext& context, TrackingWatchd
     logRuntimeValidationSnapshot(context, "post-rollback", shutdownResult);
 
     Logger::info(
-        "shutdown result: timerRollbackFailed={}, schedulerRollbackFailed={}, runtimeValidationFailed={}, rollbackStatePreserved={}",
+        "shutdown result: reason={}, timerRollbackFailed={}, schedulerRollbackFailed={}, runtimeValidationFailed={}, rollbackStatePreserved={}",
+        toString(shutdownResult.reason),
         shutdownResult.timerRollbackFailed,
         shutdownResult.schedulerRollbackFailed,
         shutdownResult.runtimeValidationFailed,
@@ -59,10 +66,10 @@ ShutdownResult ShutdownPipeline::execute(RuntimeContext& context, TrackingWatchd
     return shutdownResult;
 }
 
-int ShutdownPipeline::shutdownAfterStartupFailure(RuntimeContext& context) noexcept
+int ShutdownPipeline::shutdownAfterStartupFailure(RuntimeContext& context, ShutdownReason reason) noexcept
 {
     TrackingWatchdog watchdog;
-    const ShutdownResult shutdownResult = execute(context, watchdog);
+    const ShutdownResult shutdownResult = execute(context, watchdog, reason);
     if (shutdownResult.failed())
     {
         Logger::error("startup failure cleanup also completed with shutdown failures");

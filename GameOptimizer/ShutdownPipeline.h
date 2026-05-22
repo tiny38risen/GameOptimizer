@@ -6,10 +6,12 @@
 #pragma once
 
 #include "RuntimeContext.h"
+#include "RuntimeSignalState.h"
 #include "TrackingWatchdog.h"
 
 struct ShutdownResult
 {
+    ShutdownReason reason = ShutdownReason::None;
     bool timerRollbackFailed = false;
     bool schedulerRollbackFailed = false;
     bool runtimeValidationFailed = false;
@@ -24,8 +26,11 @@ struct ShutdownResult
 class ShutdownPipeline
 {
 public:
-    [[nodiscard]] static ShutdownResult execute(RuntimeContext& context, TrackingWatchdog& watchdog) noexcept;
-    [[nodiscard]] static int shutdownAfterStartupFailure(RuntimeContext& context) noexcept;
+    [[nodiscard]] static ShutdownResult execute(
+        RuntimeContext& context,
+        TrackingWatchdog& watchdog,
+        ShutdownReason reason) noexcept;
+    [[nodiscard]] static int shutdownAfterStartupFailure(RuntimeContext& context, ShutdownReason reason) noexcept;
 
 private:
     static void logRuntimeValidationSnapshot(

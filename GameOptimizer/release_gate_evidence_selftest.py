@@ -129,6 +129,76 @@ def assert_warn_only_report_is_not_blocked(run_id: str, exe_path: pathlib.Path) 
     )
 
 
+def assert_shutdown_reason_and_soft_apply_baseline_are_recorded(run_id: str, exe_path: pathlib.Path) -> bool:
+    run_dir = evidence.LOG_ROOT / run_id
+    make_running_state("smoke", run_id, f"{TARGET}.shutdown_reason", exe_path)
+    log_path = run_dir / "logs" / "shutdown_reason.log"
+    log_path.write_text(
+        "\n".join([
+            "[INFO] soft-apply validated scheduling baseline captured for TID 42 (audit-only, not stored as rollback state; affinity=0x3, group=0, priority=0, creationTime100ns=100)",
+            "[INFO] runtime validation summary: cycles=1, minimum_required=1, minimum_satisfied=true, main_detected_cycles=1, main_policy_applied_cycles=1, decision_commands=0, feedback_commands=0, dispatch_failures=0, rollback_requests=0, thread_tracker_reset_events=0, high_rtt_cycles=0, high_dpc_cycles=0, high_migration_cycles=0, consecutive_no_main_cycles=0, critical_failure=false",
+            "[INFO] shutdown result: reason=MaxRuntimeHardTimeout, timerRollbackFailed=false, schedulerRollbackFailed=false, runtimeValidationFailed=false, rollbackStatePreserved=false",
+        ]) + "\n",
+        encoding="utf-8")
+    record_result = evidence.record_step(argparse.Namespace(
+        run_dir=str(run_dir),
+        step="shutdown_reason",
+        mode="timeout",
+        log_file=str(log_path),
+        exit_code=0,
+        assertion_exit_code=0,
+        command="synthetic",
+    ))
+    finalize_result = evidence.finalize_evidence(argparse.Namespace(
+        run_dir=str(run_dir),
+        require_soak_both=False,
+    ))
+    report = evidence.read_json(run_dir / "rc_evidence_report.json")
+    text_report = (run_dir / "rc_evidence_report.txt").read_text(encoding="utf-8")
+    step = report["steps"][0]
+    return (
+        record_result == 0
+        and finalize_result == 0
+        and step["shutdown_failure_classification"]["shutdown_reason"] == "MaxRuntimeHardTimeout"
+        and step["soft_apply_baseline_summary"]["thread_baseline_count"] == 1
+        and "shutdown failure classification:" in text_report
+        and "shutdown_reason': 'MaxRuntimeHardTimeout" in text_report
+        and "soft-apply baseline summary:" in text_report
+    )
+
+
+def assert_apply_guard_rollback_failure_is_blocked(run_id: str, exe_path: pathlib.Path) -> bool:
+    run_dir = evidence.LOG_ROOT / run_id
+    make_running_state("smoke", run_id, f"{TARGET}.apply_guard_failure", exe_path)
+    log_path = run_dir / "logs" / "apply_guard_failure.log"
+    log_path.write_text(
+        "\n".join([
+            "[ERROR] apply guard explicit rollback failed for target 42; guard remains armed so destructor can retry and rollback state remains owned: rollback failed",
+            "[INFO] shutdown result: reason=PolicyRollbackRequest, timerRollbackFailed=false, schedulerRollbackFailed=false, runtimeValidationFailed=false, rollbackStatePreserved=false",
+        ]) + "\n",
+        encoding="utf-8")
+    record_result = evidence.record_step(argparse.Namespace(
+        run_dir=str(run_dir),
+        step="apply_guard_failure",
+        mode="apply",
+        log_file=str(log_path),
+        exit_code=0,
+        assertion_exit_code=0,
+        command="synthetic",
+    ))
+    finalize_result = evidence.finalize_evidence(argparse.Namespace(
+        run_dir=str(run_dir),
+        require_soak_both=False,
+    ))
+    report = evidence.read_json(run_dir / "rc_evidence_report.json")
+    return (
+        record_result == 0
+        and finalize_result == 1
+        and report["status"] == "FAIL"
+        and any("ApplyGuard rollback failure" in blocker for blocker in report["blockers"])
+    )
+
+
 def make_complete_pair(target: str, prefix: str, exe_path: pathlib.Path, **overrides: object) -> None:
     make_report(
         "smoke",
@@ -165,6 +235,8 @@ def main() -> int:
     schema_prefix = f"synthetic_selftest_schema_{unique_id}"
     commit_prefix = f"synthetic_selftest_commit_{unique_id}"
     hash_prefix = f"synthetic_selftest_hash_{unique_id}"
+    reason_run_id = f"synthetic_selftest_reason_{unique_id}"
+    apply_guard_failure_run_id = f"synthetic_selftest_apply_guard_failure_{unique_id}"
     synthetic_exe = evidence.LOG_ROOT / f"synthetic_selftest_exe_{unique_id}.bin"
     synthetic_exe.write_bytes(b"synthetic executable bytes")
     created_dirs = [
@@ -177,6 +249,8 @@ def main() -> int:
         evidence.LOG_ROOT / f"{commit_prefix}_soak",
         evidence.LOG_ROOT / f"{hash_prefix}_smoke",
         evidence.LOG_ROOT / f"{hash_prefix}_soak",
+        evidence.LOG_ROOT / reason_run_id,
+        evidence.LOG_ROOT / apply_guard_failure_run_id,
     ]
 
     try:
@@ -211,6 +285,14 @@ def main() -> int:
 
         if not assert_warn_only_report_is_not_blocked(warn_run_id, synthetic_exe):
             print("[FAIL] RC evidence self-test: WARN-only evidence did not produce PASS_WITH_WARNINGS")
+            return 1
+
+        if not assert_shutdown_reason_and_soft_apply_baseline_are_recorded(reason_run_id, synthetic_exe):
+            print("[FAIL] RC evidence self-test: shutdown reason or SoftApply baseline evidence was not recorded")
+            return 1
+
+        if not assert_apply_guard_rollback_failure_is_blocked(apply_guard_failure_run_id, synthetic_exe):
+            print("[FAIL] RC evidence self-test: ApplyGuard rollback failure did not become a BLOCKER")
             return 1
 
         print("[PASS] RC evidence self-test passed")

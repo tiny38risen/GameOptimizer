@@ -24,6 +24,7 @@ SEVERITY_POLICY = {
         "missing evidence",
         "schema version, git commit, build hash, or exe SHA-256 mismatch",
         "unsafe rollback state discard regression",
+        "ApplyGuard rollback failure",
     ],
     "WARN": [
         "IRQ unsupported monitoring-only",
@@ -175,7 +176,8 @@ def parse_bool_text(value: str | None) -> bool | None:
 
 def extract_shutdown_failure_classification(log_text: str) -> dict[str, bool | None]:
     match = re.search(
-        r"shutdown result: timerRollbackFailed=(true|false|0|1), "
+        r"shutdown result: reason=([A-Za-z]+), "
+        r"timerRollbackFailed=(true|false|0|1), "
         r"schedulerRollbackFailed=(true|false|0|1), "
         r"runtimeValidationFailed=(true|false|0|1), "
         r"rollbackStatePreserved=(true|false|0|1)",
@@ -184,10 +186,11 @@ def extract_shutdown_failure_classification(log_text: str) -> dict[str, bool | N
     )
     return {
         "summary_present": match is not None,
-        "timer_rollback_failed": parse_bool_text(match.group(1)) if match else None,
-        "scheduler_rollback_failed": parse_bool_text(match.group(2)) if match else None,
-        "runtime_validation_failed": parse_bool_text(match.group(3)) if match else None,
-        "rollback_state_preserved": parse_bool_text(match.group(4)) if match else None,
+        "shutdown_reason": match.group(1) if match else None,
+        "timer_rollback_failed": parse_bool_text(match.group(2)) if match else None,
+        "scheduler_rollback_failed": parse_bool_text(match.group(3)) if match else None,
+        "runtime_validation_failed": parse_bool_text(match.group(4)) if match else None,
+        "rollback_state_preserved": parse_bool_text(match.group(5)) if match else None,
     }
 
 
@@ -361,6 +364,30 @@ def extract_runtime_validation_summary(log_text: str) -> dict[str, Any]:
     }
 
 
+def extract_soft_apply_baseline_summary(log_text: str) -> dict[str, Any]:
+    thread_baseline_count = len(re.findall(
+        r"soft-apply validated scheduling baseline captured",
+        log_text,
+        re.IGNORECASE,
+    ))
+    process_baseline_count = len(re.findall(
+        r"background rollback baseline validated",
+        log_text,
+        re.IGNORECASE,
+    ))
+    not_stored_count = len(re.findall(
+        r"validated baseline was not stored as rollback state|audit-only, not stored as rollback state",
+        log_text,
+        re.IGNORECASE,
+    ))
+    return {
+        "thread_baseline_count": thread_baseline_count,
+        "process_baseline_count": process_baseline_count,
+        "not_stored_as_rollback_state_count": not_stored_count,
+        "summary_present": thread_baseline_count > 0 or process_baseline_count > 0 or not_stored_count > 0,
+    }
+
+
 def record_step(args: argparse.Namespace) -> int:
     run_dir = pathlib.Path(args.run_dir)
     state = load_state(run_dir)
@@ -387,6 +414,9 @@ def record_step(args: argparse.Namespace) -> int:
         "network_irq_summary": extract_network_irq_summary(log_text),
         "access_denied_fallback_summary": extract_access_denied_fallback_summary(log_text),
         "runtime_validation_summary": extract_runtime_validation_summary(log_text),
+        "soft_apply_baseline_summary": extract_soft_apply_baseline_summary(log_text),
+        "apply_guard_rollback_failure": "apply guard explicit rollback failed" in log_text.lower()
+            or "apply guard destructor rollback failed" in log_text.lower(),
         "warn_count": len(extract_log_lines(log_text, "[WARN]")),
         "warn_samples": extract_log_lines(log_text, "[WARN]")[:MAX_OBSERVATION_SAMPLES],
         "info_count": len(extract_log_lines(log_text, "[INFO]")),
@@ -422,6 +452,8 @@ def summarize_failures(state: dict[str, Any]) -> list[str]:
         runtime_summary = step.get("runtime_validation_summary") or {}
         if runtime_summary.get("critical_failure"):
             failures.append(f"{label}: runtime validation summary reports critical failure")
+        if step.get("apply_guard_rollback_failure"):
+            failures.append(f"{label}: ApplyGuard rollback failure")
     return failures
 
 
@@ -482,6 +514,7 @@ def summarize_info(state: dict[str, Any]) -> list[str]:
     info.append(f"network_irq_summary: {collect_step_summaries(state, 'network_irq_summary')}")
     info.append(f"access_denied_fallback_summary: {collect_step_summaries(state, 'access_denied_fallback_summary')}")
     info.append(f"runtime_validation_summary: {collect_step_summaries(state, 'runtime_validation_summary')}")
+    info.append(f"soft_apply_baseline_summary: {collect_step_summaries(state, 'soft_apply_baseline_summary')}")
     for step in state["steps"]:
         info.append(f"{step['step']}: {int(step.get('info_count') or 0)} info log line(s) observed")
     return info
@@ -722,6 +755,8 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
             f"  input latency summary: {step.get('input_latency_summary')}",
             f"  network IRQ summary: {step.get('network_irq_summary')}",
             f"  access denied fallback summary: {step.get('access_denied_fallback_summary')}",
+            f"  soft-apply baseline summary: {step.get('soft_apply_baseline_summary')}",
+            f"  ApplyGuard rollback failure: {step.get('apply_guard_rollback_failure')}",
             f"  warn count: {step.get('warn_count', 0)}",
             f"  info count: {step.get('info_count', 0)}",
             f"  log: {step['log_file']}",
