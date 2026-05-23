@@ -79,14 +79,40 @@ if "%PYTHON_CMD%"=="" (
     exit /b 2
 )
 
-echo [RC-1] static gate
+echo [RC-1] Python syntax gate
+for %%F in (*.py) do (
+    %PYTHON_CMD% -m py_compile "%%F"
+    if errorlevel 1 (
+        set RC_BLOCKER=py_compile failed
+        goto fail
+    )
+)
+
+echo [RC-2] git diff whitespace gate
+git diff --check
+if errorlevel 1 (
+    set RC_BLOCKER=git diff --check failed
+    goto fail
+)
+
+echo [RC-3] static release gate
 %PYTHON_CMD% run_release_gate_static_checks.py
 if errorlevel 1 (
     set RC_BLOCKER=static gate failed
     goto fail
 )
 
-echo [RC-2] regression
+echo [RC-4] Release x64 MSVC build
+pushd "%SCRIPT_DIR%.."
+msbuild GameOptimizer.slnx /p:Configuration=Release /p:Platform=x64 /m
+set BUILD_EXIT=%ERRORLEVEL%
+popd
+if not "%BUILD_EXIT%"=="0" (
+    set RC_BLOCKER=Release x64 MSVC build failed
+    goto fail
+)
+
+echo [RC-5] full regression
 if not exist "%SCRIPT_DIR%release_gate_logs" mkdir "%SCRIPT_DIR%release_gate_logs"
 for /f %%I in ('powershell -NoProfile -Command "(Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')"') do set RC_TIMESTAMP=%%I
 set FINAL_REGRESSION_LOG=%SCRIPT_DIR%release_gate_logs\%RC_TIMESTAMP%_final_regression.log
@@ -99,35 +125,35 @@ if not "%REGRESSION_EXIT%"=="0" (
     goto fail
 )
 
-echo [RC-3] release smoke
+echo [RC-6] release smoke
 call run_release_gate_smoke.bat "%TARGET%"
 if errorlevel 1 (
     set RC_BLOCKER=release smoke failed
     goto fail
 )
 
-echo [RC-4] long soak evidence gate: 30m dry-run + 60m soft-apply
+echo [RC-7] long soak evidence gate: 30m dry-run + 60m soft-apply
 call run_long_soak_presets.bat "%TARGET%" both
 if errorlevel 1 (
     set RC_BLOCKER=30m or 60m soak failed
     goto fail
 )
 
-echo [RC-5] verify RC evidence set
+echo [RC-8] verify RC evidence set
 %PYTHON_CMD% release_gate_evidence.py verify-rc --target "%TARGET%"
 if errorlevel 1 (
     set RC_BLOCKER=verify-rc failed
     goto fail
 )
 
-echo [RC-6] verify RC candidate package inputs
+echo [RC-9] verify RC candidate package inputs
 %PYTHON_CMD% verify_rc_candidate.py --target "%TARGET%" --regression-log "%FINAL_REGRESSION_LOG%"
 if errorlevel 1 (
     set RC_BLOCKER=RC candidate verification failed
     goto fail
 )
 
-echo [RC-7] create final RC evidence bundle
+echo [RC-10] create final RC evidence bundle
 %PYTHON_CMD% create_rc_evidence_bundle.py --target "%TARGET%" --regression-log "%FINAL_REGRESSION_LOG%"
 if errorlevel 1 (
     set RC_BLOCKER=RC evidence bundle creation failed

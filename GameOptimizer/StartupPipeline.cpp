@@ -219,6 +219,10 @@ std::expected<StartupPlan, ErrorCode> StartupPipeline::prepare(const CliOptions&
     if (options.schedulerMode == SchedulerMode::Apply)
     {
         Logger::warn("apply mode enabled: SetThreadGroupAffinity and SetThreadPriority may modify the target thread until shutdown rollback");
+        Logger::warn(
+            "apply mode restriction policy: use only after dry-run PASS, soft-apply PASS, no Access Denied, rollback state save success, sufficient ThreadTracker confidence, ApplyGuard audit PASS, and verified group-aware thread path");
+        Logger::warn(
+            "apply mode blocked by policy when anti-cheat is suspected, Access Denied repeats, rollback state save fails, Raw Input TID confidence is Low, group 1+ process-wide background restriction is required, or soft-apply WARN count is high");
     }
     else if (options.schedulerMode == SchedulerMode::SoftApply)
     {

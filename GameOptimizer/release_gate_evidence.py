@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -15,6 +16,8 @@ LOG_ROOT = ROOT / "release_gate_logs"
 STATE_FILE_NAME = "evidence_state.json"
 MAX_OBSERVATION_SAMPLES = 20
 EXPECTED_SCHEMA = "gameoptimizer.rc_evidence.v1"
+EVIDENCE_SCHEMA_FILE = ROOT / "docs" / "release" / "Evidence_Schema.md"
+DEFAULT_BUILD_CONFIGURATION = "Release|x64"
 SEVERITY_POLICY = {
     "BLOCKER": [
         "runtime validation FAILED",
@@ -77,6 +80,102 @@ def run_git(args: list[str]) -> str | None:
     return result.stdout.strip() or None
 
 
+def git_status_short() -> list[str]:
+    status = run_git(["status", "--short"])
+    if not status:
+        return []
+    return status.splitlines()
+
+
+def git_branch() -> str:
+    return run_git(["rev-parse", "--abbrev-ref", "HEAD"]) or "unknown"
+
+
+def compiler_version() -> str:
+    for key in ("VCToolsVersion", "VisualStudioVersion"):
+        value = os.environ.get(key)
+        if value:
+            return value
+    return "unknown"
+
+
+def latest_shutdown_reason(state: dict[str, Any]) -> str:
+    for step in reversed(state.get("steps", [])):
+        shutdown = step.get("shutdown_failure_classification") or {}
+        reason = shutdown.get("shutdown_reason")
+        if reason:
+            return str(reason)
+    return "Unknown"
+
+
+def runtime_validation_status(state: dict[str, Any]) -> str:
+    if any(step.get("runtime_validation_failed") for step in state.get("steps", [])):
+        return "FAILED"
+    for step in state.get("steps", []):
+        summary = step.get("runtime_validation_summary") or {}
+        if summary.get("critical_failure"):
+            return "FAILED"
+    if any((step.get("runtime_validation_summary") or {}).get("summary_present") for step in state.get("steps", [])):
+        return "PASSED_OR_INCONCLUSIVE"
+    return "UNKNOWN"
+
+
+def rollback_preserved_state_count(state: dict[str, Any]) -> int:
+    total = 0
+    for step in state.get("steps", []):
+        rollback = step.get("rollback_preserved_state_summary") or {}
+        value = rollback.get("total")
+        if isinstance(value, int):
+            total += value
+    return total
+
+
+def collect_step_values(state: dict[str, Any], field_name: str) -> list[Any]:
+    return [
+        step.get(field_name)
+        for step in state.get("steps", [])
+        if step.get(field_name) is not None
+    ]
+
+
+def test_results(state: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "step": step.get("step"),
+            "mode": step.get("mode"),
+            "exit_code": step.get("exit_code"),
+            "assertion_exit_code": step.get("assertion_exit_code"),
+            "runtime_validation_failed": step.get("runtime_validation_failed"),
+        }
+        for step in state.get("steps", [])
+    ]
+
+
+def apply_release_field_aliases(state: dict[str, Any]) -> None:
+    severity = state.get("severity_summary") or {}
+    state["schema_version"] = state.get("schema", EXPECTED_SCHEMA)
+    state["schema_hash"] = sha256_file(EVIDENCE_SCHEMA_FILE)
+    state["commit_sha"] = state.get("git_commit")
+    state["branch"] = state.get("branch") or git_branch()
+    state["dirty_tree"] = state.get("git_dirty")
+    state["build_configuration"] = state.get("build_configuration") or DEFAULT_BUILD_CONFIGURATION
+    state["compiler_version"] = state.get("compiler_version") or compiler_version()
+    state["binary_path"] = state.get("exe_path")
+    state["binary_sha256"] = state.get("exe_sha256")
+    state["target_process"] = state.get("target")
+    state["scheduler_mode"] = state.get("scheduler_mode") or "mixed"
+    state["shutdown_reason"] = latest_shutdown_reason(state)
+    state["runtime_validation_status"] = runtime_validation_status(state)
+    state["rollback_preserved_state_count"] = rollback_preserved_state_count(state)
+    state["blocker_count"] = severity.get("BLOCKER", 0)
+    state["warn_count"] = severity.get("WARN", 0)
+    state["info_count"] = severity.get("INFO", 0)
+    state["processor_group_mode"] = collect_step_values(state, "processor_group_mode_summary")
+    state["background_restriction_mode"] = collect_step_values(state, "background_restriction_mode_summary")
+    state["thread_tracker_telemetry"] = collect_step_values(state, "thread_tracker_telemetry_summary")
+    state["test_results"] = test_results(state)
+
+
 def read_json(path: pathlib.Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -113,6 +212,7 @@ def save_state(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
 def init_evidence(args: argparse.Namespace) -> int:
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
     commit = run_git(["rev-parse", "HEAD"]) or "unknown"
+    status_short = git_status_short()
     short_commit = commit[:12] if commit != "unknown" else "unknown"
     timestamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
     run_id = f"{timestamp}_{args.kind}_{short_commit}"
@@ -128,21 +228,44 @@ def init_evidence(args: argparse.Namespace) -> int:
     exe_path = cwd_exe_path if cwd_exe_path.exists() else (ROOT / args.exe).resolve()
     state: dict[str, Any] = {
         "schema": EXPECTED_SCHEMA,
+        "schema_version": EXPECTED_SCHEMA,
+        "schema_hash": sha256_file(EVIDENCE_SCHEMA_FILE),
         "kind": args.kind,
         "run_id": run_dir.name,
         "status": "RUNNING",
         "started_utc": utc_now(),
         "finished_utc": None,
         "target": args.target,
+        "target_process": args.target,
         "exe_path": str(exe_path),
+        "binary_path": str(exe_path),
         "exe_sha256": sha256_file(exe_path),
+        "binary_sha256": sha256_file(exe_path),
         "binary_fingerprint": {
             "path": str(exe_path),
             "sha256": sha256_file(exe_path),
             "bytes": file_size(exe_path),
         },
         "git_commit": commit,
+        "commit_sha": commit,
+        "branch": git_branch(),
         "build_hash": run_git(["rev-parse", "HEAD^{tree}"]),
+        "build_configuration": DEFAULT_BUILD_CONFIGURATION,
+        "compiler_version": compiler_version(),
+        "git_dirty": bool(status_short),
+        "dirty_tree": bool(status_short),
+        "git_status_short": status_short,
+        "scheduler_mode": args.scheduler_mode,
+        "shutdown_reason": "Unknown",
+        "runtime_validation_status": "UNKNOWN",
+        "rollback_preserved_state_count": 0,
+        "blocker_count": 0,
+        "warn_count": 0,
+        "info_count": 0,
+        "processor_group_mode": [],
+        "background_restriction_mode": [],
+        "thread_tracker_telemetry": [],
+        "test_results": [],
         "steps": [],
         "failures": [],
     }
@@ -242,6 +365,19 @@ def extract_processor_group_mode_summary(log_text: str) -> dict[str, Any]:
         "mask_provenance": provenance,
         "has_group_1_plus_evidence": any(group > 0 for group in selected_groups + fallback_groups + blocked_groups),
         "process_wide_group_1_plus_blocked": bool(blocked_groups),
+    }
+
+
+def extract_background_restriction_mode_summary(log_text: str) -> dict[str, Any]:
+    modes = sorted(set(re.findall(
+        r"background_restriction_mode=([a-zA-Z0-9_]+)",
+        log_text,
+        re.IGNORECASE,
+    )))
+    return {
+        "modes": modes,
+        "monitoring_only_due_to_processor_group": "monitoring_only_due_to_processor_group" in modes,
+        "summary_present": bool(modes),
     }
 
 
@@ -388,6 +524,46 @@ def extract_soft_apply_baseline_summary(log_text: str) -> dict[str, Any]:
     }
 
 
+def detect_thread_group_affinity_audit_query_failure(log_text: str) -> bool:
+    lowered = log_text.lower()
+    return (
+        "setthreadgroupaffinity" in lowered
+        and "post-failure audit" in lowered
+        and ("query failed" in lowered or "audit query failed" in lowered)
+    )
+
+
+def detect_thread_group_affinity_audit_mismatch(log_text: str) -> bool:
+    lowered = log_text.lower()
+    return (
+        "setthreadgroupaffinity" in lowered
+        and "post-failure audit" in lowered
+        and ("state drift" in lowered or "audit mismatch" in lowered or "mismatch" in lowered)
+    )
+
+
+def detect_timeline_monotonicity_failure(log_text: str) -> bool:
+    lowered = log_text.lower()
+    return (
+        "timeline monotonicity failure" in lowered
+        or "runtime validation sample timeline is not monotonic" in lowered
+    )
+
+
+def detect_heartbeat_progression_failure(log_text: str) -> bool:
+    lowered = log_text.lower()
+    return "heartbeat progression failure" in lowered
+
+
+def detect_unsafe_rollback_state_discard(log_text: str) -> bool:
+    lowered = log_text.lower()
+    return (
+        "unsafe rollback state discard" in lowered
+        or "discarded rollback state without post-failure audit" in lowered
+        or "discards rollback state without post-failure state audit" in lowered
+    )
+
+
 def record_step(args: argparse.Namespace) -> int:
     run_dir = pathlib.Path(args.run_dir)
     state = load_state(run_dir)
@@ -409,6 +585,7 @@ def record_step(args: argparse.Namespace) -> int:
         "shutdown_failure_classification": extract_shutdown_failure_classification(log_text),
         "rollback_preserved_state_summary": extract_rollback_preserved_state_summary(log_text),
         "processor_group_mode_summary": extract_processor_group_mode_summary(log_text),
+        "background_restriction_mode_summary": extract_background_restriction_mode_summary(log_text),
         "thread_tracker_telemetry_summary": extract_thread_tracker_telemetry_summary(log_text),
         "input_latency_summary": extract_input_latency_summary(log_text),
         "network_irq_summary": extract_network_irq_summary(log_text),
@@ -417,6 +594,11 @@ def record_step(args: argparse.Namespace) -> int:
         "soft_apply_baseline_summary": extract_soft_apply_baseline_summary(log_text),
         "apply_guard_rollback_failure": "apply guard explicit rollback failed" in log_text.lower()
             or "apply guard destructor rollback failed" in log_text.lower(),
+        "thread_group_affinity_audit_query_failure": detect_thread_group_affinity_audit_query_failure(log_text),
+        "thread_group_affinity_audit_mismatch": detect_thread_group_affinity_audit_mismatch(log_text),
+        "timeline_monotonicity_failure": detect_timeline_monotonicity_failure(log_text),
+        "heartbeat_progression_failure": detect_heartbeat_progression_failure(log_text),
+        "unsafe_rollback_state_discard": detect_unsafe_rollback_state_discard(log_text),
         "warn_count": len(extract_log_lines(log_text, "[WARN]")),
         "warn_samples": extract_log_lines(log_text, "[WARN]")[:MAX_OBSERVATION_SAMPLES],
         "info_count": len(extract_log_lines(log_text, "[INFO]")),
@@ -454,6 +636,16 @@ def summarize_failures(state: dict[str, Any]) -> list[str]:
             failures.append(f"{label}: runtime validation summary reports critical failure")
         if step.get("apply_guard_rollback_failure"):
             failures.append(f"{label}: ApplyGuard rollback failure")
+        if step.get("thread_group_affinity_audit_query_failure"):
+            failures.append(f"{label}: SetThreadGroupAffinity failure post-failure audit query failed")
+        if step.get("thread_group_affinity_audit_mismatch"):
+            failures.append(f"{label}: SetThreadGroupAffinity failure post-failure audit mismatch")
+        if step.get("timeline_monotonicity_failure"):
+            failures.append(f"{label}: timeline monotonicity failure")
+        if step.get("heartbeat_progression_failure"):
+            failures.append(f"{label}: heartbeat progression failure")
+        if step.get("unsafe_rollback_state_discard"):
+            failures.append(f"{label}: unsafe rollback state discard")
     return failures
 
 
@@ -630,9 +822,47 @@ def validate_report_identity(state: dict[str, Any], label: str, git_commit: str)
     if state.get("schema") != EXPECTED_SCHEMA:
         failures.append(
             f"{label} evidence schema version mismatch: expected {EXPECTED_SCHEMA}, found {state.get('schema')}")
+    if state.get("schema_version") != EXPECTED_SCHEMA:
+        failures.append(
+            f"{label} evidence schema_version mismatch: expected {EXPECTED_SCHEMA}, found {state.get('schema_version')}")
+    expected_schema_hash = sha256_file(EVIDENCE_SCHEMA_FILE)
+    if not state.get("schema_hash"):
+        failures.append(f"{label} evidence schema_hash is missing")
+    elif state.get("schema_hash") != expected_schema_hash:
+        failures.append(
+            f"{label} evidence schema_hash mismatch: expected {expected_schema_hash}, found {state.get('schema_hash')}")
+    if state.get("commit_sha") != git_commit:
+        failures.append(
+            f"{label} evidence commit_sha mismatch: expected {git_commit}, found {state.get('commit_sha')}")
     if state.get("git_commit") != git_commit:
         failures.append(
             f"{label} evidence git commit mismatch: expected {git_commit}, found {state.get('git_commit')}")
+    for required_field in (
+        "branch",
+        "dirty_tree",
+        "build_configuration",
+        "compiler_version",
+        "binary_path",
+        "binary_sha256",
+        "target_process",
+        "scheduler_mode",
+        "shutdown_reason",
+        "runtime_validation_status",
+        "rollback_preserved_state_count",
+        "blocker_count",
+        "warn_count",
+        "info_count",
+        "processor_group_mode",
+        "background_restriction_mode",
+        "thread_tracker_telemetry",
+        "test_results",
+    ):
+        if required_field not in state or state.get(required_field) is None:
+            failures.append(f"{label} evidence required field is missing: {required_field}")
+    if "git_dirty" not in state:
+        failures.append(f"{label} evidence dirty tree flag is missing")
+    if "git_status_short" not in state:
+        failures.append(f"{label} evidence dirty tree status is missing")
     if not state.get("build_hash"):
         failures.append(f"{label} evidence build hash is missing")
     if not state.get("binary_fingerprint"):
@@ -677,6 +907,10 @@ def validate_evidence_pair(
     soak_state: dict[str, Any],
 ) -> list[str]:
     failures: list[str] = []
+    if smoke_state.get("schema_hash") != soak_state.get("schema_hash"):
+        failures.append(
+            "smoke/soak evidence schema_hash mismatch: "
+            f"smoke={smoke_state.get('schema_hash')}, soak={soak_state.get('schema_hash')}")
     if smoke_state.get("exe_sha256") != soak_state.get("exe_sha256"):
         failures.append(
             "smoke/soak evidence exe SHA-256 mismatch: "
@@ -735,9 +969,30 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
         f"Finished UTC: {state['finished_utc']}",
         f"Target: {state['target']}",
         f"Git commit: {state['git_commit']}",
+        f"Git dirty: {state.get('git_dirty')}",
+        f"Git status short: {state.get('git_status_short')}",
         f"Build hash: {state['build_hash']}",
         f"EXE SHA-256: {state['exe_sha256']}",
         f"Binary fingerprint: {state.get('binary_fingerprint')}",
+        f"Schema version: {state.get('schema_version')}",
+        f"Schema hash: {state.get('schema_hash')}",
+        f"Commit SHA: {state.get('commit_sha')}",
+        f"Branch: {state.get('branch')}",
+        f"Dirty tree: {state.get('dirty_tree')}",
+        f"Build configuration: {state.get('build_configuration')}",
+        f"Compiler version: {state.get('compiler_version')}",
+        f"Binary path: {state.get('binary_path')}",
+        f"Binary SHA-256: {state.get('binary_sha256')}",
+        f"Target process: {state.get('target_process')}",
+        f"Scheduler mode: {state.get('scheduler_mode')}",
+        f"Shutdown reason: {state.get('shutdown_reason')}",
+        f"Runtime validation status: {state.get('runtime_validation_status')}",
+        f"Rollback preserved state count: {state.get('rollback_preserved_state_count')}",
+        f"Severity counts: BLOCKER={state.get('blocker_count')}, WARN={state.get('warn_count')}, INFO={state.get('info_count')}",
+        f"Processor group mode: {state.get('processor_group_mode')}",
+        f"Background restriction mode: {state.get('background_restriction_mode')}",
+        f"ThreadTracker telemetry: {state.get('thread_tracker_telemetry')}",
+        f"Test results: {state.get('test_results')}",
         "",
         "Steps:",
     ]
@@ -757,6 +1012,11 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
             f"  access denied fallback summary: {step.get('access_denied_fallback_summary')}",
             f"  soft-apply baseline summary: {step.get('soft_apply_baseline_summary')}",
             f"  ApplyGuard rollback failure: {step.get('apply_guard_rollback_failure')}",
+            f"  SetThreadGroupAffinity audit query failure: {step.get('thread_group_affinity_audit_query_failure')}",
+            f"  SetThreadGroupAffinity audit mismatch: {step.get('thread_group_affinity_audit_mismatch')}",
+            f"  timeline monotonicity failure: {step.get('timeline_monotonicity_failure')}",
+            f"  heartbeat progression failure: {step.get('heartbeat_progression_failure')}",
+            f"  unsafe rollback state discard: {step.get('unsafe_rollback_state_discard')}",
             f"  warn count: {step.get('warn_count', 0)}",
             f"  info count: {step.get('info_count', 0)}",
             f"  log: {step['log_file']}",
@@ -793,6 +1053,7 @@ def finalize_evidence(args: argparse.Namespace) -> int:
     state["warnings"] = summarize_warnings(state)
     state["info"] = summarize_info(state)
     apply_severity_summary(state)
+    apply_release_field_aliases(state)
     write_json(run_dir / "rc_evidence_report.json", state)
     write_text_report(run_dir, state)
     save_state(run_dir, state)
@@ -808,6 +1069,7 @@ def main() -> int:
     init_parser.add_argument("--kind", required=True, choices=["smoke", "soak"])
     init_parser.add_argument("--target", required=True)
     init_parser.add_argument("--exe", required=True)
+    init_parser.add_argument("--scheduler-mode", default="mixed")
     init_parser.set_defaults(func=init_evidence)
 
     record_parser = subparsers.add_parser("record")

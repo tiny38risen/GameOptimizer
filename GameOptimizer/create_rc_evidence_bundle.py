@@ -74,22 +74,43 @@ def write_text_manifest(path: pathlib.Path, manifest: dict[str, Any]) -> None:
         "GameOptimizer RC Evidence Bundle",
         "",
         f"Schema: {manifest['schema']}",
+        f"Schema version: {manifest['schema_version']}",
+        f"Schema hash: {manifest['schema_hash']}",
         f"Decision: {manifest['candidate_decision']}",
         f"Status: {manifest['status']}",
         f"Target: {manifest['target']}",
+        f"Target process: {manifest['target_process']}",
         f"Git commit: {manifest['git_commit']}",
+        f"Commit SHA: {manifest['commit_sha']}",
+        f"Branch: {manifest['branch']}",
+        f"Git dirty: {manifest['git_dirty']}",
+        f"Dirty tree: {manifest['dirty_tree']}",
+        f"Git status short: {manifest['git_status_short']}",
+        f"Build configuration: {manifest['build_configuration']}",
+        f"Compiler version: {manifest['compiler_version']}",
         f"Build hash: {manifest['build_hash']}",
         f"EXE SHA-256: {manifest['exe_sha256']}",
+        f"Binary path: {manifest['binary_path']}",
+        f"Binary SHA-256: {manifest['binary_sha256']}",
         f"Binary fingerprint: {manifest['binary_fingerprint']}",
+        f"Scheduler mode: {manifest['scheduler_mode']}",
+        f"Shutdown reason: {manifest['shutdown_reason']}",
+        f"Runtime validation status: {manifest['runtime_validation_status']}",
+        f"Rollback preserved state count: {manifest['rollback_preserved_state_count']}",
+        f"Severity counts: BLOCKER={manifest['blocker_count']}, WARN={manifest['warn_count']}, INFO={manifest['info_count']}",
         f"Rollback preserved state summary: {manifest['rollback_preserved_state_summary']}",
         f"Shutdown failure classification: {manifest['shutdown_failure_classification']}",
         f"Processor group mode summary: {manifest['processor_group_mode_summary']}",
+        f"Processor group mode: {manifest['processor_group_mode']}",
+        f"Background restriction mode: {manifest['background_restriction_mode']}",
         f"ThreadTracker telemetry summary: {manifest['thread_tracker_telemetry_summary']}",
+        f"ThreadTracker telemetry: {manifest['thread_tracker_telemetry']}",
         f"Input latency summary: {manifest['input_latency_summary']}",
         f"Network IRQ summary: {manifest['network_irq_summary']}",
         f"Access Denied fallback summary: {manifest['access_denied_fallback_summary']}",
         f"Runtime validation summary: {manifest['runtime_validation_summary']}",
         f"SoftApply baseline summary: {manifest['soft_apply_baseline_summary']}",
+        f"Test results: {manifest['test_results']}",
         f"Created UTC: {manifest['created_utc']}",
         "",
         "Severity policy:",
@@ -181,13 +202,37 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
 
     manifest = {
         "schema": BUNDLE_SCHEMA,
+        "schema_version": BUNDLE_SCHEMA,
+        "schema_hash": evidence.sha256_file(evidence.EVIDENCE_SCHEMA_FILE),
         "candidate_decision": "RC_CANDIDATE_PASS",
         "status": "PASS",
         "target": target,
+        "target_process": target,
         "git_commit": commit,
+        "commit_sha": commit,
+        "branch": smoke_state.get("branch"),
+        "git_dirty": smoke_state.get("git_dirty"),
+        "dirty_tree": smoke_state.get("dirty_tree"),
+        "git_status_short": smoke_state.get("git_status_short"),
+        "build_configuration": smoke_state.get("build_configuration"),
+        "compiler_version": smoke_state.get("compiler_version"),
         "build_hash": smoke_state.get("build_hash"),
         "exe_sha256": smoke_state.get("exe_sha256"),
+        "binary_path": smoke_state.get("binary_path"),
+        "binary_sha256": smoke_state.get("binary_sha256"),
         "binary_fingerprint": smoke_state.get("binary_fingerprint"),
+        "scheduler_mode": "mixed",
+        "shutdown_reason": soak_state.get("shutdown_reason") or smoke_state.get("shutdown_reason"),
+        "runtime_validation_status": (
+            "FAILED"
+            if "FAILED" in (smoke_state.get("runtime_validation_status"), soak_state.get("runtime_validation_status"))
+            else "PASSED_OR_INCONCLUSIVE"),
+        "rollback_preserved_state_count": (
+            int(smoke_state.get("rollback_preserved_state_count") or 0)
+            + int(soak_state.get("rollback_preserved_state_count") or 0)),
+        "blocker_count": 0,
+        "warn_count": len(collect_warnings(smoke_state, soak_state)),
+        "info_count": len(smoke_state.get("info", [])) + len(soak_state.get("info", [])),
         "rollback_preserved_state_summary": collect_step_field(
             "rollback_preserved_state_summary",
             smoke_state,
@@ -200,10 +245,19 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
             "processor_group_mode_summary",
             smoke_state,
             soak_state),
+        "processor_group_mode": (
+            smoke_state.get("processor_group_mode", [])
+            + soak_state.get("processor_group_mode", [])),
+        "background_restriction_mode": (
+            smoke_state.get("background_restriction_mode", [])
+            + soak_state.get("background_restriction_mode", [])),
         "thread_tracker_telemetry_summary": collect_step_field(
             "thread_tracker_telemetry_summary",
             smoke_state,
             soak_state),
+        "thread_tracker_telemetry": (
+            smoke_state.get("thread_tracker_telemetry", [])
+            + soak_state.get("thread_tracker_telemetry", [])),
         "input_latency_summary": collect_step_field(
             "input_latency_summary",
             smoke_state,
@@ -225,6 +279,9 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
             smoke_state,
             soak_state),
         "severity_policy": evidence.SEVERITY_POLICY,
+        "test_results": (
+            smoke_state.get("test_results", [])
+            + soak_state.get("test_results", [])),
         "created_utc": evidence.utc_now(),
         "warnings": collect_warnings(smoke_state, soak_state),
         "source_reports": {

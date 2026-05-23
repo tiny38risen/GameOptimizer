@@ -11,13 +11,15 @@ The full RC entry command is:
 run_rc_gate.bat <target.exe>
 ```
 
-It must pass static gate, regression, release smoke, the combined 30m+60m soak evidence gate, final RC evidence verification for the current commit, and final RC evidence bundle creation.
+It must pass Python `py_compile`, `git diff --check`, static gate, Release x64 MSVC build, regression, release smoke, the combined 30m+60m soak evidence gate, final RC evidence verification for the current commit, and final RC evidence bundle creation.
 
 RC report severity is split into three levels:
 
 - `BLOCKER`: release is forbidden and the evidence report fails.
 - `WARN`: release may continue, but the limitation must remain visible in the report.
 - `INFO`: tracking metadata only.
+
+The authoritative schema and blocker contracts are `docs/release/Evidence_Schema.md` and `docs/release/Release_Blocker_List.md`.
 
 | ID | Mode | Runtime | Required args | Pass criteria |
 |---|---|---:|---|---|
@@ -40,12 +42,13 @@ RC report severity is split into three levels:
 7. Any RC gate run that does not generate smoke and soak evidence reports.
 8. Any current-commit RC evidence verification missing either the smoke or soak PASS report.
 9. Any RC evidence schema version, git commit, or exe SHA-256 mismatch.
-10. Any RC candidate missing Runbook, blocker list, evidence bundle, or final regression result.
-11. Any Access Denied / access-boundary runtime log without fallback or rollback evidence.
-12. Any IRQ unsupported path that becomes ERROR/FAIL instead of WARN + monitoring-only.
-13. Any Processor Group / HEDT group 1+ mock missing affinity, rollback, or log evidence.
-14. Any Input Latency pinning path enabled without High confidence and `ConcreteTid`.
-15. Any missing `ProcessorGroupHedtEvidenceTests` registration or failure.
+10. Any RC evidence missing `git_dirty` or `git_status_short`.
+11. Any RC candidate missing Runbook, blocker list, evidence bundle, or final regression result.
+12. Any Access Denied / access-boundary runtime log without fallback or rollback evidence.
+13. Any IRQ unsupported path that becomes ERROR/FAIL instead of WARN + monitoring-only.
+14. Any Processor Group / HEDT group 1+ mock missing affinity, rollback, or log evidence.
+15. Any Input Latency pinning path enabled without High confidence and `ConcreteTid`.
+16. Any missing `ProcessorGroupHedtEvidenceTests` registration or failure.
 
 
 ## Automated assertions
@@ -77,7 +80,7 @@ The Release Gate smoke script now runs two assertion layers before accepting a b
    - records `severity_summary` as `BLOCKER`, `WARN`, and `INFO`; WARN-only reports produce `PASS_WITH_WARNINGS`, not release failure.
 
 4. `verify_rc_candidate.py`
-   - verifies the RC runbook, blocker list, evidence bundle, and final regression result.
+   - verifies the RC runbook, evidence schema, blocker list, evidence bundle, and final regression result.
    - blocks `v3.0-rc1` preparation when any required RC candidate artifact is missing.
 
 5. `create_rc_evidence_bundle.py`

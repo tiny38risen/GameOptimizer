@@ -13,7 +13,11 @@ SOAK_HANG_DETECTION_FILE = ROOT / "run_soak_with_hang_detection.py"
 RELEASE_GATE_EVIDENCE_FILE = ROOT / "release_gate_evidence.py"
 RELEASE_GATE_EVIDENCE_SELFTEST_FILE = ROOT / "release_gate_evidence_selftest.py"
 VERIFY_RC_CANDIDATE_FILE = ROOT / "verify_rc_candidate.py"
+VERIFY_REAL_GAME_VALIDATION_FILE = ROOT / "verify_real_game_validation.py"
 CREATE_RC_EVIDENCE_BUNDLE_FILE = ROOT / "create_rc_evidence_bundle.py"
+RELEASE_DOCS = ROOT / "docs" / "release"
+EVIDENCE_SCHEMA_FILE = RELEASE_DOCS / "Evidence_Schema.md"
+RELEASE_BLOCKER_LIST_FILE = RELEASE_DOCS / "Release_Blocker_List.md"
 
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"RuntimeOrchestrator\s+orchestrator\s*\(\s*argc\s*,\s*argv\s*\)", "main must delegate to RuntimeOrchestrator"),
@@ -852,7 +856,10 @@ def check_rc_gate_contract() -> list[str]:
 
     rc_text = rc_gate_path.read_text(encoding="utf-8", errors="replace")
     required_markers = [
+        "py_compile",
+        "git diff --check",
         "run_release_gate_static_checks.py",
+        "msbuild GameOptimizer.slnx /p:Configuration=Release /p:Platform=x64 /m",
         "run_regression_tests.bat",
         "run_release_gate_smoke.bat",
         "run_long_soak_presets.bat",
@@ -864,6 +871,9 @@ def check_rc_gate_contract() -> list[str]:
         "release smoke failed",
         "30m or 60m soak failed",
         "verify-rc failed",
+        "py_compile failed",
+        "git diff --check failed",
+        "Release x64 MSVC build failed",
         "RC candidate verification failed",
         "RC evidence bundle creation failed",
         "both",
@@ -947,6 +957,8 @@ def check_release_evidence_contract() -> list[str]:
         "rc_evidence_report.txt",
         "exe_sha256",
         "binary_fingerprint",
+        "git_dirty",
+        "git_status_short",
         "git_commit",
         "build_hash",
         "shutdown_failure_classification",
@@ -959,12 +971,20 @@ def check_release_evidence_contract() -> list[str]:
         "runtime_validation_summary",
         "SEVERITY_POLICY",
         "runtime validation FAILED must pair with process exit code 1",
+        "SetThreadGroupAffinity failure post-failure audit query failed",
+        "SetThreadGroupAffinity failure post-failure audit mismatch",
+        "timeline monotonicity failure",
+        "heartbeat progression failure",
+        "unsafe rollback state discard",
         "required RC soak step missing",
         "required smoke step missing",
         "verify-rc",
         "EXPECTED_SCHEMA",
         "schema version mismatch",
+        "schema_hash mismatch",
         "git commit mismatch",
+        "dirty tree flag is missing",
+        "dirty tree status is missing",
         "exe SHA-256 mismatch",
         "BLOCKER",
         "PASS_WITH_WARNINGS",
@@ -981,8 +1001,20 @@ def check_release_evidence_contract() -> list[str]:
         "complete synthetic evidence did not pass",
         "WARN-only evidence did not produce PASS_WITH_WARNINGS",
         "schema version mismatch unexpectedly passed",
+        "schema hash mismatch unexpectedly passed",
         "git commit mismatch unexpectedly passed",
         "exe SHA-256 mismatch unexpectedly passed",
+        "missing binary SHA-256 unexpectedly passed",
+        "runtime validation FAILED did not become a BLOCKER with exit code 1",
+        "rollback failure did not become a BLOCKER",
+        "SetThreadGroupAffinity audit query failure did not become a BLOCKER",
+        "SetThreadGroupAffinity audit mismatch did not become a BLOCKER",
+        "timeline monotonicity failure did not become a BLOCKER",
+        "heartbeat progression failure did not become a BLOCKER",
+        "unsafe rollback state discard did not become a BLOCKER",
+        "Access Denied fallback did not remain WARN-only",
+        "group 1+ mock did not remain WARN-only",
+        "telemetry INFO did not remain INFO-only",
         "RC evidence self-test passed",
     ]
     combined_selftest_text = "\n".join([evidence_selftest_text, regression_text])
@@ -1040,15 +1072,33 @@ def check_rc_candidate_contract() -> list[str]:
     failures: list[str] = []
     if not VERIFY_RC_CANDIDATE_FILE.exists():
         return ["[FAIL] RC candidate gate: verify_rc_candidate.py is missing"]
+    if not VERIFY_REAL_GAME_VALIDATION_FILE.exists():
+        return ["[FAIL] RC candidate gate: verify_real_game_validation.py is missing"]
     if not CREATE_RC_EVIDENCE_BUNDLE_FILE.exists():
         return ["[FAIL] RC candidate gate: create_rc_evidence_bundle.py is missing"]
+    if not EVIDENCE_SCHEMA_FILE.exists():
+        return ["[FAIL] RC candidate gate: Evidence_Schema.md is missing"]
+    if not RELEASE_BLOCKER_LIST_FILE.exists():
+        return ["[FAIL] RC candidate gate: Release_Blocker_List.md is missing"]
 
     candidate_text = VERIFY_RC_CANDIDATE_FILE.read_text(encoding="utf-8", errors="replace")
+    real_game_text = VERIFY_REAL_GAME_VALIDATION_FILE.read_text(encoding="utf-8", errors="replace")
     bundle_text = CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(encoding="utf-8", errors="replace")
     runbook_text = (ROOT / "ReleaseGateRunbook.md").read_text(encoding="utf-8", errors="replace")
     matrix_text = (ROOT / "ReleaseRegressionMatrix.md").read_text(encoding="utf-8", errors="replace")
     ops_text = (ROOT / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
-    combined_text = "\n".join([candidate_text, bundle_text, runbook_text, matrix_text, ops_text])
+    evidence_schema_text = EVIDENCE_SCHEMA_FILE.read_text(encoding="utf-8", errors="replace")
+    blocker_list_text = RELEASE_BLOCKER_LIST_FILE.read_text(encoding="utf-8", errors="replace")
+    combined_text = "\n".join([
+        candidate_text,
+        real_game_text,
+        bundle_text,
+        runbook_text,
+        matrix_text,
+        ops_text,
+        evidence_schema_text,
+        blocker_list_text,
+    ])
 
     required_markers = [
         "verify_rc_candidate.py --target <target.exe> --regression-log <log>",
@@ -1056,6 +1106,8 @@ def check_rc_candidate_contract() -> list[str]:
         "v3.0-rc1",
         "Runbook",
         "blocker list",
+        "Evidence_Schema.md",
+        "Release_Blocker_List.md",
         "evidence bundle",
         "rc_evidence_bundle_manifest.json",
         "rc_evidence_bundle_manifest.txt",
@@ -1073,11 +1125,91 @@ def check_rc_candidate_contract() -> list[str]:
         "validate_regression_log",
         "validate_runbooks",
         "RealGameValidationRunbook.md",
+        "verify_real_game_validation.py",
+        "Game_Verification_Matrix.json",
+        "Game A",
+        "Game B",
+        "Game C",
+        "dry-run",
+        "soft-apply",
+        "duration_minutes",
+        "rollback_preserved_state_count",
+        "policy_decision_telemetry",
+        "real game validation requires at least 3 games",
+        "real game validation requires at least 2 successful 60m soft-apply runs",
+        "real game validation requires 1 limited apply-mode validation",
         "[BLOCKER] RC candidate verification",
+        "gameoptimizer.rc_evidence.v1",
+        "gameoptimizer.rc_evidence_bundle.v1",
+        "git_dirty",
+        "git_status_short",
+        "shutdown_failure_classification.shutdown_reason",
+        "apply_guard_rollback_failure",
+        "Runtime validation result is `FAILED`",
+        "Dirty tree flag or status is missing from evidence",
+        "v3.0-rc1 intentional exclusions",
     ]
     for marker in required_markers:
         if marker not in combined_text:
             failures.append(f"[FAIL] RC candidate gate: missing marker: {marker}")
+    return failures
+
+
+def check_apply_mode_policy_contract() -> list[str]:
+    failures: list[str] = []
+    cli_text = (ROOT / "CliOptions.cpp").read_text(encoding="utf-8", errors="replace")
+    startup_text = (ROOT / "StartupPipeline.cpp").read_text(encoding="utf-8", errors="replace")
+    real_game_text = VERIFY_REAL_GAME_VALIDATION_FILE.read_text(encoding="utf-8", errors="replace")
+    limitations_text = (RELEASE_DOCS / "Known_Limitations.md").read_text(encoding="utf-8", errors="replace")
+    blocker_text = RELEASE_BLOCKER_LIST_FILE.read_text(encoding="utf-8", errors="replace")
+    combined_text = "\n".join([cli_text, startup_text, real_game_text, limitations_text, blocker_text])
+
+    required_markers = [
+        "return SchedulerMode::SoftApply",
+        "if (modeArgument == L\"--apply\")",
+        "apply mode restriction policy",
+        "dry-run PASS",
+        "soft-apply PASS",
+        "no Access Denied",
+        "rollback state save success",
+        "sufficient ThreadTracker confidence",
+        "ApplyGuard audit PASS",
+        "verified group-aware thread path",
+        "anti-cheat is suspected",
+        "Access Denied repeats",
+        "rollback state save fails",
+        "Raw Input TID confidence is Low",
+        "group 1+ process-wide background restriction is required",
+        "soft-apply WARN count is high",
+        "MAX_SOFT_APPLY_WARN_COUNT_FOR_APPLY",
+        "apply mode requires a prior PASS 30m dry-run",
+        "apply mode requires a prior PASS 60m soft-apply",
+        "apply mode must use an explicit --apply option",
+        "apply mode must be limited",
+    ]
+    for marker in required_markers:
+        if marker not in combined_text:
+            failures.append(f"[FAIL] Apply mode policy gate: missing marker: {marker}")
+    return failures
+
+
+def check_known_limitations_contract() -> list[str]:
+    failures: list[str] = []
+    limitations_text = (RELEASE_DOCS / "Known_Limitations.md").read_text(encoding="utf-8", errors="replace")
+    required_markers = [
+        "Group 1+ process-wide background affinity is `monitoring-only`",
+        "IRQ repin is available only when the NIC/driver/runtime path supports interrupt affinity control",
+        "Raw Input not detected means input thread pinning is forbidden",
+        "Anti-cheat Access Denied is a normal fallback path",
+        "does not modify game memory",
+        "does not use DLL injection",
+        "does not use kernel patching",
+        "does not use driver patching",
+        "Apply mode remains in limited validation status",
+    ]
+    for marker in required_markers:
+        if marker not in limitations_text:
+            failures.append(f"[FAIL] Known limitations gate: missing marker: {marker}")
     return failures
 
 
@@ -1136,6 +1268,8 @@ def main() -> int:
     failures.extend(check_rc_gate_contract())
     failures.extend(check_long_soak_automation_contract())
     failures.extend(check_release_evidence_contract())
+    failures.extend(check_apply_mode_policy_contract())
+    failures.extend(check_known_limitations_contract())
     failures.extend(check_rc_candidate_contract())
     failures.extend(check_runtime_validation_failure_exit_code_contract())
 
