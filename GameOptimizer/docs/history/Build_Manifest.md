@@ -8,13 +8,13 @@ Test target excludes: main.cpp and unrelated *Tests.cpp
 Patch release gate logging overhead pass:
 - main.cpp
 - docs/history/Patch_History.md
-- docs/operations/ReleaseGateRunbook.md
-- docs/operations/ReleasePerformanceChecklist.md
+- docs/release/Release_Gate_Spec.md
+- docs/release/Release_Performance_Checklist.md
 
 
 Operational Gate patch:
 - main.cpp: added --max-runtime-seconds for bounded release-gate runs; fixed confirmed-main logging branch.
-- docs/operations/ReleaseRegressionMatrix.md: required merge-blocking regression scenarios.
-- docs/operations/OperationalSafetyRunbook.md: dry-run/soft-apply/apply validation order and rollback interpretation.
+- docs/release/Release_Regression_Matrix.md: required merge-blocking regression scenarios.
+- docs/release/Operational_Runbook.md: dry-run/soft-apply/apply validation order and rollback interpretation.
 - docs/history/Patch_History.md: consolidated historical patch summaries.
 - run_release_gate_smoke.bat: local smoke runner.

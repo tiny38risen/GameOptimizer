@@ -1,49 +1,58 @@
-# GameOptimizer Documentation Map
+# GameOptimizer Runtime Safety & Release Governance
+
+## Purpose
+
+This is the documentation map for the GameOptimizer governance document system.
+The Korean name is `GameOptimizer 거버넌스 문서 체계`.
+
+The governance system controls code decisions, safety contracts, runtime validation, evidence, and release approval.
+
+## Governance
+
+- `governance/README.md`: system name, purpose, and enforcement chain.
+- `governance/Development_Roadmap.md`: stabilization and future architecture direction.
 
 ## Architecture
 
-Authoritative development contract.
-
-- `architecture/Architecture_Decision_Record.md`: accepted ADRs. New development must satisfy this first.
+- `architecture/Architecture_Decision_Record.md`: accepted ADRs.
 - `architecture/Contract_Enforcement_Matrix.md`: contract-to-gate/evidence enforcement map.
 - `architecture/Source_Bands.md`: source-file ownership bands.
 
-## Design
+## Engineering
 
-Feature and subsystem design notes.
+- `engineering/Engineering_Handbook.md`: coding and review rules.
 
-- `design/ApplyGuardDesign.md`: transaction guard design.
-- `design/ApplyGuardRegressionMatrix.md`: ApplyGuard regression expectations.
-- `design/AntiCheatFallbackDesign.md`: Access Denied and anti-cheat fallback policy.
-- `design/InputLatencyPhase2Design.md`: Raw Input and input pinning eligibility.
-- `design/ProcessorGroupPhase2Design.md`: processor-group and HEDT safety boundary.
-- `design/RuntimeValidationPlan.md`: runtime validation architecture.
-- `design/IntegrationTestPlan_NextDesign.md`: integration test planning.
+## Contracts
 
-## Operations
-
-Runbooks, release operation, validation order, and performance checks.
-
-- `operations/DevelopmentRoadmap.md`: stabilization and future architecture direction.
-- `operations/OperationalSafetyRunbook.md`: dry-run, soft-apply, apply, rollback, and timeout safety.
-- `operations/RealGameValidationRunbook.md`: real game validation requirements.
-- `operations/ReleaseGateRunbook.md`: RC gate execution.
-- `operations/ReleasePerformanceChecklist.md`: release performance checks.
-- `operations/ReleaseRegressionMatrix.md`: regression scenarios and merge blockers.
+- `contracts/Safety_Contract.md`: safety contracts that must not be broken.
+- `contracts/Runtime_Contract.md`: runtime state flow, watchdog, validation, and shutdown contracts.
 
 ## Release
 
-Machine-checked release contracts and candidate data schemas.
-
+- `release/Release_Gate_Spec.md`: release pass/fail gates.
+- `release/Operational_Runbook.md`: execution and validation procedures.
+- `release/Known_Limitations.md`: intentionally unsupported scope.
 - `release/Evidence_Schema.md`: RC evidence schema.
 - `release/Release_Blocker_List.md`: authoritative blocker, WARN, and INFO list.
 - `release/RC_Runbook.md`: concise RC runbook.
-- `release/Known_Limitations.md`: accepted limitations.
-- `release/Game_Verification_Matrix.example.json`: real game validation template.
+- `release/Release_Regression_Matrix.md`: regression scenarios and merge blockers.
+- `release/Release_Performance_Checklist.md`: release performance checks.
+- `release/Real_Game_Validation_Runbook.md`: real-game validation requirements.
+- `release/Game_Verification_Matrix.example.json`: real-game validation template.
+
+## Design Notes
+
+These are supporting notes. They do not override governance contracts.
+
+- `design/AntiCheatFallbackDesign.md`
+- `design/ApplyGuardRegressionMatrix.md`
+- `design/InputLatencyPhase2Design.md`
+- `design/IntegrationTestPlan_NextDesign.md`
+- `design/ProcessorGroupPhase2Design.md`
 
 ## History
 
 Historical context that is not a current source of policy.
 
-- `history/Patch_History.md`: consolidated patch summaries grouped by function band.
-- `history/Build_Manifest.md`: historical build/document manifest.
+- `history/Patch_History.md`
+- `history/Build_Manifest.md`

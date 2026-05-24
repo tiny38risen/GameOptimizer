@@ -94,10 +94,12 @@ Owns RC evidence, static gates, log assertions, soak automation, and release can
 
 Owns shared logging, error mapping, handles, process lookup, and CLI parsing.
 
-## Documentation Bands
+## Governance Document Bands
 
-- `docs/architecture`: accepted contracts and source banding.
-- `docs/design`: subsystem design and regression matrices.
-- `docs/operations`: runbooks, roadmap, release matrix, and performance checklist.
-- `docs/release`: machine-checked release contracts and schemas.
+- `docs/governance`: governance system name and roadmap.
+- `docs/architecture`: ADR, CEM, and source banding.
+- `docs/engineering`: coding and review rules.
+- `docs/contracts`: safety and runtime contracts.
+- `docs/release`: release gates, runbooks, schemas, limitations, and validation matrices.
+- `docs/design`: supporting subsystem notes.
 - `docs/history`: historical patch and build context.

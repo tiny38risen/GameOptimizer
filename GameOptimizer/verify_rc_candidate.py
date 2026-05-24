@@ -12,7 +12,9 @@ import verify_real_game_validation
 ROOT = pathlib.Path(__file__).resolve().parent
 RELEASE_DOCS = ROOT / "docs" / "release"
 ARCHITECTURE_DOCS = ROOT / "docs" / "architecture"
-OPERATIONS_DOCS = ROOT / "docs" / "operations"
+GOVERNANCE_DOCS = ROOT / "docs" / "governance"
+ENGINEERING_DOCS = ROOT / "docs" / "engineering"
+CONTRACTS_DOCS = ROOT / "docs" / "contracts"
 
 
 def read_text(path: pathlib.Path) -> str:
@@ -34,19 +36,52 @@ def require_markers(path: pathlib.Path, markers: list[str], label: str) -> list[
 def validate_runbooks() -> list[str]:
     failures: list[str] = []
     failures.extend(require_markers(
-        OPERATIONS_DOCS / "ReleaseGateRunbook.md",
+        RELEASE_DOCS / "Release_Gate_Spec.md",
         [
             "run_rc_gate.bat <target.exe>",
             "verify_rc_candidate.py --target <target.exe> --regression-log <log>",
             "v3.0-rc1",
             "BLOCKER",
             "evidence bundle",
-            "RealGameValidationRunbook.md",
+            "Real_Game_Validation_Runbook.md",
             "Architecture_Decision_Record.md",
             "Evidence_Schema.md",
             "Release_Blocker_List.md",
         ],
         "RC runbook"))
+    failures.extend(require_markers(
+        GOVERNANCE_DOCS / "README.md",
+        [
+            "GameOptimizer Runtime Safety & Release Governance",
+            "Governance documents",
+            "Contract Enforcement Matrix",
+            "release decision",
+        ],
+        "governance readme"))
+    failures.extend(require_markers(
+        ENGINEERING_DOCS / "Engineering_Handbook.md",
+        [
+            "Assign -> Check -> Bind",
+            "Mutation Boundaries",
+            "Review Checklist",
+        ],
+        "engineering handbook"))
+    failures.extend(require_markers(
+        CONTRACTS_DOCS / "Safety_Contract.md",
+        [
+            "Runtime mutation must be transactional",
+            "Rollback state must be saved before mutation",
+            "Rollback failure is release-critical",
+        ],
+        "safety contract"))
+    failures.extend(require_markers(
+        CONTRACTS_DOCS / "Runtime_Contract.md",
+        [
+            "Runtime Contract",
+            "Watchdog cycle boundaries are rollback-safe points",
+            "Runtime validation failures are BLOCKER evidence",
+        ],
+        "runtime contract"))
     failures.extend(require_markers(
         ARCHITECTURE_DOCS / "Architecture_Decision_Record.md",
         [
@@ -155,7 +190,7 @@ def validate_runbooks() -> list[str]:
         ],
         "known limitations"))
     failures.extend(require_markers(
-        OPERATIONS_DOCS / "ReleaseRegressionMatrix.md",
+        RELEASE_DOCS / "Release_Regression_Matrix.md",
         [
             "Merge blockers",
             "BLOCKER",
@@ -169,7 +204,7 @@ def validate_runbooks() -> list[str]:
         ],
         "blocker list"))
     failures.extend(require_markers(
-        OPERATIONS_DOCS / "OperationalSafetyRunbook.md",
+        RELEASE_DOCS / "Operational_Runbook.md",
         [
             "Fatal background rollback cases",
             "Runtime timeout safe-point invariant",
@@ -178,7 +213,7 @@ def validate_runbooks() -> list[str]:
         ],
         "operational runbook"))
     failures.extend(require_markers(
-        OPERATIONS_DOCS / "RealGameValidationRunbook.md",
+        RELEASE_DOCS / "Real_Game_Validation_Runbook.md",
         [
             "Game A",
             "Game B",

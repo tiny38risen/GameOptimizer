@@ -19,7 +19,7 @@ RC report severity is split into three levels:
 - `WARN`: release may continue, but the limitation must remain visible in the report.
 - `INFO`: tracking metadata only.
 
-The authoritative architecture, schema, and blocker contracts are `docs/architecture/Architecture_Decision_Record.md`, `docs/release/Evidence_Schema.md`, and `docs/release/Release_Blocker_List.md`.
+The authoritative governance, architecture, schema, and blocker contracts are `docs/governance/README.md`, `docs/architecture/Architecture_Decision_Record.md`, `docs/architecture/Contract_Enforcement_Matrix.md`, `docs/release/Evidence_Schema.md`, and `docs/release/Release_Blocker_List.md`.
 
 | ID | Mode | Runtime | Required args | Pass criteria |
 |---|---|---:|---|---|
@@ -92,7 +92,7 @@ The Release Gate smoke script now runs two assertion layers before accepting a b
    - records ThreadTracker telemetry, Input Latency fallback state, Network/IRQ monitoring-only state, Access Denied fallback evidence, runtime validation summaries, processor group mode summaries, rollback preserved-state summaries, and the fixed BLOCKER/WARN/INFO severity policy.
    - records `RC_CANDIDATE_PASS` only when there are no `BLOCKER` findings.
 
-6. `docs/operations/RealGameValidationRunbook.md`
+6. `docs/release/Real_Game_Validation_Runbook.md`
    - defines the required dry-run -> soft-apply evidence table for 2-3 real game processes.
    - keeps Apply mode blocked until dry-run/soft-apply evidence is clean and the deny/restrict configuration is explicit.
 

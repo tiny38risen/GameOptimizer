@@ -18,7 +18,9 @@ CREATE_RC_EVIDENCE_BUNDLE_FILE = ROOT / "create_rc_evidence_bundle.py"
 RELEASE_DOCS = ROOT / "docs" / "release"
 ARCHITECTURE_DOCS = ROOT / "docs" / "architecture"
 DESIGN_DOCS = ROOT / "docs" / "design"
-OPERATIONS_DOCS = ROOT / "docs" / "operations"
+GOVERNANCE_DOCS = ROOT / "docs" / "governance"
+ENGINEERING_DOCS = ROOT / "docs" / "engineering"
+CONTRACTS_DOCS = ROOT / "docs" / "contracts"
 HISTORY_DOCS = ROOT / "docs" / "history"
 EVIDENCE_SCHEMA_FILE = RELEASE_DOCS / "Evidence_Schema.md"
 RELEASE_BLOCKER_LIST_FILE = RELEASE_DOCS / "Release_Blocker_List.md"
@@ -550,9 +552,9 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
     runtime_integration_text = "\n".join([runtime_text, startup_text, shutdown_text, runtime_context_text])
     watchdog_text = (ROOT / "WatchdogCycleRunner.cpp").read_text(encoding="utf-8", errors="replace")
     processor_group_design_text = (DESIGN_DOCS / "ProcessorGroupPhase2Design.md").read_text(encoding="utf-8", errors="replace")
-    safety_runbook_text = (OPERATIONS_DOCS / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
+    safety_runbook_text = (RELEASE_DOCS / "Operational_Runbook.md").read_text(encoding="utf-8", errors="replace")
     readme_text = (ROOT / "README.txt").read_text(encoding="utf-8", errors="replace")
-    roadmap_text = (OPERATIONS_DOCS / "DevelopmentRoadmap.md").read_text(encoding="utf-8", errors="replace")
+    roadmap_text = (GOVERNANCE_DOCS / "Development_Roadmap.md").read_text(encoding="utf-8", errors="replace")
     project_text = PROJECT_FILE.read_text(encoding="utf-8", errors="replace")
     build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
@@ -1111,9 +1113,9 @@ def check_rc_candidate_contract() -> list[str]:
     candidate_text = VERIFY_RC_CANDIDATE_FILE.read_text(encoding="utf-8", errors="replace")
     real_game_text = VERIFY_REAL_GAME_VALIDATION_FILE.read_text(encoding="utf-8", errors="replace")
     bundle_text = CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(encoding="utf-8", errors="replace")
-    runbook_text = (OPERATIONS_DOCS / "ReleaseGateRunbook.md").read_text(encoding="utf-8", errors="replace")
-    matrix_text = (OPERATIONS_DOCS / "ReleaseRegressionMatrix.md").read_text(encoding="utf-8", errors="replace")
-    ops_text = (OPERATIONS_DOCS / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
+    runbook_text = (RELEASE_DOCS / "Release_Gate_Spec.md").read_text(encoding="utf-8", errors="replace")
+    matrix_text = (RELEASE_DOCS / "Release_Regression_Matrix.md").read_text(encoding="utf-8", errors="replace")
+    ops_text = (RELEASE_DOCS / "Operational_Runbook.md").read_text(encoding="utf-8", errors="replace")
     evidence_schema_text = EVIDENCE_SCHEMA_FILE.read_text(encoding="utf-8", errors="replace")
     blocker_list_text = RELEASE_BLOCKER_LIST_FILE.read_text(encoding="utf-8", errors="replace")
     adr_text = ARCHITECTURE_DECISION_RECORD_FILE.read_text(encoding="utf-8", errors="replace") if ARCHITECTURE_DECISION_RECORD_FILE.exists() else ""
@@ -1154,7 +1156,7 @@ def check_rc_candidate_contract() -> list[str]:
         "validate_evidence_bundle",
         "validate_regression_log",
         "validate_runbooks",
-        "RealGameValidationRunbook.md",
+        "Real_Game_Validation_Runbook.md",
         "verify_real_game_validation.py",
         "Game_Verification_Matrix.json",
         "Game A",

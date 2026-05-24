@@ -1,3 +1,22 @@
+# Safety Contract
+
+## Governance Role
+
+This file defines safety contracts for `GameOptimizer Runtime Safety & Release Governance`.
+It is enforceable through `docs/architecture/Contract_Enforcement_Matrix.md`, static gates, runtime validation, and release evidence.
+
+The original ApplyGuard design is retained below because ApplyGuard is the concrete safety boundary for runtime mutation.
+
+## Safety Contract Summary
+
+- Runtime mutation must be transactional.
+- Rollback state must be saved before mutation.
+- `ApplyGuard` must be armed before Win32 mutation APIs are called.
+- Verification or audited no-side-effect proof is required before commit or discard.
+- Rollback failure is release-critical and must preserve rollback state for shutdown retry.
+
+---
+
 # ApplyGuard Design
 
 ## Purpose

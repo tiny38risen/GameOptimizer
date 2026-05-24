@@ -1,4 +1,22 @@
-# Runtime Validation 설계
+# Runtime Contract
+
+## Governance Role
+
+This file defines runtime state-flow, watchdog, validation, and shutdown contracts for `GameOptimizer Runtime Safety & Release Governance`.
+It is enforceable through `docs/architecture/Contract_Enforcement_Matrix.md`, static gates, runtime validation summaries, and RC evidence.
+
+## Runtime Contract Summary
+
+- Runtime observation must not mutate scheduling state.
+- Watchdog cycle boundaries are rollback-safe points.
+- Shutdown must be reason-coded and evidence-visible.
+- Runtime validation failures are BLOCKER evidence.
+- Timeline monotonicity and heartbeat progression failures are BLOCKER evidence.
+- Rollback preserved state after shutdown is BLOCKER evidence.
+
+---
+
+# Runtime Validation Design
 
 ## 목적
 AppliedPolicyTracker가 정책 효과를 검증한 뒤, 본 실행 루프에서 실제 Runtime Metrics와 정책 명령 흐름이 안정적으로 동작하는지 관찰한다.

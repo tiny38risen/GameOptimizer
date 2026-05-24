@@ -84,7 +84,7 @@ Enforced by:
 - `SchedulerController.cpp`
 - `BackgroundController.cpp`
 - `run_release_gate_static_checks.py`
-- `docs/operations/ReleaseRegressionMatrix.md`
+- `docs/release/Release_Regression_Matrix.md`
 - `docs/release/Evidence_Schema.md`
 - `docs/release/Release_Blocker_List.md`
 
@@ -169,7 +169,7 @@ Enforced by:
 - `SchedulerController.cpp`
 - `SchedulerController.h`
 - `run_release_gate_static_checks.py`
-- `docs/operations/ReleaseRegressionMatrix.md`
+- `docs/release/Release_Regression_Matrix.md`
 
 Review trigger:
 Any new thread-level affinity, group, priority, QoS, or scheduling policy.
@@ -474,8 +474,8 @@ Forbidden:
 Enforced by:
 - `CliOptions.cpp`
 - `StartupPipeline.cpp`
-- `docs/operations/OperationalSafetyRunbook.md`
-- `docs/operations/RealGameValidationRunbook.md`
+- `docs/release/Operational_Runbook.md`
+- `docs/release/Real_Game_Validation_Runbook.md`
 - `verify_real_game_validation.py`
 - `docs/release/Known_Limitations.md`
 - `docs/release/Release_Blocker_List.md`

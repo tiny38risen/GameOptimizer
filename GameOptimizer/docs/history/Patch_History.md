@@ -3,7 +3,7 @@
 ## Purpose
 
 This file consolidates the previous `PATCH_SUMMARY*` files into one history document.
-It is historical context only; current development policy is governed by `docs/architecture/Architecture_Decision_Record.md`.
+It is historical context only; current development policy is governed by `GameOptimizer Runtime Safety & Release Governance`.
 
 ## Band: Release Gate And Evidence
 
@@ -15,9 +15,9 @@ The log assertion layer validates clean shutdown, rollback safety, dry-run non-m
 
 Updated smoke and regression documentation:
 - `run_release_gate_smoke.bat` captures logs under `release_gate_logs`.
-- `docs/operations/ReleaseRegressionMatrix.md` documents automated assertion layers.
-- `docs/operations/OperationalSafetyRunbook.md` defines timeout safe-point invariants.
-- `docs/operations/ReleaseGateRunbook.md` documents smoke, soak, RC candidate, and bundle flow.
+- `docs/release/Release_Regression_Matrix.md` documents automated assertion layers.
+- `docs/release/Operational_Runbook.md` defines timeout safe-point invariants.
+- `docs/release/Release_Gate_Spec.md` documents smoke, soak, RC candidate, and bundle flow.
 
 ### Release Gate Blocker Fixes
 

@@ -69,7 +69,7 @@ The candidate is blocked when any of the following is missing:
 
 ## Real game validation invariant
 
-Before proposing `v3.0-rc1`, validate 2-3 representative game processes with `docs/operations/RealGameValidationRunbook.md`.
+Before proposing `v3.0-rc1`, validate 2-3 representative game processes with `docs/release/Real_Game_Validation_Runbook.md`.
 
 Required order:
 
