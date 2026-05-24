@@ -222,7 +222,7 @@ def assert_apply_guard_rollback_failure_is_blocked(run_id: str, exe_path: pathli
     log_path = run_dir / "logs" / "apply_guard_failure.log"
     log_path.write_text(
         "\n".join([
-            "[ERROR] apply guard explicit rollback failed for target 42; guard remains armed so destructor can retry and rollback state remains owned: rollback failed",
+            "[ERROR] apply guard explicit rollback failed for target 42; rollback responsibility transferred to ShutdownPipeline/RollbackManager; rollback state remains preserved: rollback failed",
             "[INFO] shutdown result: reason=PolicyRollbackRequest, timerRollbackFailed=false, schedulerRollbackFailed=false, runtimeValidationFailed=false, rollbackStatePreserved=false",
         ]) + "\n",
         encoding="utf-8")

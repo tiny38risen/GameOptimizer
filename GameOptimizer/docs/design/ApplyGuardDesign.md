@@ -29,14 +29,17 @@ Failure paths:
 - apply fails after partial mutation: rollbackNow()
 - audit fails: rollbackNow()
 - unexpected scope exit while armed: destructor performs best-effort rollback and logs failure
+- rollbackNow() failure: log one BLOCKER, preserve RollbackManager state, transfer final retry responsibility to ShutdownPipeline/RollbackManager, and suppress destructor duplicate retry
 
 ## Invariants
 
 - ApplyGuard never creates rollback state by itself.
 - ApplyGuard never hides explicit rollbackNow() failure.
+- ApplyGuard move assignment is deleted. An armed guard cannot be overwritten by another guard.
 - commit() means the applied state is valid and rollback data must remain available for shutdown.
 - discardSavedState() is only legal when the saved rollback state was created in the same transaction.
 - Existing rollback state must not be discarded on pre-mutation apply failure.
+- After rollbackNow() failure, ApplyGuard no longer owns retry. RollbackManager state remains preserved for shutdown rollbackAll().
 
 ## Non-goals
 
@@ -60,3 +63,15 @@ Pre-apply failure handling:
 - `ReusedExistingState` -> `ApplyGuard::discardSavedState()` releases the guard without removing the previous rollback state.
 
 This removes the `hasProcessState()` / `saveProcessState()` TOCTOU pattern from the background apply path.
+
+## Rollback Failure Responsibility Transfer
+
+Explicit rollback failure is release-critical, but the guard must not spam duplicate rollback attempts.
+
+Contract:
+
+1. `rollbackNow()` logs the ApplyGuard rollback failure once.
+2. RollbackManager keeps the failed rollback state.
+3. ApplyGuard marks rollback responsibility as transferred to ShutdownPipeline/RollbackManager.
+4. ApplyGuard destructor skips duplicate retry for that transferred failure.
+5. ShutdownPipeline owns the final `rollbackAll()` attempt and evidence classification.

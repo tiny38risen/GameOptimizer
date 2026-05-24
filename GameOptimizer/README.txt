@@ -9,6 +9,10 @@ cl /std:c++latest /O2 /W4 /WX /permissive- main.cpp ProcessFinder.cpp ThreadTrac
 Run:
 GameOptimizer.exe <process-name.exe> [--dry-run|--apply] [--background-filter <path>] [--latency-ping <ipv4-or-host>] [--background-detail-log] [--thread-detail-log] [--thread-log-interval <cycles>] [--max-runtime-seconds <seconds>]
 
+Development policy:
+Architecture and development policy are governed by docs/architecture/Architecture_Decision_Record.md. New code, tests, release gates, and runbooks must either satisfy the accepted ADRs or update the ADR first.
+Documentation is organized by band under docs/README.md, and source ownership is mapped in docs/architecture/Source_Bands.md.
+
 Current scope:
 1. ThreadTracker performs SRS-style multi-sampling, EMA scoring, stickiness, and migration feedback.
 2. TopologyAnalyzer builds a validated group-aware main-thread policy mask from Win32 topology data.
@@ -29,10 +33,10 @@ Current scope:
 17. BackgroundController blocks process-wide restriction for processor group 1+, records the blocked group in the non-fatal summary, and leaves thread-level group affinity support in SchedulerController.
 18. Group 1+ process-wide background restriction is an explicit safety limitation, not an implementation defect; priority-class-only background restriction is also blocked until process affinity and priority rollback state are split.
 19. Per-thread group-aware background restriction and priority-only process rollback are LOW-priority Future Phase items.
-19. Development priority is tracked in DevelopmentRoadmap.md: RC stabilization first, release hardening second, future HEDT/hybrid/NUMA architecture third.
-18. Long soak RC gate requires both a 30-minute dry-run and a 60-minute soft-apply run, with hang detection, runtime timeline monotonicity checks, runtime validation summary, and runtime validation failure exit-code gating.
-19. Release gate smoke and soak runs create run-id scoped RC evidence reports with logs, exit codes, schema version, git commit, build hash, GameOptimizer.exe SHA-256, and BLOCKER/WARN/INFO severity summaries.
-20. Anti-cheat/access-denied Win32 boundaries are classified as recoverable limitations and fall back to monitoring-only behavior when no safe mutation can be verified.
+20. Development priority is tracked in docs/operations/DevelopmentRoadmap.md: RC stabilization first, release hardening second, future HEDT/hybrid/NUMA architecture third.
+21. Long soak RC gate requires both a 30-minute dry-run and a 60-minute soft-apply run, with hang detection, runtime timeline monotonicity checks, runtime validation summary, and runtime validation failure exit-code gating.
+22. Release gate smoke and soak runs create run-id scoped RC evidence reports with logs, exit codes, schema version, git commit, build hash, GameOptimizer.exe SHA-256, and BLOCKER/WARN/INFO severity summaries.
+23. Anti-cheat/access-denied Win32 boundaries are classified as recoverable limitations and fall back to monitoring-only behavior when no safe mutation can be verified.
 
 Validation:
 1. Run run_rc_gate.bat <target.exe> from an x64 Native Tools Command Prompt for the full RC gate.

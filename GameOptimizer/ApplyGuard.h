@@ -49,7 +49,7 @@ public:
     ApplyGuard& operator=(const ApplyGuard&) = delete;
 
     ApplyGuard(ApplyGuard&& other) noexcept;
-    ApplyGuard& operator=(ApplyGuard&& other) noexcept;
+    ApplyGuard& operator=(ApplyGuard&& other) = delete;
 
     ~ApplyGuard() noexcept;
 
@@ -70,6 +70,7 @@ private:
         RollbackManager::SaveStateDisposition saveDisposition) noexcept;
 
     void resetFrom(ApplyGuard&& other) noexcept;
+    void transferRollbackFailureToShutdown() noexcept;
     void releaseWithoutAction() noexcept;
     void removeSavedState() noexcept;
     [[nodiscard]] std::expected<void, ErrorCode> rollbackTarget() noexcept;
@@ -79,5 +80,6 @@ private:
     DWORD targetId_ = 0;
     TargetKind targetKind_ = TargetKind::Thread;
     bool armed_ = false;
+    bool rollbackFailureTransferredToShutdown_ = false;
     RollbackStateOwnership rollbackStateOwnership_ = RollbackStateOwnership::None;
 };

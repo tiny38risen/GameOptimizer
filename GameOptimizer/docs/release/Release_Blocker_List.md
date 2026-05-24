@@ -10,6 +10,8 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Python `py_compile` fails.
 - `git diff --check` fails.
 - Static release gate fails.
+- `docs/architecture/Architecture_Decision_Record.md` is missing or stale.
+- `docs/architecture/Contract_Enforcement_Matrix.md` is missing or stale.
 - Release x64 MSVC build fails.
 - Full regression fails.
 - Release smoke fails.
@@ -47,6 +49,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Broad Apply mode is run without explicit background deny/restrict configuration.
 - Apply mode is run without prior dry-run PASS and soft-apply PASS.
 - Apply mode is run after Access Denied, anti-cheat suspicion, rollback state save failure, insufficient ThreadTracker confidence, ApplyGuard audit failure, unverified group-aware thread path, Low Raw Input TID confidence, group 1+ process-wide background restriction need, or many soft-apply WARN findings.
+- A code, test, runbook, or release-gate change conflicts with an accepted ADR without updating the ADR and its enforcement.
 - Real game validation record is missing before `v3.0-rc1` tagging.
 - Real game validation has fewer than 3 games.
 - Real game validation has fewer than 2 successful 60m soft-apply runs.

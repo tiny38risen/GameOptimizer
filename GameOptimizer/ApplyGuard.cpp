@@ -64,31 +64,13 @@ ApplyGuard::ApplyGuard(ApplyGuard&& other) noexcept
     resetFrom(std::move(other));
 }
 
-ApplyGuard& ApplyGuard::operator=(ApplyGuard&& other) noexcept
-{
-    if (this != &other)
-    {
-        if (armed_)
-        {
-            const auto rollbackResult = rollbackTarget();
-            if (!rollbackResult)
-            {
-                Logger::error(
-                    "apply guard move-assignment cleanup failed for target {}: {}; rollback state ownership={}",
-                    targetId_,
-                    toString(rollbackResult.error()),
-                    rollbackStateOwnership_ == RollbackStateOwnership::CreatedByTransaction ? "created" : "reused");
-            }
-        }
-
-        resetFrom(std::move(other));
-    }
-
-    return *this;
-}
-
 ApplyGuard::~ApplyGuard() noexcept
 {
+    if (rollbackFailureTransferredToShutdown_)
+    {
+        return;
+    }
+
     if (!armed_)
     {
         return;
@@ -145,9 +127,10 @@ std::expected<void, ErrorCode> ApplyGuard::rollbackNow() noexcept
     {
         const DWORD failedTargetId = targetId_;
         Logger::error(
-            "apply guard explicit rollback failed for target {}; guard remains armed so destructor can retry and rollback state remains owned: {}",
+            "apply guard explicit rollback failed for target {}; rollback responsibility transferred to ShutdownPipeline/RollbackManager; rollback state remains preserved: {}",
             failedTargetId,
             toString(rollbackResult.error()));
+        transferRollbackFailureToShutdown();
         return std::unexpected(rollbackResult.error());
     }
 
@@ -161,9 +144,19 @@ void ApplyGuard::resetFrom(ApplyGuard&& other) noexcept
     targetId_ = other.targetId_;
     targetKind_ = other.targetKind_;
     armed_ = other.armed_;
+    rollbackFailureTransferredToShutdown_ = other.rollbackFailureTransferredToShutdown_;
     rollbackStateOwnership_ = other.rollbackStateOwnership_;
 
     other.releaseWithoutAction();
+}
+
+void ApplyGuard::transferRollbackFailureToShutdown() noexcept
+{
+    rollbackManager_ = nullptr;
+    targetId_ = 0;
+    armed_ = false;
+    rollbackFailureTransferredToShutdown_ = true;
+    rollbackStateOwnership_ = RollbackStateOwnership::None;
 }
 
 void ApplyGuard::releaseWithoutAction() noexcept
@@ -171,6 +164,7 @@ void ApplyGuard::releaseWithoutAction() noexcept
     rollbackManager_ = nullptr;
     targetId_ = 0;
     armed_ = false;
+    rollbackFailureTransferredToShutdown_ = false;
     rollbackStateOwnership_ = RollbackStateOwnership::None;
 }
 

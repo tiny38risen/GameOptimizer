@@ -19,7 +19,7 @@ RC report severity is split into three levels:
 - `WARN`: release may continue, but the limitation must remain visible in the report.
 - `INFO`: tracking metadata only.
 
-The authoritative schema and blocker contracts are `docs/release/Evidence_Schema.md` and `docs/release/Release_Blocker_List.md`.
+The authoritative architecture, schema, and blocker contracts are `docs/architecture/Architecture_Decision_Record.md`, `docs/release/Evidence_Schema.md`, and `docs/release/Release_Blocker_List.md`.
 
 | ID | Mode | Runtime | Required args | Pass criteria |
 |---|---|---:|---|---|
@@ -49,6 +49,7 @@ The authoritative schema and blocker contracts are `docs/release/Evidence_Schema
 14. Any Processor Group / HEDT group 1+ mock missing affinity, rollback, or log evidence.
 15. Any Input Latency pinning path enabled without High confidence and `ConcreteTid`.
 16. Any missing `ProcessorGroupHedtEvidenceTests` registration or failure.
+17. Any missing or stale `docs/architecture/Architecture_Decision_Record.md` architecture contract.
 
 
 ## Automated assertions
@@ -59,6 +60,7 @@ The Release Gate smoke script now runs two assertion layers before accepting a b
    - rejects direct `std::expected` dereference and `operator->` access across project source files using the Release Gate B2 scanner. Explicit bind lines are the only allowed value-access form.
    - verifies that runtime timeout shutdown is routed through the watchdog cycle boundary safe-point log.
    - verifies the timeout safe-point log sequence order, not just marker presence.
+   - verifies that the ADR contract index exists and contains the accepted runtime mutation, observation, processor-group, soft-apply, background restriction, access-boundary fallback, input pinning, limited apply mode, and release evidence decisions.
 
 2. `run_release_gate_log_assertions.py`
    - rejects missing clean shutdown logs.
@@ -90,7 +92,7 @@ The Release Gate smoke script now runs two assertion layers before accepting a b
    - records ThreadTracker telemetry, Input Latency fallback state, Network/IRQ monitoring-only state, Access Denied fallback evidence, runtime validation summaries, processor group mode summaries, rollback preserved-state summaries, and the fixed BLOCKER/WARN/INFO severity policy.
    - records `RC_CANDIDATE_PASS` only when there are no `BLOCKER` findings.
 
-6. `RealGameValidationRunbook.md`
+6. `docs/operations/RealGameValidationRunbook.md`
    - defines the required dry-run -> soft-apply evidence table for 2-3 real game processes.
    - keeps Apply mode blocked until dry-run/soft-apply evidence is clean and the deny/restrict configuration is explicit.
 

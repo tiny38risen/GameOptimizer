@@ -1,7 +1,0 @@
-# Patch Summary — Release Gate Assertion Fix
-
-- `run_release_gate_log_assertions.py` now validates timeout safe-point log ordering.
-- Apply-mode stale rollback validation now matches stale identity evidence by PID instead of accepting unrelated stale markers.
-- `run_release_gate_static_checks.py` now scans project source files for direct expected dereference and expected `operator->` access, with explicit bind lines as the only allowed value access form.
-- Existing TopologyAnalyzer expected bind sites were normalized to `const auto&` bind variables so the broader B2 scanner passes.
-- ReleaseRegressionMatrix and OperationalSafetyRunbook were updated to describe the stronger assertions.

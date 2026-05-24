@@ -11,6 +11,8 @@ import verify_real_game_validation
 
 ROOT = pathlib.Path(__file__).resolve().parent
 RELEASE_DOCS = ROOT / "docs" / "release"
+ARCHITECTURE_DOCS = ROOT / "docs" / "architecture"
+OPERATIONS_DOCS = ROOT / "docs" / "operations"
 
 
 def read_text(path: pathlib.Path) -> str:
@@ -32,7 +34,7 @@ def require_markers(path: pathlib.Path, markers: list[str], label: str) -> list[
 def validate_runbooks() -> list[str]:
     failures: list[str] = []
     failures.extend(require_markers(
-        ROOT / "ReleaseGateRunbook.md",
+        OPERATIONS_DOCS / "ReleaseGateRunbook.md",
         [
             "run_rc_gate.bat <target.exe>",
             "verify_rc_candidate.py --target <target.exe> --regression-log <log>",
@@ -40,10 +42,39 @@ def validate_runbooks() -> list[str]:
             "BLOCKER",
             "evidence bundle",
             "RealGameValidationRunbook.md",
+            "Architecture_Decision_Record.md",
             "Evidence_Schema.md",
             "Release_Blocker_List.md",
         ],
         "RC runbook"))
+    failures.extend(require_markers(
+        ARCHITECTURE_DOCS / "Architecture_Decision_Record.md",
+        [
+            "The ADRs below are not design notes. They are merge and release contracts.",
+            "ADR-001: Runtime Mutation Is Transactional",
+            "ADR-008: Access-Boundary Failures Are Fallback Evidence Unless Mutation Escaped",
+            "ADR-009: Input Thread Pinning Requires High-Confidence Concrete TID Evidence",
+            "ADR-010: Apply Mode Remains Limited And Explicit",
+            "Non-invasive boundary",
+            "Fallback-first policy",
+            "BLOCKER-on-unsafe policy",
+        ],
+        "architecture decision record"))
+    failures.extend(require_markers(
+        ARCHITECTURE_DOCS / "Contract_Enforcement_Matrix.md",
+        [
+            "Contract_Enforcement_Matrix.md",
+            "Runtime mutation is transactional",
+            "ThreadTracker is observation-only",
+            "Forbidden pattern",
+            "Static gate",
+            "Runtime validation",
+            "Evidence fields",
+            "run_release_gate_static_checks.py",
+            "release_gate_evidence.py",
+            "run_rc_gate.bat",
+        ],
+        "contract enforcement matrix"))
     failures.extend(require_markers(
         RELEASE_DOCS / "Evidence_Schema.md",
         [
@@ -87,6 +118,7 @@ def validate_runbooks() -> list[str]:
             "IRQ unsupported path is treated as ERROR/FAIL instead of WARN + monitoring-only",
             "Group 1+ process-wide background affinity mutation is enabled for `v3.0-rc1`",
             "Real game validation record is missing before `v3.0-rc1` tagging",
+            "A code, test, runbook, or release-gate change conflicts with an accepted ADR",
             "v3.0-rc1 intentional exclusions",
         ],
         "release blocker list"))
@@ -123,7 +155,7 @@ def validate_runbooks() -> list[str]:
         ],
         "known limitations"))
     failures.extend(require_markers(
-        ROOT / "ReleaseRegressionMatrix.md",
+        OPERATIONS_DOCS / "ReleaseRegressionMatrix.md",
         [
             "Merge blockers",
             "BLOCKER",
@@ -137,7 +169,7 @@ def validate_runbooks() -> list[str]:
         ],
         "blocker list"))
     failures.extend(require_markers(
-        ROOT / "OperationalSafetyRunbook.md",
+        OPERATIONS_DOCS / "OperationalSafetyRunbook.md",
         [
             "Fatal background rollback cases",
             "Runtime timeout safe-point invariant",
@@ -146,7 +178,7 @@ def validate_runbooks() -> list[str]:
         ],
         "operational runbook"))
     failures.extend(require_markers(
-        ROOT / "RealGameValidationRunbook.md",
+        OPERATIONS_DOCS / "RealGameValidationRunbook.md",
         [
             "Game A",
             "Game B",

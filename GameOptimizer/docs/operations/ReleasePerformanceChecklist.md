@@ -6,6 +6,7 @@
 - Warnings: /W4 /WX /permissive-
 
 ## Runtime measurement
+- Use dry-run or soft-apply for baseline measurement unless a limited apply validation has already satisfied the ADR apply-mode policy.
 - Run target game/process for at least 10 minutes.
 - Measure GameOptimizer CPU usage while idle and while BG_RESTRICT_UP triggers.
 - Target: idle <= 0.1%, active <= 1.0%.
@@ -26,8 +27,8 @@
 - Use `--thread-detail-log` only during diagnostics.
 - Use `--thread-log-interval <cycles>` to reduce diagnostic log frequency.
 
-Recommended default release command:
+Recommended limited apply validation command:
 `GameOptimizer.exe target.exe --apply --background-filter background_filter_example.txt --latency-ping 8.8.8.8`
 
 Recommended diagnostic command:
-`GameOptimizer.exe target.exe --apply --background-filter background_filter_example.txt --latency-ping 8.8.8.8 --thread-detail-log --thread-log-interval 2`
+`GameOptimizer.exe target.exe --max-runtime-seconds 120 --thread-detail-log --thread-log-interval 4`

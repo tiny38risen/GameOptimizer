@@ -16,8 +16,14 @@ VERIFY_RC_CANDIDATE_FILE = ROOT / "verify_rc_candidate.py"
 VERIFY_REAL_GAME_VALIDATION_FILE = ROOT / "verify_real_game_validation.py"
 CREATE_RC_EVIDENCE_BUNDLE_FILE = ROOT / "create_rc_evidence_bundle.py"
 RELEASE_DOCS = ROOT / "docs" / "release"
+ARCHITECTURE_DOCS = ROOT / "docs" / "architecture"
+DESIGN_DOCS = ROOT / "docs" / "design"
+OPERATIONS_DOCS = ROOT / "docs" / "operations"
+HISTORY_DOCS = ROOT / "docs" / "history"
 EVIDENCE_SCHEMA_FILE = RELEASE_DOCS / "Evidence_Schema.md"
 RELEASE_BLOCKER_LIST_FILE = RELEASE_DOCS / "Release_Blocker_List.md"
+ARCHITECTURE_DECISION_RECORD_FILE = ARCHITECTURE_DOCS / "Architecture_Decision_Record.md"
+CONTRACT_ENFORCEMENT_MATRIX_FILE = ARCHITECTURE_DOCS / "Contract_Enforcement_Matrix.md"
 
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"RuntimeOrchestrator\s+orchestrator\s*\(\s*argc\s*,\s*argv\s*\)", "main must delegate to RuntimeOrchestrator"),
@@ -412,29 +418,50 @@ def check_runtime_orchestrator_signal_contracts() -> list[str]:
 
 def check_apply_guard_rollback_failure_ownership() -> list[str]:
     failures: list[str] = []
+    apply_guard_header = (ROOT / "ApplyGuard.h").read_text(encoding="utf-8", errors="replace")
     apply_guard_text = (ROOT / "ApplyGuard.cpp").read_text(encoding="utf-8", errors="replace")
     rollback_body = extract_function_body(apply_guard_text, "ApplyGuard::rollbackNow")
     if rollback_body is None:
         return ["[FAIL] ApplyGuard ownership gate: rollbackNow body not found"]
 
     for marker in [
-        "guard remains armed",
-        "destructor can retry",
-        "rollback state remains owned",
+        "rollback responsibility transferred to ShutdownPipeline/RollbackManager",
+        "rollback state remains preserved",
+        "transferRollbackFailureToShutdown()",
         "return std::unexpected(rollbackResult.error())",
     ]:
         if marker not in rollback_body:
             failures.append(f"[FAIL] ApplyGuard ownership gate: rollback failure path missing marker: {marker}")
 
+    for marker in [
+        "ApplyGuard& operator=(ApplyGuard&& other) = delete;",
+        "rollbackFailureTransferredToShutdown_",
+        "transferRollbackFailureToShutdown",
+    ]:
+        if marker not in apply_guard_header:
+            failures.append(f"[FAIL] ApplyGuard ownership gate: header missing marker: {marker}")
+
+    if "ApplyGuard& ApplyGuard::operator=(ApplyGuard&& other)" in apply_guard_text:
+        failures.append("[FAIL] ApplyGuard ownership gate: move assignment implementation must remain deleted")
+
+    destructor_body = extract_function_body(apply_guard_text, "ApplyGuard::~ApplyGuard")
+    if destructor_body is None:
+        failures.append("[FAIL] ApplyGuard ownership gate: destructor body not found")
+    elif "rollbackFailureTransferredToShutdown_" not in destructor_body:
+        failures.append("[FAIL] ApplyGuard ownership gate: destructor must suppress duplicate rollback after responsibility transfer")
+
     failure_index = rollback_body.find("if (!rollbackResult)")
     unexpected_index = rollback_body.find("return std::unexpected", failure_index)
     release_index = rollback_body.find("releaseWithoutAction()", failure_index)
+    transfer_index = rollback_body.find("transferRollbackFailureToShutdown()", failure_index)
     if failure_index < 0:
         failures.append("[FAIL] ApplyGuard ownership gate: rollbackNow failure branch missing")
     if unexpected_index < 0:
         failures.append("[FAIL] ApplyGuard ownership gate: rollbackNow must return explicit failure")
     if release_index >= 0 and unexpected_index >= 0 and release_index < unexpected_index:
         failures.append("[FAIL] ApplyGuard ownership gate: rollbackNow must not release guard before returning rollback failure")
+    if transfer_index < 0 or (unexpected_index >= 0 and transfer_index > unexpected_index):
+        failures.append("[FAIL] ApplyGuard ownership gate: rollbackNow must transfer responsibility before returning rollback failure")
 
     return failures
 
@@ -522,10 +549,10 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
     runtime_context_text = (ROOT / "RuntimeContext.h").read_text(encoding="utf-8", errors="replace")
     runtime_integration_text = "\n".join([runtime_text, startup_text, shutdown_text, runtime_context_text])
     watchdog_text = (ROOT / "WatchdogCycleRunner.cpp").read_text(encoding="utf-8", errors="replace")
-    processor_group_design_text = (ROOT / "ProcessorGroupPhase2Design.md").read_text(encoding="utf-8", errors="replace")
-    safety_runbook_text = (ROOT / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
+    processor_group_design_text = (DESIGN_DOCS / "ProcessorGroupPhase2Design.md").read_text(encoding="utf-8", errors="replace")
+    safety_runbook_text = (OPERATIONS_DOCS / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
     readme_text = (ROOT / "README.txt").read_text(encoding="utf-8", errors="replace")
-    roadmap_text = (ROOT / "DevelopmentRoadmap.md").read_text(encoding="utf-8", errors="replace")
+    roadmap_text = (OPERATIONS_DOCS / "DevelopmentRoadmap.md").read_text(encoding="utf-8", errors="replace")
     project_text = PROJECT_FILE.read_text(encoding="utf-8", errors="replace")
     build_text = BUILD_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
     regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
@@ -790,7 +817,7 @@ def check_timer_input_module_registration() -> list[str]:
 def check_anti_cheat_fallback_contract() -> list[str]:
     failures: list[str] = []
     required_files = [
-        ROOT / "AntiCheatFallbackDesign.md",
+        DESIGN_DOCS / "AntiCheatFallbackDesign.md",
         ROOT / "AntiCheatFallbackTests.cpp",
     ]
     for path in required_files:
@@ -1084,11 +1111,12 @@ def check_rc_candidate_contract() -> list[str]:
     candidate_text = VERIFY_RC_CANDIDATE_FILE.read_text(encoding="utf-8", errors="replace")
     real_game_text = VERIFY_REAL_GAME_VALIDATION_FILE.read_text(encoding="utf-8", errors="replace")
     bundle_text = CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(encoding="utf-8", errors="replace")
-    runbook_text = (ROOT / "ReleaseGateRunbook.md").read_text(encoding="utf-8", errors="replace")
-    matrix_text = (ROOT / "ReleaseRegressionMatrix.md").read_text(encoding="utf-8", errors="replace")
-    ops_text = (ROOT / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
+    runbook_text = (OPERATIONS_DOCS / "ReleaseGateRunbook.md").read_text(encoding="utf-8", errors="replace")
+    matrix_text = (OPERATIONS_DOCS / "ReleaseRegressionMatrix.md").read_text(encoding="utf-8", errors="replace")
+    ops_text = (OPERATIONS_DOCS / "OperationalSafetyRunbook.md").read_text(encoding="utf-8", errors="replace")
     evidence_schema_text = EVIDENCE_SCHEMA_FILE.read_text(encoding="utf-8", errors="replace")
     blocker_list_text = RELEASE_BLOCKER_LIST_FILE.read_text(encoding="utf-8", errors="replace")
+    adr_text = ARCHITECTURE_DECISION_RECORD_FILE.read_text(encoding="utf-8", errors="replace") if ARCHITECTURE_DECISION_RECORD_FILE.exists() else ""
     combined_text = "\n".join([
         candidate_text,
         real_game_text,
@@ -1098,6 +1126,7 @@ def check_rc_candidate_contract() -> list[str]:
         ops_text,
         evidence_schema_text,
         blocker_list_text,
+        adr_text,
     ])
 
     required_markers = [
@@ -1108,6 +1137,7 @@ def check_rc_candidate_contract() -> list[str]:
         "blocker list",
         "Evidence_Schema.md",
         "Release_Blocker_List.md",
+        "Architecture_Decision_Record.md",
         "evidence bundle",
         "rc_evidence_bundle_manifest.json",
         "rc_evidence_bundle_manifest.txt",
@@ -1148,6 +1178,11 @@ def check_rc_candidate_contract() -> list[str]:
         "Runtime validation result is `FAILED`",
         "Dirty tree flag or status is missing from evidence",
         "v3.0-rc1 intentional exclusions",
+        "ADR-001: Runtime Mutation Is Transactional",
+        "ADR-008: Access-Boundary Failures Are Fallback Evidence Unless Mutation Escaped",
+        "ADR-009: Input Thread Pinning Requires High-Confidence Concrete TID Evidence",
+        "ADR-010: Apply Mode Remains Limited And Explicit",
+        "A code, test, runbook, or release-gate change conflicts with an accepted ADR",
     ]
     for marker in required_markers:
         if marker not in combined_text:
@@ -1243,6 +1278,133 @@ def check_runtime_validation_failure_exit_code_contract() -> list[str]:
     return failures
 
 
+def check_architecture_decision_record_contract() -> list[str]:
+    failures: list[str] = []
+    if not ARCHITECTURE_DECISION_RECORD_FILE.exists():
+        return ["[FAIL] ADR gate: docs/architecture/Architecture_Decision_Record.md is missing"]
+
+    adr_text = ARCHITECTURE_DECISION_RECORD_FILE.read_text(encoding="utf-8", errors="replace")
+    required_markers = [
+        "This document is the architecture contract index",
+        "The ADRs below are not design notes. They are merge and release contracts.",
+        "ADR-001: Runtime Mutation Is Transactional",
+        "ADR-002: ThreadTracker Is Observation-Only",
+        "ADR-003: SchedulerController Owns Thread-Level Scheduling Mutation",
+        "ADR-004: Processor-Group Policy Is Explicit And Group-Aware",
+        "ADR-005: SoftApply Is Validation Evidence, Not Rollback State",
+        "ADR-006: Release Decisions Are Evidence-Driven",
+        "ADR-007: BackgroundController Owns Process-Level Background Restriction",
+        "ADR-008: Access-Boundary Failures Are Fallback Evidence Unless Mutation Escaped",
+        "ADR-009: Input Thread Pinning Requires High-Confidence Concrete TID Evidence",
+        "ADR-010: Apply Mode Remains Limited And Explicit",
+        "Non-invasive boundary",
+        "Conservative apply policy",
+        "Fallback-first policy",
+        "ERROR_ACCESS_DENIED",
+        "InputThreadTidConfidence::High",
+        "ConcreteTid",
+        "Broad background restriction in apply mode MUST require explicit deny/restrict configuration.",
+        "SchedulerPolicy",
+        "processorGroup",
+        "affinityMask",
+        "KAFFINITY",
+        "ApplyGuard::commit()",
+        "ApplyGuard::rollbackNow()",
+        "run_release_gate_static_checks.py",
+        "docs/release/Evidence_Schema.md",
+        "docs/release/Release_Blocker_List.md",
+        "Review trigger:",
+    ]
+    for marker in required_markers:
+        if marker not in adr_text:
+            failures.append(f"[FAIL] ADR gate: missing marker: {marker}")
+
+    for adr_id in range(1, 11):
+        marker = f"ADR-{adr_id:03d}"
+        if adr_text.count(marker) < 2:
+            failures.append(f"[FAIL] ADR gate: {marker} must appear in the index and body")
+
+    forbidden_markers = [
+        "CoreMask must include processorGroup",
+        "group 0 hardcoding is forbidden.",
+    ]
+    for marker in forbidden_markers:
+        if marker in adr_text:
+            failures.append(f"[FAIL] ADR gate: stale terminology remains: {marker}")
+
+    return failures
+
+
+def check_contract_enforcement_matrix() -> list[str]:
+    failures: list[str] = []
+    if not CONTRACT_ENFORCEMENT_MATRIX_FILE.exists():
+        return ["[FAIL] CEM gate: docs/architecture/Contract_Enforcement_Matrix.md is missing"]
+
+    cem_text = CONTRACT_ENFORCEMENT_MATRIX_FILE.read_text(encoding="utf-8", errors="replace")
+    required_markers = [
+        "This matrix turns accepted architecture contracts into enforceable release gates.",
+        "Runtime mutation is transactional",
+        "ThreadTracker is observation-only",
+        "Thread scheduling mutation owner",
+        "Processor group policy",
+        "SoftApply is evidence, not rollback state",
+        "Release decisions are evidence-driven",
+        "Background restriction owner",
+        "Access boundary fallback",
+        "Input pinning eligibility",
+        "Apply mode is limited and explicit",
+        "Runtime timeout safe point",
+        "Forbidden pattern",
+        "Severity",
+        "Static gate",
+        "Runtime validation",
+        "Evidence fields",
+        "BLOCKER",
+        "WARN",
+        "INFO",
+        "check_apply_guard_transaction_patterns",
+        "check_thread_tracker_runtime_contracts",
+        "check_background_processor_group_policy_is_explicit",
+        "check_anti_cheat_fallback_contract",
+        "check_apply_mode_policy_contract",
+        "run_release_gate_static_checks.py",
+        "release_gate_evidence.py",
+        "verify_rc_candidate.py",
+        "run_rc_gate.bat",
+    ]
+    for marker in required_markers:
+        if marker not in cem_text:
+            failures.append(f"[FAIL] CEM gate: missing marker: {marker}")
+
+    adr_text = ARCHITECTURE_DECISION_RECORD_FILE.read_text(encoding="utf-8", errors="replace") if ARCHITECTURE_DECISION_RECORD_FILE.exists() else ""
+    for adr_marker in [
+        "Runtime Mutation Is Transactional",
+        "ThreadTracker Is Observation-Only",
+        "SchedulerController Owns Thread-Level Scheduling Mutation",
+        "Processor-Group Policy Is Explicit And Group-Aware",
+        "SoftApply Is Validation Evidence, Not Rollback State",
+        "Release Decisions Are Evidence-Driven",
+        "BackgroundController Owns Process-Level Background Restriction",
+        "Access-Boundary Failures Are Fallback Evidence Unless Mutation Escaped",
+        "Input Thread Pinning Requires High-Confidence Concrete TID Evidence",
+        "Apply Mode Remains Limited And Explicit",
+    ]:
+        normalized = adr_marker.replace("SchedulerController Owns Thread-Level Scheduling Mutation", "Thread scheduling mutation owner")
+        normalized = normalized.replace("Processor-Group Policy Is Explicit And Group-Aware", "Processor group policy")
+        normalized = normalized.replace("SoftApply Is Validation Evidence, Not Rollback State", "SoftApply is evidence, not rollback state")
+        normalized = normalized.replace("BackgroundController Owns Process-Level Background Restriction", "Background restriction owner")
+        normalized = normalized.replace("Access-Boundary Failures Are Fallback Evidence Unless Mutation Escaped", "Access boundary fallback")
+        normalized = normalized.replace("Input Thread Pinning Requires High-Confidence Concrete TID Evidence", "Input pinning eligibility")
+        normalized = normalized.replace("Apply Mode Remains Limited And Explicit", "Apply mode is limited and explicit")
+        normalized = normalized.replace("Runtime Mutation Is Transactional", "Runtime mutation is transactional")
+        normalized = normalized.replace("ThreadTracker Is Observation-Only", "ThreadTracker is observation-only")
+        normalized = normalized.replace("Release Decisions Are Evidence-Driven", "Release decisions are evidence-driven")
+        if adr_marker in adr_text and normalized not in cem_text:
+            failures.append(f"[FAIL] CEM gate: ADR contract missing from matrix: {adr_marker}")
+
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
 
@@ -1272,6 +1434,8 @@ def main() -> int:
     failures.extend(check_known_limitations_contract())
     failures.extend(check_rc_candidate_contract())
     failures.extend(check_runtime_validation_failure_exit_code_contract())
+    failures.extend(check_architecture_decision_record_contract())
+    failures.extend(check_contract_enforcement_matrix())
 
     if failures:
         for failure in failures:

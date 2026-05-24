@@ -4,6 +4,8 @@
 
 GameOptimizer is no longer focused on adding more features first. The current direction is release-grade stabilization: structure, rollback trust, evidence integrity, and operational safety.
 
+All future development is governed by `docs/architecture/Architecture_Decision_Record.md`. A change that conflicts with an accepted ADR is blocked unless the ADR is updated first with a new accepted decision and corresponding gate/evidence changes.
+
 ## Phase 1 - Release Candidate Stabilization
 
 Goal: reach an RC that can be applied safely.
@@ -23,6 +25,7 @@ Exit criteria:
 2. Runtime validation failure is recorded as BLOCKER and exits non-zero.
 3. RC evidence includes binary fingerprint, shutdown classification, rollback preserved-state summary, and processor-group mode summary.
 4. Release gate static checks and regression pass on the current commit.
+5. ADR contract checks pass and every release-facing policy has an accepted ADR reference.
 
 ## Phase 2 - Release Hardening
 
