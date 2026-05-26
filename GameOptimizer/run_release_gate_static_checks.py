@@ -1525,6 +1525,47 @@ def check_module_ownership_matrix() -> list[str]:
     return failures
 
 
+def check_atomic_governance_change_unit_contract() -> list[str]:
+    failures: list[str] = []
+    required_files = {
+        "Engineering Handbook": ENGINEERING_DOCS / "Engineering_Handbook.md",
+        "Contract Enforcement Matrix": CONTRACT_ENFORCEMENT_MATRIX_FILE,
+        "Release Gate Spec": RELEASE_DOCS / "Release_Gate_Spec.md",
+        "Release Blocker List": RELEASE_BLOCKER_LIST_FILE,
+        "RC Runbook": RELEASE_DOCS / "RC_Runbook.md",
+    }
+    for label, path in required_files.items():
+        if not path.exists():
+            failures.append(f"[FAIL] atomic governance unit gate: {label} is missing")
+
+    if failures:
+        return failures
+
+    combined_text = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in required_files.values()
+    )
+    required_markers = [
+        "Atomic Governance Change Unit",
+        "Atomic governance change unit",
+        "document contract 1",
+        "static gate 1",
+        "validator/evidence coupling 1",
+        "selftest or regression 1",
+        "document/blocker/runbook sync",
+        "verification",
+        "commit 1",
+        "check_atomic_governance_change_unit_contract",
+        "A development change skips the atomic governance change unit",
+        "verification notes identify the static gate and validator/selftest or regression evidence",
+    ]
+    for marker in required_markers:
+        if marker not in combined_text:
+            failures.append(f"[FAIL] atomic governance unit gate: missing marker: {marker}")
+
+    return failures
+
+
 def check_module_ownership_api_boundaries() -> list[str]:
     failures: list[str] = []
     production_files = [
@@ -1619,6 +1660,7 @@ def main() -> int:
     failures.extend(check_architecture_decision_record_contract())
     failures.extend(check_contract_enforcement_matrix())
     failures.extend(check_module_ownership_matrix())
+    failures.extend(check_atomic_governance_change_unit_contract())
     failures.extend(check_module_ownership_api_boundaries())
 
     if failures:

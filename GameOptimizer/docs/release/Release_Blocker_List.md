@@ -51,6 +51,8 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Apply mode is run without prior dry-run PASS and soft-apply PASS.
 - Apply mode is run after Access Denied, anti-cheat suspicion, rollback state save failure, insufficient ThreadTracker confidence, ApplyGuard audit failure, unverified group-aware thread path, Low Raw Input TID confidence, group 1+ process-wide background restriction need, or many soft-apply WARN findings.
 - A code, test, runbook, or release-gate change conflicts with an accepted ADR without updating the ADR and its enforcement.
+- A development change skips the atomic governance change unit: document contract 1 -> static gate 1 -> validator/evidence coupling 1 -> selftest or regression 1 -> document/blocker/runbook sync -> verification -> commit 1.
+- A governance contract changes without a matching static gate, validator/evidence coupling, selftest or regression, and release blocker/runbook synchronization.
 - Real game validation record is missing before `v3.0-rc1` tagging.
 - Real game validation has fewer than 3 games.
 - Real game validation has fewer than 2 successful 60m soft-apply runs.

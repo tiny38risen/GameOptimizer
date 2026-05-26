@@ -53,6 +53,30 @@ Observation-only modules must not mutate runtime state.
 - Does apply mode remain explicit, limited, and evidence-gated?
 - Does Access Denied remain fallback evidence instead of unsafe success?
 
+## Atomic Governance Change Unit
+
+Every development commit must preserve this unit:
+
+```text
+document contract 1
+-> static gate 1
+-> validator/evidence coupling 1
+-> selftest or regression 1
+-> document/blocker/runbook sync
+-> verification
+-> commit 1
+```
+
+Do not mix unrelated governance chains in one commit. A change may touch multiple files only when those files are required to complete the same contract chain.
+
+Required commit evidence:
+
+- the changed governance contract,
+- the static gate that rejects drift from that contract,
+- the validator or evidence field that proves runtime/release compliance,
+- the selftest or regression command that exercised the gate,
+- synchronized release blocker and runbook text.
+
 ## Documentation Rule
 
 Feature notes may live outside governance documents, but they cannot override governance documents.

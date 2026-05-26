@@ -39,6 +39,8 @@ Required order:
 - every real-game validation run links to an existing `evidence_report` artifact.
 - `docs/architecture/Architecture_Decision_Record.md` exists and matches the accepted runtime mutation, fallback, input pinning, limited apply, and evidence contracts.
 - Apply mode is limited, explicit, and allowed only after dry-run PASS plus soft-apply PASS evidence.
+- each development commit preserves the atomic governance change unit: document contract 1 -> static gate 1 -> validator/evidence coupling 1 -> selftest or regression 1 -> document/blocker/runbook sync -> verification -> commit 1.
+- verification notes identify the static gate and validator/selftest or regression evidence used for the committed contract chain.
 
 ## Tag rule
 

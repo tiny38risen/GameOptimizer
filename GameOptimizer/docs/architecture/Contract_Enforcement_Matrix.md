@@ -38,6 +38,7 @@ Architecture_Decision_Record.md
 | Input pinning eligibility | InputLatencyController | `InputLatencyController.*`, `TimerInputControllerTests.cpp` | input thread pinning without Raw Input + High confidence `ConcreteTid` | BLOCKER | `check_timer_input_module_registration` | low/missing TID stays monitoring-only | `input_latency_summary`, `warn_count` |
 | Apply mode is limited and explicit | CliOptions / StartupPipeline / real-game validation | `CliOptions.cpp`, `StartupPipeline.cpp`, `verify_real_game_validation.py` | apply default; broad background apply without explicit filter; apply after anti-cheat suspicion or low confidence | BLOCKER | `check_apply_mode_policy_contract`, `check_rc_candidate_contract` | real-game matrix proves dry-run and soft-apply before limited apply | `test_results`, `policy_decision_telemetry`, `blocker_count` |
 | Runtime timeout safe point | RuntimeOrchestrator / WatchdogCycleRunner / ShutdownPipeline | `RuntimeOrchestrator.*`, `WatchdogCycleRunner.*`, `ShutdownPipeline.*` | max-runtime stops from arbitrary polling point; missing cycle-boundary or hard-timeout evidence | BLOCKER | `REQUIRED_MAIN_PATTERNS`, log assertions | timeout reaches watchdog rollback-safe boundary or hard-timeout clean shutdown | `shutdown_reason`, `runtime_validation_status`, `test_results` |
+| Atomic governance change unit | Engineering governance | `Engineering_Handbook.md`, `Contract_Enforcement_Matrix.md`, `Release_Gate_Spec.md`, `Release_Blocker_List.md`, `RC_Runbook.md`, `run_release_gate_static_checks.py` | unrelated contract chains in one commit; contract change without static gate; validator/evidence omission; missing selftest/regression evidence; blocker/runbook drift | BLOCKER | `check_atomic_governance_change_unit_contract` | verification output records static gate plus validator/selftest or regression evidence before commit | `test_results`, `blocker_count`, `git_commit` |
 
 ## Required Static Gate Behavior
 
@@ -53,6 +54,7 @@ The release static gate must fail when:
 - ApplyGuard transaction ordering markers are missing,
 - SoftApply baseline storage writes into rollback state,
 - release evidence schema/blocker/runbook contracts are stale.
+- the atomic governance change unit is missing from engineering guidance, CEM, release blockers, runbook, or static gate.
 
 ## Required Runtime Validation Behavior
 

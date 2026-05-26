@@ -61,6 +61,22 @@ Do not create the `v3.0-rc1` tag until the full gate, candidate verification, an
 
 Any missing item is a `BLOCKER`.
 
+## Atomic governance change unit
+
+Every development commit must carry exactly one coherent governance chain unless a wider change is explicitly split into separate commits:
+
+```text
+document contract 1
+-> static gate 1
+-> validator/evidence coupling 1
+-> selftest or regression 1
+-> document/blocker/runbook sync
+-> verification
+-> commit 1
+```
+
+The release gate treats missing static enforcement, validator/evidence coupling, selftest or regression evidence, or release blocker/runbook synchronization as a `BLOCKER`.
+
 ## Default compact run
 ```bat
 GameOptimizer.exe target.exe --apply --background-filter background_filter_example.txt --latency-ping 8.8.8.8
