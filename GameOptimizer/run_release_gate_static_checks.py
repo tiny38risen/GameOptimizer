@@ -1507,6 +1507,67 @@ def check_module_ownership_matrix() -> list[str]:
     return failures
 
 
+def check_module_ownership_api_boundaries() -> list[str]:
+    failures: list[str] = []
+    production_files = [
+        path for path in iter_source_files()
+        if not path.name.endswith("Tests.cpp")
+    ]
+
+    ownership_rules = [
+        (
+            re.compile(r"\bSetThreadAffinityMask\s*\("),
+            {"SchedulerController.cpp", "RollbackManager.cpp"},
+            "thread affinity mutation must remain in SchedulerController/RollbackManager"),
+        (
+            re.compile(r"\bSetThreadGroupAffinity\s*\("),
+            {"SchedulerController.cpp", "RollbackManager.cpp"},
+            "thread group mutation must remain in SchedulerController/RollbackManager"),
+        (
+            re.compile(r"\bSetThreadPriority\s*\("),
+            {"SchedulerController.cpp", "RollbackManager.cpp"},
+            "thread priority mutation must remain in SchedulerController/RollbackManager"),
+        (
+            re.compile(r"\bSetProcessAffinityMask\s*\("),
+            {"BackgroundController.cpp", "RollbackManager.cpp"},
+            "process affinity mutation must remain in BackgroundController/RollbackManager"),
+        (
+            re.compile(r"\bSetPriorityClass\s*\("),
+            {"BackgroundController.cpp", "RollbackManager.cpp"},
+            "process priority mutation must remain in BackgroundController/RollbackManager"),
+        (
+            re.compile(r"\bApplyGuard::(?:forThread|forProcess)\s*\("),
+            {"SchedulerController.cpp", "BackgroundController.cpp", "ApplyGuard.cpp"},
+            "ApplyGuard transaction construction must remain in mutation owners"),
+    ]
+
+    for path in production_files:
+        text = strip_comments_and_strings(path.read_text(encoding="utf-8", errors="replace"))
+        for pattern, allowed_files, message in ownership_rules:
+            for match in pattern.finditer(text):
+                if path.name not in allowed_files:
+                    line_number = text.count("\n", 0, match.start()) + 1
+                    failures.append(
+                        f"[FAIL] ownership API gate: {path.name}:{line_number}: {message}")
+
+    thread_tracker_text = strip_comments_and_strings(
+        (ROOT / "ThreadTracker.cpp").read_text(encoding="utf-8", errors="replace"))
+    for forbidden in [
+        "SetThreadAffinityMask",
+        "SetThreadGroupAffinity",
+        "SetThreadPriority",
+        "SetPriorityClass",
+        "SetProcessAffinityMask",
+        "RollbackManager",
+        "ApplyGuard",
+    ]:
+        if re.search(rf"\b{re.escape(forbidden)}\b", thread_tracker_text):
+            failures.append(
+                f"[FAIL] ownership API gate: ThreadTracker.cpp must remain observation-only; forbidden marker: {forbidden}")
+
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
 
@@ -1540,6 +1601,7 @@ def main() -> int:
     failures.extend(check_architecture_decision_record_contract())
     failures.extend(check_contract_enforcement_matrix())
     failures.extend(check_module_ownership_matrix())
+    failures.extend(check_module_ownership_api_boundaries())
 
     if failures:
         for failure in failures:

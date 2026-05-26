@@ -52,3 +52,10 @@ If yes, the change is a `BLOCKER` unless the ADR, Contract Enforcement Matrix, s
 - `release_gate_evidence.py`
 
 Any missing owner row is a `BLOCKER`.
+
+The same gate must scan production source files for ownership-sensitive APIs:
+
+- thread mutation APIs are allowed only in `SchedulerController.cpp` and `RollbackManager.cpp`;
+- process mutation APIs are allowed only in `BackgroundController.cpp` and `RollbackManager.cpp`;
+- `ApplyGuard::forThread()` and `ApplyGuard::forProcess()` are allowed only in mutation owner modules;
+- `ThreadTracker.cpp` must contain no mutation API, `RollbackManager`, or `ApplyGuard` marker after comments and strings are removed.
