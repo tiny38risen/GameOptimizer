@@ -21,6 +21,7 @@ The final bundle must create:
 - copied soak evidence
 - copied step logs
 - copied final regression log
+- copied real-game validation matrix
 
 ## Required JSON fields
 
@@ -49,6 +50,8 @@ Each `rc_evidence_report.json` and final bundle manifest must expose these relea
 - `background_restriction_mode`
 - `thread_tracker_telemetry`
 - `test_results`
+- `real_game_validation_matrix`
+- `real_game_validation_matrix_sha256`
 
 Compatibility aliases such as `schema`, `git_commit`, `exe_sha256`, and `severity_summary` may remain, but the release-facing fields above are mandatory.
 
@@ -75,6 +78,8 @@ Compatibility aliases such as `schema`, `git_commit`, `exe_sha256`, and `severit
 - `background_restriction_mode`: background restriction summary collected from logs.
 - `thread_tracker_telemetry`: ThreadTracker summary collected from logs.
 - `test_results`: per-step command/assertion/runtime validation results.
+- `real_game_validation_matrix`: bundled copy path for `docs/release/Game_Verification_Matrix.json`.
+- `real_game_validation_matrix_sha256`: SHA-256 of the bundled real-game validation matrix.
 
 Step-level evidence still records compatibility and audit fields used by the gate:
 

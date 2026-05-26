@@ -1011,6 +1011,7 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_ordered_markers_reject_out_of_order_marker",
         "test_rc9_real_game_validation_runs_before_candidate_verification",
         "test_bundle_creation_validates_real_game_matrix_before_writing_bundle",
+        "test_bundle_manifest_preserves_real_game_matrix_artifact",
         "[PASS] static gate selftest passed",
     ]
     for marker in required_markers:
@@ -1260,6 +1261,9 @@ def check_rc_candidate_contract() -> list[str]:
         "input_latency_summary",
         "network_irq_summary",
         "access_denied_fallback_summary",
+        "real_game_validation_matrix",
+        "real_game_validation_matrix_sha256",
+        "real_game_validation_matrix_artifact",
         "final regression result",
         "failed=0",
         "[PASS] all regression tests passed",

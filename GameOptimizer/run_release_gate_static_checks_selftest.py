@@ -52,12 +52,27 @@ def test_bundle_creation_validates_real_game_matrix_before_writing_bundle() -> N
     assert failures == []
 
 
+def test_bundle_manifest_preserves_real_game_matrix_artifact() -> None:
+    bundle_text = static_checks.CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    for marker in [
+        "real_game_matrix = verify_rc_candidate.verify_real_game_validation.DEFAULT_MATRIX",
+        "real_game_validation_matrix_artifact = copy_file",
+        "\"real_game_validation_matrix\"",
+        "\"real_game_validation_matrix_sha256\"",
+        "\"label\": \"real_game_validation_matrix\"",
+    ]:
+        assert marker in bundle_text
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
     test_ordered_markers_reject_out_of_order_marker()
     test_rc9_real_game_validation_runs_before_candidate_verification()
     test_bundle_creation_validates_real_game_matrix_before_writing_bundle()
+    test_bundle_manifest_preserves_real_game_matrix_artifact()
     print("[PASS] static gate selftest passed")
     return 0
 

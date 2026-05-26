@@ -112,6 +112,8 @@ def write_text_manifest(path: pathlib.Path, manifest: dict[str, Any]) -> None:
         f"Access Denied fallback summary: {manifest['access_denied_fallback_summary']}",
         f"Runtime validation summary: {manifest['runtime_validation_summary']}",
         f"SoftApply baseline summary: {manifest['soft_apply_baseline_summary']}",
+        f"Real game validation matrix: {manifest['real_game_validation_matrix']}",
+        f"Real game validation matrix SHA-256: {manifest['real_game_validation_matrix_sha256']}",
         f"Test results: {manifest['test_results']}",
         f"Created UTC: {manifest['created_utc']}",
         "",
@@ -187,6 +189,7 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
     smoke_report, smoke_state = smoke
     soak_report, soak_state = soak
     bundle_dir = create_bundle_dir(commit)
+    real_game_matrix = verify_rc_candidate.verify_real_game_validation.DEFAULT_MATRIX
 
     artifacts: list[dict[str, Any]] = []
     smoke_dir = smoke_report.parent
@@ -202,6 +205,10 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
     artifacts.extend({"label": "soak_log", **item} for item in copy_directory(soak_dir / "logs", bundle_dir / "soak" / "logs"))
 
     artifacts.append({"label": "final_regression_log", **copy_file(regression_log, bundle_dir / "final_regression.log")})
+    real_game_validation_matrix_artifact = copy_file(
+        real_game_matrix,
+        bundle_dir / "real_game_validation" / "Game_Verification_Matrix.json")
+    artifacts.append({"label": "real_game_validation_matrix", **real_game_validation_matrix_artifact})
 
     manifest = {
         "schema": BUNDLE_SCHEMA,
@@ -287,6 +294,8 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
             "soft_apply_baseline_summary",
             smoke_state,
             soak_state),
+        "real_game_validation_matrix": real_game_validation_matrix_artifact["path"],
+        "real_game_validation_matrix_sha256": real_game_validation_matrix_artifact["sha256"],
         "severity_policy": evidence.SEVERITY_POLICY,
         "test_results": (
             smoke_state.get("test_results", [])
@@ -297,6 +306,7 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
             "smoke": relative(smoke_report),
             "soak": relative(soak_report),
             "regression_log": relative(regression_log),
+            "real_game_validation_matrix": relative(real_game_matrix),
         },
         "artifacts": artifacts,
     }
