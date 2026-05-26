@@ -96,6 +96,12 @@ if errorlevel 1 (
 )
 
 echo [RC-3] static release gate
+%PYTHON_CMD% run_release_gate_static_checks_selftest.py
+if errorlevel 1 (
+    set RC_BLOCKER=static gate selftest failed
+    goto fail
+)
+
 %PYTHON_CMD% run_release_gate_static_checks.py
 if errorlevel 1 (
     set RC_BLOCKER=static gate failed

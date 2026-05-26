@@ -926,6 +926,7 @@ def check_rc_gate_contract() -> list[str]:
     required_markers = [
         "py_compile",
         "git diff --check",
+        "run_release_gate_static_checks_selftest.py",
         "run_release_gate_static_checks.py",
         "msbuild GameOptimizer.slnx /p:Configuration=Release /p:Platform=x64 /m",
         "run_regression_tests.bat",
@@ -941,6 +942,7 @@ def check_rc_gate_contract() -> list[str]:
         "verify-rc failed",
         "py_compile failed",
         "git diff --check failed",
+        "static gate selftest failed",
         "Release x64 MSVC build failed",
         "RC candidate verification failed",
         "RC evidence bundle creation failed",
@@ -966,6 +968,11 @@ def check_rc_gate_contract() -> list[str]:
         "echo [RC-10] create final RC evidence bundle",
     ]
     failures.extend(validate_ordered_markers("RC gate", rc_text, ordered_steps))
+    failures.extend(validate_ordered_markers("RC static gate selftest", rc_text, [
+        "echo [RC-3] static release gate",
+        "run_release_gate_static_checks_selftest.py",
+        "run_release_gate_static_checks.py",
+    ]))
 
     return failures
 

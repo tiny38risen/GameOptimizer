@@ -103,7 +103,7 @@ Compatibility summaries used by validators must remain available:
 
 ## Release Gate Consumption
 
-`run_rc_gate.bat` must execute the static contract gate before build, regression, smoke, soak, verify-rc, candidate verification, and final bundle creation. The static gate must reject RC step drift by checking the ordered `[RC-1]` through `[RC-10]` markers in `run_rc_gate.bat`, and `run_release_gate_static_checks_selftest.py` must prove missing or out-of-order markers are rejected.
+`run_rc_gate.bat` must execute the static gate selftest and static contract gate before build, regression, smoke, soak, verify-rc, candidate verification, and final bundle creation. The static gate must reject RC step drift by checking the ordered `[RC-1]` through `[RC-10]` markers in `run_rc_gate.bat`, and `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py` to prove missing or out-of-order markers are rejected.
 
 The expected chain is:
 

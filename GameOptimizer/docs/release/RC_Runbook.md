@@ -23,7 +23,7 @@ Required order:
 9. `verify-rc`
 10. evidence bundle generation
 
-The static release gate verifies this order through the `[RC-1]` through `[RC-10]` markers in `run_rc_gate.bat`; the static gate selftest covers missing and out-of-order marker rejection.
+The static release gate verifies this order through the `[RC-1]` through `[RC-10]` markers in `run_rc_gate.bat`; within `[RC-3]`, `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py`.
 
 ## Completion criteria
 
