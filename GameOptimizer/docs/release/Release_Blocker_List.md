@@ -32,6 +32,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Rollback failure occurs.
 - Rollback preserved state remains after shutdown.
 - `ApplyGuard` explicit rollback failure is logged.
+- `ApplyGuard` explicit rollback failure is not paired with `rollback_failure_transferred_to_shutdown_count` evidence.
 - `ApplyGuard` destructor rollback failure is logged.
 - Unsafe rollback state discard is reintroduced.
 - `SetThreadGroupAffinity` failure path discards rollback state without post-failure state audit.

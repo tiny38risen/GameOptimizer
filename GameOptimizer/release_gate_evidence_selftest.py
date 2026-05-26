@@ -83,6 +83,8 @@ def make_report(
         "shutdown_reason": "Unknown",
         "runtime_validation_status": "UNKNOWN",
         "rollback_preserved_state_count": 0,
+        "apply_guard_rollback_failure_count": 0,
+        "rollback_failure_transferred_to_shutdown_count": 0,
         "blocker_count": 0,
         "warn_count": 0,
         "info_count": 0,
@@ -133,6 +135,8 @@ def make_running_state(kind: str, run_id: str, target: str, exe_path: pathlib.Pa
         "shutdown_reason": "Unknown",
         "runtime_validation_status": "UNKNOWN",
         "rollback_preserved_state_count": 0,
+        "apply_guard_rollback_failure_count": 0,
+        "rollback_failure_transferred_to_shutdown_count": 0,
         "blocker_count": 0,
         "warn_count": 0,
         "info_count": 0,
@@ -240,11 +244,17 @@ def assert_apply_guard_rollback_failure_is_blocked(run_id: str, exe_path: pathli
         require_soak_both=False,
     ))
     report = evidence.read_json(run_dir / "rc_evidence_report.json")
+    text_report = (run_dir / "rc_evidence_report.txt").read_text(encoding="utf-8")
     return (
         record_result == 0
         and finalize_result == 1
         and report["status"] == "FAIL"
+        and report["apply_guard_rollback_failure_count"] == 1
+        and report["rollback_failure_transferred_to_shutdown_count"] == 1
+        and report["blocker_count"] > 0
         and any("ApplyGuard rollback failure" in blocker for blocker in report["blockers"])
+        and "ApplyGuard rollback failure count: 1" in text_report
+        and "Rollback failure transferred to shutdown count: 1" in text_report
     )
 
 

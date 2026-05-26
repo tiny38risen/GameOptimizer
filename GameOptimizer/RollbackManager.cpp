@@ -253,7 +253,7 @@ std::expected<void, ErrorCode> RollbackManager::saveValidatedReadState(
             const auto queriedCreationTime = queryThreadCreationTime100ns(threadHandle.get());
             if (queriedCreationTime)
             {
-                const std::uint64_t creationTime100ns = queriedCreationTime.value();
+                const std::uint64_t creationTime100ns = *queriedCreationTime;
                 Logger::info(
                     "soft-apply validated scheduling baseline captured for TID {} (audit-only, not stored as rollback state; affinity=0x{:X}, group={}, priority={}, creationTime100ns={})",
                     threadId,
@@ -615,7 +615,7 @@ std::expected<void, ErrorCode> RollbackManager::validateProcessRollbackState(
         return std::unexpected(queriedCreationTime.error());
     }
 
-    const std::uint64_t creationTime100ns = queriedCreationTime.value();
+    const std::uint64_t creationTime100ns = *queriedCreationTime;
     Logger::info(
         "background rollback baseline validated for PID {} (observedGroup={}, affinity=0x{:X}, priorityClass=0x{:X}, creationTime100ns={})",
         processId,

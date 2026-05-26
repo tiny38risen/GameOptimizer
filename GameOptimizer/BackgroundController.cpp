@@ -604,36 +604,59 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
         {
             const ErrorCode mappedError = mapLastErrorToErrorCode(GetLastError());
             const auto stateAfterFailedAffinityApply = queryProcessAffinityState(processHandle.get());
-            if (stateAfterFailedAffinityApply &&
-                matchesOriginalAffinity(stateAfterFailedAffinityApply.value(), processMask))
+            if (!stateAfterFailedAffinityApply)
             {
-                Logger::info(
-                    "background affinity restriction failed for {} (pid={}), but post-failure audit matched the original affinity; saved rollback state discarded",
+                Logger::error(
+                    "background affinity restriction failed for {} (pid={}), and post-failure audit could not query affinity: {}; invoking rollback",
                     processNameForLog,
-                    processId);
-                applyGuard.discardSavedState();
+                    processId,
+                    toString(stateAfterFailedAffinityApply.error()));
             }
             else
             {
-                if (!stateAfterFailedAffinityApply)
+                const auto& auditedAffinityState = *stateAfterFailedAffinityApply;
+                const bool auditMatchedOriginal = matchesOriginalAffinity(auditedAffinityState, processMask);
+                if (auditMatchedOriginal)
                 {
-                    Logger::error(
-                        "background affinity restriction failed for {} (pid={}), and post-failure audit could not query affinity: {}; invoking rollback",
+                    Logger::info(
+                        "background affinity restriction failed for {} (pid={}), but post-failure audit matched the original affinity; saved rollback state discarded",
                         processNameForLog,
-                        processId,
-                        toString(stateAfterFailedAffinityApply.error()));
+                        processId);
+                    applyGuard.discardSavedState();
                 }
                 else
                 {
-                    const auto& currentState = stateAfterFailedAffinityApply.value();
                     Logger::error(
                         "background affinity restriction failed for {} (pid={}), and post-failure audit found affinity drift: current=0x{:X}, original=0x{:X}; invoking rollback",
                         processNameForLog,
                         processId,
-                        static_cast<unsigned long long>(currentState.processMask),
+                        static_cast<unsigned long long>(auditedAffinityState.processMask),
                         static_cast<unsigned long long>(processMask));
                 }
 
+                if (auditMatchedOriginal)
+                {
+                    ++summary.skippedProcessCount;
+                    if (isRecoverableAccessLimitation(mappedError))
+                    {
+                        Logger::warn(
+                            "background affinity restriction blocked by recoverable access limitation: {} (pid={}, error={}); post-failure audit completed before state cleanup",
+                            processNameForLog,
+                            processId,
+                            toString(mappedError));
+                    }
+                    else
+                    {
+                        Logger::warn(
+                            "background restrict failed: {} (pid={}, reason=SetProcessAffinityMask_failed)",
+                            processNameForLog,
+                            processId);
+                    }
+                    continue;
+                }
+            }
+
+            {
                 auto rollbackResult = applyGuard.rollbackNow();
                 if (!rollbackResult)
                 {

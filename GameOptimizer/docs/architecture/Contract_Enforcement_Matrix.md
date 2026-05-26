@@ -27,7 +27,7 @@ Architecture_Decision_Record.md
 
 | Contract | Owner | Owned files | Forbidden pattern | Severity | Static gate | Runtime validation | Evidence fields |
 |---|---|---|---|---|---|---|---|
-| Runtime mutation is transactional | ApplyGuard / RollbackManager | `ApplyGuard.*`, `RollbackManager.*`, `SchedulerController.cpp`, `BackgroundController.cpp` | Win32 mutation before rollback state save; commit before verification; rollback state discard without audit | BLOCKER | `check_apply_guard_transaction_patterns`, `check_apply_guard_rollback_failure_ownership` | rollback failure preserves state and shutdown retries | `apply_guard_rollback_failure`, `rollback_preserved_state_count`, `blocker_count` |
+| Runtime mutation is transactional | ApplyGuard / RollbackManager | `ApplyGuard.*`, `RollbackManager.*`, `SchedulerController.cpp`, `BackgroundController.cpp` | Win32 mutation before rollback state save; commit before verification; rollback state discard without audit | BLOCKER | `check_apply_guard_transaction_patterns`, `check_apply_guard_rollback_failure_ownership` | rollback failure preserves state and shutdown retries | `apply_guard_rollback_failure`, `apply_guard_rollback_failure_count`, `rollback_failure_transferred_to_shutdown_count`, `rollback_preserved_state_count`, `blocker_count` |
 | ThreadTracker is observation-only | ThreadTracker | `ThreadTracker.*` | `SetThreadAffinityMask`, `SetThreadGroupAffinity`, `SetThreadPriority`, `SetPriorityClass`, `SetProcessAffinityMask`, `RollbackManager` calls | BLOCKER | `check_thread_tracker_runtime_contracts` plus forbidden API scan | ThreadTracker telemetry records access/query failures without mutation | `thread_tracker_telemetry`, `runtime_validation_status` |
 | Thread scheduling mutation owner | SchedulerController | `SchedulerController.*` | thread-level mutation outside `SchedulerController`; direct expected dereference | BLOCKER | `check_apply_guard_transaction_patterns`, B2 expected scanner | post-apply group, affinity, priority audit | `test_results`, `blocker_count` |
 | Processor group policy | TopologyAnalyzer / SchedulerController / BackgroundController | `TopologyAnalyzer.*`, `SchedulerController.*`, `BackgroundController.*`, `RollbackManager.*` | group 0 coercion; group 1+ process-wide background affinity mutation | BLOCKER for mutation, WARN for documented monitoring-only limitation | `check_background_processor_group_policy_is_explicit` | group 1+ restriction is blocked and logged as monitoring-only | `processor_group_mode`, `background_restriction_mode`, `warn_count` |
@@ -50,6 +50,7 @@ The release static gate must fail when:
 - expected values are consumed outside Assign -> Check -> Bind,
 - group 1+ background process-wide mutation can bypass the processor-group guard,
 - ApplyGuard transaction ordering markers are missing,
+- SoftApply baseline storage writes into rollback state,
 - release evidence schema/blocker/runbook contracts are stale.
 
 ## Required Runtime Validation Behavior
@@ -75,6 +76,8 @@ The evidence schema must expose release-facing fields sufficient to reject each 
 - `binary_sha256`
 - `runtime_validation_status`
 - `rollback_preserved_state_count`
+- `apply_guard_rollback_failure_count`
+- `rollback_failure_transferred_to_shutdown_count`
 - `blocker_count`
 - `warn_count`
 - `info_count`
@@ -88,6 +91,8 @@ Compatibility summaries used by validators must remain available:
 - `shutdown_failure_classification.shutdown_reason`
 - `soft_apply_baseline_summary`
 - `apply_guard_rollback_failure`
+- `apply_guard_rollback_failure_count`
+- `rollback_failure_transferred_to_shutdown_count`
 - `input_latency_summary`
 - `network_irq_summary`
 - `access_denied_fallback_summary`

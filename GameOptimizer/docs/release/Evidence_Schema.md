@@ -40,6 +40,8 @@ Each `rc_evidence_report.json` and final bundle manifest must expose these relea
 - `shutdown_reason`
 - `runtime_validation_status`
 - `rollback_preserved_state_count`
+- `apply_guard_rollback_failure_count`
+- `rollback_failure_transferred_to_shutdown_count`
 - `blocker_count`
 - `warn_count`
 - `info_count`
@@ -66,6 +68,8 @@ Compatibility aliases such as `schema`, `git_commit`, `exe_sha256`, and `severit
 - `shutdown_reason`: latest structured shutdown reason observed in step evidence.
 - `runtime_validation_status`: `PASSED_OR_INCONCLUSIVE`, `FAILED`, or `UNKNOWN`.
 - `rollback_preserved_state_count`: total preserved rollback states after shutdown.
+- `apply_guard_rollback_failure_count`: total explicit or destructor `ApplyGuard` rollback failures observed across steps.
+- `rollback_failure_transferred_to_shutdown_count`: total explicit `ApplyGuard` rollback failures that transferred final recovery responsibility to `ShutdownPipeline` / `RollbackManager`.
 - `blocker_count`, `warn_count`, `info_count`: severity counts.
 - `processor_group_mode`: processor-group summary collected from logs.
 - `background_restriction_mode`: background restriction summary collected from logs.
@@ -77,6 +81,8 @@ Step-level evidence still records compatibility and audit fields used by the gat
 - `shutdown_failure_classification.shutdown_reason`
 - `soft_apply_baseline_summary`
 - `apply_guard_rollback_failure`
+- `apply_guard_rollback_failure_count`
+- `rollback_failure_transferred_to_shutdown_count`
 
 ## Identity mismatch messages
 
@@ -98,6 +104,7 @@ The RC verifier must treat these identity failures as `BLOCKER` conditions:
 - hash mismatch
 - rollback failure
 - `ApplyGuard` rollback failure
+- `ApplyGuard` explicit rollback failure without matching shutdown responsibility transfer evidence
 - `SetThreadGroupAffinity` failure plus audit query failure
 - `SetThreadGroupAffinity` failure plus audit mismatch
 - runtime validation `FAILED`

@@ -130,6 +130,17 @@ def rollback_preserved_state_count(state: dict[str, Any]) -> int:
     return total
 
 
+def step_count_total(state: dict[str, Any], field_name: str) -> int:
+    total = 0
+    for step in state.get("steps", []):
+        value = step.get(field_name)
+        if isinstance(value, bool):
+            total += 1 if value else 0
+        elif isinstance(value, int):
+            total += value
+    return total
+
+
 def collect_step_values(state: dict[str, Any], field_name: str) -> list[Any]:
     return [
         step.get(field_name)
@@ -167,6 +178,10 @@ def apply_release_field_aliases(state: dict[str, Any]) -> None:
     state["shutdown_reason"] = latest_shutdown_reason(state)
     state["runtime_validation_status"] = runtime_validation_status(state)
     state["rollback_preserved_state_count"] = rollback_preserved_state_count(state)
+    state["apply_guard_rollback_failure_count"] = step_count_total(state, "apply_guard_rollback_failure_count")
+    state["rollback_failure_transferred_to_shutdown_count"] = step_count_total(
+        state,
+        "rollback_failure_transferred_to_shutdown_count")
     state["blocker_count"] = severity.get("BLOCKER", 0)
     state["warn_count"] = severity.get("WARN", 0)
     state["info_count"] = severity.get("INFO", 0)
@@ -259,6 +274,8 @@ def init_evidence(args: argparse.Namespace) -> int:
         "shutdown_reason": "Unknown",
         "runtime_validation_status": "UNKNOWN",
         "rollback_preserved_state_count": 0,
+        "apply_guard_rollback_failure_count": 0,
+        "rollback_failure_transferred_to_shutdown_count": 0,
         "blocker_count": 0,
         "warn_count": 0,
         "info_count": 0,
@@ -527,16 +544,16 @@ def extract_soft_apply_baseline_summary(log_text: str) -> dict[str, Any]:
 def detect_thread_group_affinity_audit_query_failure(log_text: str) -> bool:
     lowered = log_text.lower()
     return (
-        "setthreadgroupaffinity" in lowered
+        ("setthreadgroupaffinity" in lowered or "main-thread affinity apply failed" in lowered)
         and "post-failure audit" in lowered
-        and ("query failed" in lowered or "audit query failed" in lowered)
+        and ("query failed" in lowered or "audit query failed" in lowered or "could not query current state" in lowered)
     )
 
 
 def detect_thread_group_affinity_audit_mismatch(log_text: str) -> bool:
     lowered = log_text.lower()
     return (
-        "setthreadgroupaffinity" in lowered
+        ("setthreadgroupaffinity" in lowered or "main-thread affinity apply failed" in lowered)
         and "post-failure audit" in lowered
         and ("state drift" in lowered or "audit mismatch" in lowered or "mismatch" in lowered)
     )
@@ -562,6 +579,30 @@ def detect_unsafe_rollback_state_discard(log_text: str) -> bool:
         or "discarded rollback state without post-failure audit" in lowered
         or "discards rollback state without post-failure state audit" in lowered
     )
+
+
+def apply_guard_rollback_failure_count(log_text: str) -> int:
+    return len(re.findall(
+        r"apply guard (?:explicit|destructor) rollback failed",
+        log_text,
+        re.IGNORECASE,
+    ))
+
+
+def apply_guard_explicit_rollback_failure_count(log_text: str) -> int:
+    return len(re.findall(
+        r"apply guard explicit rollback failed",
+        log_text,
+        re.IGNORECASE,
+    ))
+
+
+def rollback_failure_transferred_to_shutdown_count(log_text: str) -> int:
+    return len(re.findall(
+        r"rollback responsibility transferred to ShutdownPipeline/RollbackManager",
+        log_text,
+        re.IGNORECASE,
+    ))
 
 
 def record_step(args: argparse.Namespace) -> int:
@@ -592,8 +633,10 @@ def record_step(args: argparse.Namespace) -> int:
         "access_denied_fallback_summary": extract_access_denied_fallback_summary(log_text),
         "runtime_validation_summary": extract_runtime_validation_summary(log_text),
         "soft_apply_baseline_summary": extract_soft_apply_baseline_summary(log_text),
-        "apply_guard_rollback_failure": "apply guard explicit rollback failed" in log_text.lower()
-            or "apply guard destructor rollback failed" in log_text.lower(),
+        "apply_guard_explicit_rollback_failure_count": apply_guard_explicit_rollback_failure_count(log_text),
+        "apply_guard_rollback_failure_count": apply_guard_rollback_failure_count(log_text),
+        "rollback_failure_transferred_to_shutdown_count": rollback_failure_transferred_to_shutdown_count(log_text),
+        "apply_guard_rollback_failure": apply_guard_rollback_failure_count(log_text) > 0,
         "thread_group_affinity_audit_query_failure": detect_thread_group_affinity_audit_query_failure(log_text),
         "thread_group_affinity_audit_mismatch": detect_thread_group_affinity_audit_mismatch(log_text),
         "timeline_monotonicity_failure": detect_timeline_monotonicity_failure(log_text),
@@ -636,6 +679,12 @@ def summarize_failures(state: dict[str, Any]) -> list[str]:
             failures.append(f"{label}: runtime validation summary reports critical failure")
         if step.get("apply_guard_rollback_failure"):
             failures.append(f"{label}: ApplyGuard rollback failure")
+        explicit_apply_guard_failures = int(step.get("apply_guard_explicit_rollback_failure_count") or 0)
+        transferred_failures = int(step.get("rollback_failure_transferred_to_shutdown_count") or 0)
+        if explicit_apply_guard_failures > transferred_failures:
+            failures.append(
+                f"{label}: ApplyGuard explicit rollback failure was not fully transferred to ShutdownPipeline/RollbackManager "
+                f"(explicit={explicit_apply_guard_failures}, transferred={transferred_failures})")
         if step.get("thread_group_affinity_audit_query_failure"):
             failures.append(f"{label}: SetThreadGroupAffinity failure post-failure audit query failed")
         if step.get("thread_group_affinity_audit_mismatch"):
@@ -849,6 +898,8 @@ def validate_report_identity(state: dict[str, Any], label: str, git_commit: str)
         "shutdown_reason",
         "runtime_validation_status",
         "rollback_preserved_state_count",
+        "apply_guard_rollback_failure_count",
+        "rollback_failure_transferred_to_shutdown_count",
         "blocker_count",
         "warn_count",
         "info_count",
@@ -988,6 +1039,8 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
         f"Shutdown reason: {state.get('shutdown_reason')}",
         f"Runtime validation status: {state.get('runtime_validation_status')}",
         f"Rollback preserved state count: {state.get('rollback_preserved_state_count')}",
+        f"ApplyGuard rollback failure count: {state.get('apply_guard_rollback_failure_count')}",
+        f"Rollback failure transferred to shutdown count: {state.get('rollback_failure_transferred_to_shutdown_count')}",
         f"Severity counts: BLOCKER={state.get('blocker_count')}, WARN={state.get('warn_count')}, INFO={state.get('info_count')}",
         f"Processor group mode: {state.get('processor_group_mode')}",
         f"Background restriction mode: {state.get('background_restriction_mode')}",
@@ -1012,6 +1065,8 @@ def write_text_report(run_dir: pathlib.Path, state: dict[str, Any]) -> None:
             f"  access denied fallback summary: {step.get('access_denied_fallback_summary')}",
             f"  soft-apply baseline summary: {step.get('soft_apply_baseline_summary')}",
             f"  ApplyGuard rollback failure: {step.get('apply_guard_rollback_failure')}",
+            f"  ApplyGuard rollback failure count: {step.get('apply_guard_rollback_failure_count')}",
+            f"  Rollback failure transferred to shutdown count: {step.get('rollback_failure_transferred_to_shutdown_count')}",
             f"  SetThreadGroupAffinity audit query failure: {step.get('thread_group_affinity_audit_query_failure')}",
             f"  SetThreadGroupAffinity audit mismatch: {step.get('thread_group_affinity_audit_mismatch')}",
             f"  timeline monotonicity failure: {step.get('timeline_monotonicity_failure')}",

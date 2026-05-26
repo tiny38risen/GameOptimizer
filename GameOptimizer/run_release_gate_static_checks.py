@@ -291,7 +291,8 @@ def check_apply_guard_transaction_patterns() -> list[str]:
         (scheduler_text, r"applyGuard\.commit\s*\(\s*\)", "SchedulerController ApplyGuard must commit after verification"),
         (scheduler_text, r"applyGuard\.rollbackNow\s*\(\s*\)", "SchedulerController failure path must rollback through ApplyGuard"),
         (scheduler_text, r"stateAfterFailedAffinityApply\s*=\s*queryCurrentSchedulingState", "SetThreadGroupAffinity failure must query current state before discarding rollback state"),
-        (scheduler_text, r"matchesOriginalState\s*\(\s*stateAfterFailedAffinityApply\.value\s*\(\s*\)\s*,\s*original\s*\)", "SetThreadGroupAffinity failure must compare post-failure state to original before discard"),
+        (scheduler_text, r"const\s+auto&\s+auditedState\s*=\s*\*stateAfterFailedAffinityApply\s*;", "SetThreadGroupAffinity failure audit must bind expected state before use"),
+        (scheduler_text, r"matchesOriginalState\s*\(\s*auditedState\s*,\s*original\s*\)", "SetThreadGroupAffinity failure must compare post-failure state to original before discard"),
         (scheduler_text, r"main-thread affinity apply failed.*post-failure audit found state drift", "SetThreadGroupAffinity drift must be logged before rollback"),
         (background_text, r"saveProcessState\s*\(", "BackgroundController must save rollback state before process apply"),
         (background_text, r"ApplyGuard::forProcess", "BackgroundController must create process ApplyGuard"),
@@ -300,6 +301,8 @@ def check_apply_guard_transaction_patterns() -> list[str]:
         (background_text, r"applyGuard\.rollbackNow\s*\(\s*\)", "BackgroundController priority failure path must rollback through ApplyGuard"),
         (background_text, r"validateProcessRollbackState\s*\(", "BackgroundController SoftApply must validate process rollback baseline"),
         (background_text, r"post-failure audit", "BackgroundController apply failure must audit current state before discarding rollback state"),
+        (background_text, r"const\s+auto&\s+auditedAffinityState\s*=\s*\*stateAfterFailedAffinityApply\s*;", "BackgroundController affinity failure audit must bind expected state before use"),
+        (background_text, r"matchesOriginalAffinity\s*\(\s*auditedAffinityState\s*,\s*processMask\s*\)", "BackgroundController affinity failure must compare bound post-failure state to original before discard"),
         (apply_guard_text, r"enum class RollbackStateOwnership", "ApplyGuard must own rollback-state disposition internally"),
     ]
     for text, pattern, message in required_patterns:
@@ -337,6 +340,8 @@ def check_apply_guard_transaction_patterns() -> list[str]:
         (background_text, r"hasProcessState\s*\(", "BackgroundController must not use hasProcessState TOCTOU query"),
         (background_text, r"saved state discarded before mutation", "BackgroundController must not discard saved state without a post-failure audit"),
         (apply_guard_text, r"newlyCreated|preExisting|createdRollbackState", "ApplyGuard must not expose bool ownership naming"),
+        (scheduler_text, r"stateAfterFailedAffinityApply\.value\s*\(\s*\)", "SchedulerController must not call expected.value() on the SetThreadGroupAffinity failure audit path"),
+        (background_text, r"stateAfterFailedAffinityApply\.value\s*\(\s*\)", "BackgroundController must not call expected.value() on the SetProcessAffinityMask failure audit path"),
     ]
     for text, pattern, message in forbidden_patterns:
         if re.search(pattern, text):
@@ -464,6 +469,35 @@ def check_apply_guard_rollback_failure_ownership() -> list[str]:
         failures.append("[FAIL] ApplyGuard ownership gate: rollbackNow must not release guard before returning rollback failure")
     if transfer_index < 0 or (unexpected_index >= 0 and transfer_index > unexpected_index):
         failures.append("[FAIL] ApplyGuard ownership gate: rollbackNow must transfer responsibility before returning rollback failure")
+
+    return failures
+
+
+def check_soft_apply_baseline_storage_contract() -> list[str]:
+    failures: list[str] = []
+    rollback_text = (ROOT / "RollbackManager.cpp").read_text(encoding="utf-8", errors="replace")
+    evidence_text = RELEASE_GATE_EVIDENCE_FILE.read_text(encoding="utf-8", errors="replace")
+    schema_text = EVIDENCE_SCHEMA_FILE.read_text(encoding="utf-8", errors="replace")
+
+    body = extract_function_body(rollback_text, "RollbackManager::saveValidatedReadState")
+    if body is None:
+        return ["[FAIL] SoftApply baseline gate: saveValidatedReadState body not found"]
+
+    for marker in ["states_", "insert_or_assign", "RollbackStateKind::Applied"]:
+        if marker in body:
+            failures.append(
+                f"[FAIL] SoftApply baseline gate: saveValidatedReadState must not store rollback state marker: {marker}")
+
+    required_markers = [
+        (body, "audit-only, not stored as rollback state", "thread baseline must be logged as audit-only"),
+        (body, "validated baseline was not stored as rollback state", "identity failure must not store baseline as rollback state"),
+        (evidence_text, "soft_apply_baseline_summary", "evidence must extract soft-apply baseline as audit data"),
+        (evidence_text, "rollback_preserved_state_count", "evidence must keep rollback preserved count separate"),
+        (schema_text, "soft_apply_baseline_summary", "schema must document step-level soft-apply baseline evidence"),
+    ]
+    for text, marker, message in required_markers:
+        if marker not in text:
+            failures.append(f"[FAIL] SoftApply baseline gate: {message}")
 
     return failures
 
@@ -992,6 +1026,8 @@ def check_release_evidence_contract() -> list[str]:
         "build_hash",
         "shutdown_failure_classification",
         "rollback_preserved_state_summary",
+        "apply_guard_rollback_failure_count",
+        "rollback_failure_transferred_to_shutdown_count",
         "processor_group_mode_summary",
         "thread_tracker_telemetry_summary",
         "input_latency_summary",
@@ -1005,6 +1041,7 @@ def check_release_evidence_contract() -> list[str]:
         "timeline monotonicity failure",
         "heartbeat progression failure",
         "unsafe rollback state discard",
+        "ApplyGuard explicit rollback failure was not fully transferred",
         "required RC soak step missing",
         "required smoke step missing",
         "verify-rc",
@@ -1041,6 +1078,8 @@ def check_release_evidence_contract() -> list[str]:
         "timeline monotonicity failure did not become a BLOCKER",
         "heartbeat progression failure did not become a BLOCKER",
         "unsafe rollback state discard did not become a BLOCKER",
+        "ApplyGuard rollback failure count: 1",
+        "Rollback failure transferred to shutdown count: 1",
         "Access Denied fallback did not remain WARN-only",
         "group 1+ mock did not remain WARN-only",
         "telemetry INFO did not remain INFO-only",
@@ -1177,6 +1216,8 @@ def check_rc_candidate_contract() -> list[str]:
         "git_status_short",
         "shutdown_failure_classification.shutdown_reason",
         "apply_guard_rollback_failure",
+        "apply_guard_rollback_failure_count",
+        "rollback_failure_transferred_to_shutdown_count",
         "Runtime validation result is `FAILED`",
         "Dirty tree flag or status is missing from evidence",
         "v3.0-rc1 intentional exclusions",
@@ -1422,6 +1463,7 @@ def main() -> int:
     failures.extend(check_thread_tracker_runtime_contracts())
     failures.extend(check_runtime_orchestrator_signal_contracts())
     failures.extend(check_apply_guard_rollback_failure_ownership())
+    failures.extend(check_soft_apply_baseline_storage_contract())
     failures.extend(check_dpc_monitoring_is_not_placeholder())
     failures.extend(check_network_irq_unsupported_policy_is_warn_only())
     failures.extend(check_background_processor_group_policy_is_explicit())

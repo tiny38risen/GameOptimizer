@@ -8,6 +8,7 @@
 #include "WinApiError.h"
 
 #include <Windows.h>
+#include <cstddef>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -40,6 +41,23 @@ namespace
         std::ostringstream buffer;
         buffer << file.rdbuf();
         return buffer.str();
+    }
+
+    [[nodiscard]] bool contains(std::string_view text, std::string_view marker) noexcept
+    {
+        return text.find(marker) != std::string_view::npos;
+    }
+
+    [[nodiscard]] bool appearsBefore(
+        std::string_view text,
+        std::string_view first,
+        std::string_view second) noexcept
+    {
+        const std::size_t firstIndex = text.find(first);
+        const std::size_t secondIndex = text.find(second);
+        return firstIndex != std::string_view::npos &&
+            secondIndex != std::string_view::npos &&
+            firstIndex < secondIndex;
     }
 
     void testWin32AccessDeniedMapsToRecoverableCategory()
@@ -93,6 +111,97 @@ namespace
         REQUIRE(assertionsText.find("validate_access_denied_fallback_evidence") != std::string::npos,
             "release log assertions must validate access-denied fallback evidence");
     }
+
+    void testSchedulerAffinityFailureAuditContractIsPinned()
+    {
+        const std::string schedulerText = readTextFile("SchedulerController.cpp");
+        const std::string applyGuardHeader = readTextFile("ApplyGuard.h");
+        const std::string applyGuardImpl = readTextFile("ApplyGuard.cpp");
+        const std::string staticGateText = readTextFile("run_release_gate_static_checks.py");
+
+        REQUIRE(!contains(schedulerText, "stateAfterFailedAffinityApply.value()"),
+            "scheduler affinity failure audit must not use expected.value()");
+        REQUIRE(contains(schedulerText, "const auto stateAfterFailedAffinityApply = queryCurrentSchedulingState"),
+            "affinity failure must query current state before deciding rollback cleanup");
+        REQUIRE(contains(schedulerText, "if (!stateAfterFailedAffinityApply)"),
+            "affinity failure must handle audit query failure before binding");
+        REQUIRE(contains(schedulerText, "const auto& auditedState = *stateAfterFailedAffinityApply;"),
+            "affinity failure audit must bind expected state explicitly");
+        REQUIRE(contains(schedulerText, "matchesOriginalState(auditedState, original)"),
+            "affinity failure audit must compare bound state with the original state");
+        REQUIRE(contains(schedulerText, "applyGuard.discardSavedState();"),
+            "affinity failure may discard rollback state only after original-state audit match");
+        REQUIRE(contains(schedulerText, "post-failure audit could not query current state"),
+            "affinity failure audit query failure must be visible in logs before rollback");
+        REQUIRE(contains(schedulerText, "post-failure audit found state drift"),
+            "affinity failure audit mismatch must be visible in logs before rollback");
+        REQUIRE(contains(schedulerText, "auto rollbackResult = applyGuard.rollbackNow();"),
+            "affinity failure audit query failure or mismatch must invoke ApplyGuard rollback");
+        REQUIRE(appearsBefore(
+                    schedulerText,
+                    "const auto stateAfterFailedAffinityApply = queryCurrentSchedulingState",
+                    "const auto& auditedState = *stateAfterFailedAffinityApply;"),
+            "affinity failure audit must assign, check, then bind");
+        REQUIRE(appearsBefore(
+                    schedulerText,
+                    "matchesOriginalState(auditedState, original)",
+                    "applyGuard.discardSavedState();"),
+            "rollback state discard must remain after original-state audit comparison");
+        REQUIRE(appearsBefore(
+                    schedulerText,
+                    "post-failure audit found state drift",
+                    "auto rollbackResult = applyGuard.rollbackNow();"),
+            "drift evidence must be emitted before rollback on affinity failure");
+
+        REQUIRE(contains(applyGuardHeader, "ApplyGuard& operator=(ApplyGuard&& other) = delete;"),
+            "ApplyGuard move assignment must remain deleted");
+        REQUIRE(!contains(applyGuardImpl, "ApplyGuard& ApplyGuard::operator=(ApplyGuard&& other)"),
+            "ApplyGuard move assignment implementation must not be reintroduced");
+        REQUIRE(contains(staticGateText, "stateAfterFailedAffinityApply\\.value"),
+            "static gate must reject expected.value() on the SchedulerController affinity failure audit path");
+    }
+
+    void testBackgroundAffinityFailureAuditContractIsPinned()
+    {
+        const std::string backgroundText = readTextFile("BackgroundController.cpp");
+        const std::string staticGateText = readTextFile("run_release_gate_static_checks.py");
+
+        REQUIRE(!contains(backgroundText, "stateAfterFailedAffinityApply.value()"),
+            "background affinity failure audit must not use expected.value()");
+        REQUIRE(contains(backgroundText, "const auto stateAfterFailedAffinityApply = queryProcessAffinityState"),
+            "background affinity failure must query current affinity before deciding rollback cleanup");
+        REQUIRE(contains(backgroundText, "if (!stateAfterFailedAffinityApply)"),
+            "background affinity failure must handle audit query failure before binding");
+        REQUIRE(contains(backgroundText, "const auto& auditedAffinityState = *stateAfterFailedAffinityApply;"),
+            "background affinity failure audit must bind expected state explicitly");
+        REQUIRE(contains(backgroundText, "matchesOriginalAffinity(auditedAffinityState, processMask)"),
+            "background affinity failure audit must compare bound state with the original process mask");
+        REQUIRE(contains(backgroundText, "applyGuard.discardSavedState();"),
+            "background affinity failure may discard rollback state only after original-affinity audit match");
+        REQUIRE(contains(backgroundText, "post-failure audit could not query affinity"),
+            "background affinity audit query failure must be visible in logs before rollback");
+        REQUIRE(contains(backgroundText, "post-failure audit found affinity drift"),
+            "background affinity audit mismatch must be visible in logs before rollback");
+        REQUIRE(contains(backgroundText, "auto rollbackResult = applyGuard.rollbackNow();"),
+            "background affinity audit query failure or mismatch must invoke ApplyGuard rollback");
+        REQUIRE(appearsBefore(
+                    backgroundText,
+                    "const auto stateAfterFailedAffinityApply = queryProcessAffinityState",
+                    "const auto& auditedAffinityState = *stateAfterFailedAffinityApply;"),
+            "background affinity audit must assign, check, then bind");
+        REQUIRE(appearsBefore(
+                    backgroundText,
+                    "matchesOriginalAffinity(auditedAffinityState, processMask)",
+                    "applyGuard.discardSavedState();"),
+            "background rollback state discard must remain after original-affinity audit comparison");
+        REQUIRE(appearsBefore(
+                    backgroundText,
+                    "post-failure audit found affinity drift",
+                    "auto rollbackResult = applyGuard.rollbackNow();"),
+            "background drift evidence must be emitted before rollback on affinity failure");
+        REQUIRE(contains(staticGateText, "BackgroundController must not call expected.value()"),
+            "static gate must reject expected.value() on the BackgroundController affinity failure audit path");
+    }
 }
 
 int main()
@@ -100,6 +209,8 @@ int main()
     testWin32AccessDeniedMapsToRecoverableCategory();
     testBackgroundAccessDeniedIsRecoverableButApplyFailureIsNot();
     testAccessDeniedFallbackEvidenceMarkersArePresent();
+    testSchedulerAffinityFailureAuditContractIsPinned();
+    testBackgroundAffinityFailureAuditContractIsPinned();
 
     if (g_failureCount == 0)
     {

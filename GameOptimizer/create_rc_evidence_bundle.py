@@ -97,6 +97,8 @@ def write_text_manifest(path: pathlib.Path, manifest: dict[str, Any]) -> None:
         f"Shutdown reason: {manifest['shutdown_reason']}",
         f"Runtime validation status: {manifest['runtime_validation_status']}",
         f"Rollback preserved state count: {manifest['rollback_preserved_state_count']}",
+        f"ApplyGuard rollback failure count: {manifest['apply_guard_rollback_failure_count']}",
+        f"Rollback failure transferred to shutdown count: {manifest['rollback_failure_transferred_to_shutdown_count']}",
         f"Severity counts: BLOCKER={manifest['blocker_count']}, WARN={manifest['warn_count']}, INFO={manifest['info_count']}",
         f"Rollback preserved state summary: {manifest['rollback_preserved_state_summary']}",
         f"Shutdown failure classification: {manifest['shutdown_failure_classification']}",
@@ -230,6 +232,12 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
         "rollback_preserved_state_count": (
             int(smoke_state.get("rollback_preserved_state_count") or 0)
             + int(soak_state.get("rollback_preserved_state_count") or 0)),
+        "apply_guard_rollback_failure_count": (
+            int(smoke_state.get("apply_guard_rollback_failure_count") or 0)
+            + int(soak_state.get("apply_guard_rollback_failure_count") or 0)),
+        "rollback_failure_transferred_to_shutdown_count": (
+            int(smoke_state.get("rollback_failure_transferred_to_shutdown_count") or 0)
+            + int(soak_state.get("rollback_failure_transferred_to_shutdown_count") or 0)),
         "blocker_count": 0,
         "warn_count": len(collect_warnings(smoke_state, soak_state)),
         "info_count": len(smoke_state.get("info", [])) + len(soak_state.get("info", [])),
