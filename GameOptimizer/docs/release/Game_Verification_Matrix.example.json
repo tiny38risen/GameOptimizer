@@ -40,6 +40,7 @@
           "exit_code": 0,
           "blocker_count": 0,
           "rollback_preserved_state_count": 0,
+          "evidence_report": "<relative/path/to/game-a-dry-run-rc_evidence_report.json>",
           "policy_decision_telemetry": false
         },
         {
@@ -49,6 +50,7 @@
           "exit_code": 0,
           "blocker_count": 0,
           "rollback_preserved_state_count": 0,
+          "evidence_report": "<relative/path/to/game-a-soft-apply-rc_evidence_report.json>",
           "policy_decision_telemetry": false
         }
       ]
@@ -91,6 +93,7 @@
           "exit_code": 0,
           "blocker_count": 0,
           "rollback_preserved_state_count": 0,
+          "evidence_report": "<relative/path/to/game-b-dry-run-rc_evidence_report.json>",
           "policy_decision_telemetry": true
         },
         {
@@ -100,6 +103,7 @@
           "exit_code": 0,
           "blocker_count": 0,
           "rollback_preserved_state_count": 0,
+          "evidence_report": "<relative/path/to/game-b-soft-apply-rc_evidence_report.json>",
           "policy_decision_telemetry": true
         },
         {
@@ -111,6 +115,7 @@
           "exit_code": 0,
           "blocker_count": 0,
           "rollback_preserved_state_count": 0,
+          "evidence_report": "<relative/path/to/game-b-apply-rc_evidence_report.json>",
           "policy_decision_telemetry": true
         }
       ]
@@ -153,6 +158,7 @@
           "exit_code": 0,
           "blocker_count": 0,
           "rollback_preserved_state_count": 0,
+          "evidence_report": "<relative/path/to/game-c-dry-run-rc_evidence_report.json>",
           "policy_decision_telemetry": false
         },
         {
@@ -162,6 +168,7 @@
           "exit_code": 0,
           "blocker_count": 0,
           "rollback_preserved_state_count": 0,
+          "evidence_report": "<relative/path/to/game-c-soft-apply-rc_evidence_report.json>",
           "policy_decision_telemetry": false
         }
       ]

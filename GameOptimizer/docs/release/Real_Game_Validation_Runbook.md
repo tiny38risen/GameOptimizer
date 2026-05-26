@@ -74,6 +74,18 @@ Required fields per game:
 - `info_count`
 - `runs`
 
+Required fields per run:
+
+- `mode`
+- `duration_minutes`
+- `completed`
+- `exit_code`
+- `blocker_count`
+- `rollback_preserved_state_count`
+- `evidence_report`
+
+`evidence_report` must point to an existing run artifact, such as `rc_evidence_report.json` or a saved validation report. Relative paths are resolved from `docs/release/Game_Verification_Matrix.json`.
+
 ## Validation table
 
 Create one row per target and mode.

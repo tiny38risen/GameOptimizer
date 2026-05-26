@@ -38,6 +38,15 @@ REQUIRED_FIELDS = (
     "info_count",
     "runs",
 )
+REQUIRED_RUN_FIELDS = (
+    "mode",
+    "duration_minutes",
+    "completed",
+    "exit_code",
+    "blocker_count",
+    "rollback_preserved_state_count",
+    "evidence_report",
+)
 MAX_SOFT_APPLY_WARN_COUNT_FOR_APPLY = 3
 PLACEHOLDER_TOKENS = (
     "<",
@@ -53,10 +62,28 @@ PLACEHOLDER_TOKENS = (
 
 
 def read_json(path: pathlib.Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
-def has_successful_run(game: dict[str, Any], mode: str, minimum_minutes: int) -> bool:
+def resolve_evidence_path(matrix_path: pathlib.Path, value: Any) -> pathlib.Path | None:
+    if not isinstance(value, str) or contains_placeholder(value):
+        return None
+    evidence_path = pathlib.Path(value)
+    if evidence_path.is_absolute():
+        return evidence_path
+    return (matrix_path.parent / evidence_path).resolve()
+
+
+def has_run_evidence(run: dict[str, Any], matrix_path: pathlib.Path) -> bool:
+    evidence_path = resolve_evidence_path(matrix_path, run.get("evidence_report"))
+    return evidence_path is not None and evidence_path.exists() and evidence_path.is_file()
+
+
+def has_successful_run(
+    game: dict[str, Any],
+    mode: str,
+    minimum_minutes: int,
+    matrix_path: pathlib.Path) -> bool:
     for run in game.get("runs", []):
         if run.get("mode") != mode:
             continue
@@ -69,6 +96,8 @@ def has_successful_run(game: dict[str, Any], mode: str, minimum_minutes: int) ->
         if run.get("rollback_preserved_state_count") != 0:
             continue
         if not run.get("completed"):
+            continue
+        if not has_run_evidence(run, matrix_path):
             continue
         return True
     return False
@@ -97,7 +126,11 @@ def contains_placeholder(value: Any) -> bool:
     return any(token in text for token in PLACEHOLDER_TOKENS)
 
 
-def successful_runs(game: dict[str, Any], mode: str, minimum_minutes: int) -> list[dict[str, Any]]:
+def successful_runs(
+    game: dict[str, Any],
+    mode: str,
+    minimum_minutes: int,
+    matrix_path: pathlib.Path) -> list[dict[str, Any]]:
     return [
         run
         for run in game.get("runs", [])
@@ -107,6 +140,7 @@ def successful_runs(game: dict[str, Any], mode: str, minimum_minutes: int) -> li
         and run.get("blocker_count") == 0
         and run.get("rollback_preserved_state_count") == 0
         and run.get("completed")
+        and has_run_evidence(run, matrix_path)
     ]
 
 
@@ -118,16 +152,16 @@ def apply_runs(game: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def validate_apply_policy(game: dict[str, Any]) -> list[str]:
+def validate_apply_policy(game: dict[str, Any], matrix_path: pathlib.Path) -> list[str]:
     role = game.get("role", "<unknown>")
     failures: list[str] = []
     runs = apply_runs(game)
     if not runs:
         return failures
 
-    if not has_successful_run(game, "dry-run", 30):
+    if not has_successful_run(game, "dry-run", 30, matrix_path):
         failures.append(f"{role}: apply mode requires a prior PASS 30m dry-run")
-    if not has_successful_run(game, "soft-apply", 60):
+    if not has_successful_run(game, "soft-apply", 60, matrix_path):
         failures.append(f"{role}: apply mode requires a prior PASS 60m soft-apply")
     if game.get("access_denied"):
         failures.append(f"{role}: apply mode is forbidden after Access Denied")
@@ -165,7 +199,7 @@ def validate_apply_policy(game: dict[str, Any]) -> list[str]:
     return failures
 
 
-def validate_game(game: dict[str, Any]) -> list[str]:
+def validate_game(game: dict[str, Any], matrix_path: pathlib.Path) -> list[str]:
     role = game.get("role", "<unknown>")
     failures: list[str] = []
     for field in REQUIRED_FIELDS:
@@ -182,12 +216,29 @@ def validate_game(game: dict[str, Any]) -> list[str]:
         failures.append(f"{role}: abnormal_exit must be false")
     if game.get("rollback_preserved_state_count", 0) != 0:
         failures.append(f"{role}: rollback_preserved_state_count must be 0")
-    if not has_successful_run(game, "dry-run", 30):
+    runs = game.get("runs", [])
+    if not isinstance(runs, list):
+        failures.append(f"{role}: runs must be an array")
+        runs = []
+    for index, run in enumerate(runs):
+        if not isinstance(run, dict):
+            failures.append(f"{role}: run #{index + 1} must be an object")
+            continue
+        for field in REQUIRED_RUN_FIELDS:
+            if field not in run:
+                failures.append(f"{role}: run #{index + 1} required field missing: {field}")
+        if "evidence_report" in run:
+            if contains_placeholder(run.get("evidence_report")):
+                failures.append(f"{role}: run #{index + 1} evidence_report contains a placeholder")
+            elif not has_run_evidence(run, matrix_path):
+                failures.append(f"{role}: run #{index + 1} evidence_report file is missing")
+
+    if not has_successful_run(game, "dry-run", 30, matrix_path):
         failures.append(f"{role}: missing successful 30m dry-run")
-    if not has_successful_run(game, "soft-apply", 60):
+    if not has_successful_run(game, "soft-apply", 60, matrix_path):
         failures.append(f"{role}: missing successful 60m soft-apply")
 
-    failures.extend(validate_apply_policy(game))
+    failures.extend(validate_apply_policy(game, matrix_path))
     return failures
 
 
@@ -225,10 +276,10 @@ def validate_matrix(path: pathlib.Path) -> list[str]:
         if not isinstance(game, dict):
             failures.append("real game validation game entry must be an object")
             continue
-        failures.extend(validate_game(game))
-        if has_successful_run(game, "soft-apply", 60):
+        failures.extend(validate_game(game, path))
+        if has_successful_run(game, "soft-apply", 60, path):
             soft_apply_pass_count += 1
-        if has_successful_run(game, "apply", 1):
+        if has_successful_run(game, "apply", 1, path):
             apply_pass_count += 1
         if has_policy_decision_telemetry(game):
             policy_telemetry_count += 1

@@ -95,6 +95,7 @@ The RC verifier must treat these identity failures as `BLOCKER` conditions:
 - missing dirty tree flag
 - missing dirty tree status
 - copied or placeholder real-game validation matrix
+- missing real-game validation run evidence artifact
 - exe SHA-256 mismatch
 
 ## BLOCKER conditions
