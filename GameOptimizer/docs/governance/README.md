@@ -13,6 +13,7 @@ Code must satisfy these documents. When code and governance conflict, code chang
 | Document | Role |
 |---|---|
 | `docs/architecture/Architecture_Decision_Record.md` | Architecture Decision Record: records why the architecture decisions exist. |
+| `docs/architecture/Module_Ownership_Matrix.md` | Defines responsibility owners, allowed callers, and forbidden module paths. |
 | `docs/engineering/Engineering_Handbook.md` | Defines coding and review rules. |
 | `docs/contracts/Safety_Contract.md` | Defines safety contracts that must not be broken. |
 | `docs/contracts/Runtime_Contract.md` | Defines runtime state flow, watchdog, validation, and shutdown contracts. |

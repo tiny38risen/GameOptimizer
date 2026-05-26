@@ -46,6 +46,7 @@ The release static gate must fail when:
 - required contract documents are missing,
 - an accepted ADR is missing from `Architecture_Decision_Record.md`,
 - this matrix is missing a contract row for an accepted ADR,
+- `Module_Ownership_Matrix.md` is missing an owner row for an accepted runtime responsibility,
 - forbidden mutation APIs appear in observation-only modules,
 - expected values are consumed outside Assign -> Check -> Bind,
 - group 1+ background process-wide mutation can bypass the processor-group guard,
@@ -106,6 +107,7 @@ The expected chain is:
 
 ```text
 Contract_Enforcement_Matrix.md
+-> Module_Ownership_Matrix.md
 -> run_release_gate_static_checks.py
 -> run_release_gate_log_assertions.py
 -> release_gate_evidence.py

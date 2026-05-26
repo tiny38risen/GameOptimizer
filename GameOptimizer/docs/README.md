@@ -16,6 +16,7 @@ The governance system controls code decisions, safety contracts, runtime validat
 
 - `architecture/Architecture_Decision_Record.md`: accepted ADRs.
 - `architecture/Contract_Enforcement_Matrix.md`: contract-to-gate/evidence enforcement map.
+- `architecture/Module_Ownership_Matrix.md`: responsibility owner and forbidden module matrix.
 - `architecture/Source_Bands.md`: source-file ownership bands.
 
 ## Engineering

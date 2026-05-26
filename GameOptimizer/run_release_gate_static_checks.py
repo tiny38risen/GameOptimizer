@@ -26,6 +26,7 @@ EVIDENCE_SCHEMA_FILE = RELEASE_DOCS / "Evidence_Schema.md"
 RELEASE_BLOCKER_LIST_FILE = RELEASE_DOCS / "Release_Blocker_List.md"
 ARCHITECTURE_DECISION_RECORD_FILE = ARCHITECTURE_DOCS / "Architecture_Decision_Record.md"
 CONTRACT_ENFORCEMENT_MATRIX_FILE = ARCHITECTURE_DOCS / "Contract_Enforcement_Matrix.md"
+MODULE_OWNERSHIP_MATRIX_FILE = ARCHITECTURE_DOCS / "Module_Ownership_Matrix.md"
 
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"RuntimeOrchestrator\s+orchestrator\s*\(\s*argc\s*,\s*argv\s*\)", "main must delegate to RuntimeOrchestrator"),
@@ -1451,6 +1452,61 @@ def check_contract_enforcement_matrix() -> list[str]:
     return failures
 
 
+def check_module_ownership_matrix() -> list[str]:
+    failures: list[str] = []
+    if not MODULE_OWNERSHIP_MATRIX_FILE.exists():
+        return ["[FAIL] ownership gate: docs/architecture/Module_Ownership_Matrix.md is missing"]
+
+    matrix_text = MODULE_OWNERSHIP_MATRIX_FILE.read_text(encoding="utf-8", errors="replace")
+    required_markers = [
+        "This document is part of `GameOptimizer Runtime Safety & Release Governance`.",
+        "Owner module",
+        "Access allowed from",
+        "Forbidden modules / paths",
+        "thread observation",
+        "`ThreadTracker`",
+        "thread mutation",
+        "`SchedulerController`",
+        "process background restriction",
+        "`BackgroundController`",
+        "rollback state ownership",
+        "`RollbackManager`",
+        "transaction cleanup",
+        "`ApplyGuard`",
+        "shutdown rollback",
+        "`ShutdownPipeline`",
+        "runtime validation",
+        "`RuntimeValidationMonitor`",
+        "release evidence",
+        "`release_gate_evidence.py`",
+        "processor topology policy",
+        "`TopologyAnalyzer`",
+        "input pinning eligibility",
+        "`InputLatencyController`",
+        "ThreadTracker` is observation-only",
+        "SchedulerController` is the only owner of thread-level scheduling mutation",
+        "BackgroundController` is the only owner of process-level background restriction",
+        "RollbackManager` owns rollback state",
+        "ApplyGuard` owns transaction cleanup",
+        "ShutdownPipeline` owns the final shutdown `rollbackAll()` attempt",
+        "Any missing owner row is a `BLOCKER`.",
+    ]
+    for marker in required_markers:
+        if marker not in matrix_text:
+            failures.append(f"[FAIL] ownership gate: missing marker: {marker}")
+
+    forbidden_stale_markers = [
+        "TODO",
+        "TBD",
+        "to be decided",
+    ]
+    for marker in forbidden_stale_markers:
+        if marker in matrix_text:
+            failures.append(f"[FAIL] ownership gate: unresolved placeholder remains: {marker}")
+
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
 
@@ -1483,6 +1539,7 @@ def main() -> int:
     failures.extend(check_runtime_validation_failure_exit_code_contract())
     failures.extend(check_architecture_decision_record_contract())
     failures.extend(check_contract_enforcement_matrix())
+    failures.extend(check_module_ownership_matrix())
 
     if failures:
         for failure in failures:
