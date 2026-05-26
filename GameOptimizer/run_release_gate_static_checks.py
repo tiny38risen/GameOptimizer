@@ -48,10 +48,10 @@ REQUIRED_MAIN_PATTERNS = [
     ("ShutdownPipeline.cpp", r"ShutdownPipeline::execute\s*\(", "ShutdownPipeline execute missing"),
     ("CliOptions.h", r"struct\s+CliOptions", "CliOptions contract missing"),
     ("CliOptions.cpp", r"std::expected\s*<\s*CliOptions\s*,\s*ErrorCode\s*>\s+parseCliOptions", "CliOptions parser missing"),
-    ("StartupPipeline.cpp", r"const\s+auto&\s+topology\s*=\s*topologyResult\.value\s*\(\s*\)\s*;", "topologyResult bind missing"),
+    ("StartupPipeline.cpp", r"const\s+auto&\s+topology\s*=\s*\*topologyResult\s*;", "topologyResult bind missing"),
     ("StartupPipeline.cpp", r"context\.startupPlan\.targetProcessId", "targetProcessId context bind missing"),
-    ("WatchdogCycleRunner.cpp", r"const\s+auto&\s+observedThreads\s*=\s*topThreads\.value\s*\(\s*\)\s*;", "topThreads bind missing"),
-    ("WatchdogCycleRunner.cpp", r"const\s+auto&\s+commands\s*=\s*commandsResult\.value\s*\(\s*\)\s*;", "commandsResult bind missing"),
+    ("WatchdogCycleRunner.cpp", r"const\s+auto&\s+observedThreads\s*=\s*\*topThreads\s*;", "topThreads bind missing"),
+    ("WatchdogCycleRunner.cpp", r"const\s+auto&\s+commands\s*=\s*\*commandsResult\s*;", "commandsResult bind missing"),
     ("WatchdogCycleRunner.cpp", r"runtime timeout reached at watchdog cycle boundary", "runtime timeout safe-point log missing"),
     ("RuntimeOrchestrator.cpp", r"calculateRuntimeTimeoutHardGrace", "runtime timeout hard grace calculation missing"),
     ("RuntimeOrchestrator.cpp", r"watchdogInterval\s*\*\s*2", "runtime timeout hard grace must be based on watchdog interval"),
@@ -75,6 +75,7 @@ REQUIRED_MAIN_PATTERNS = [
 
 ALLOWED_EXPECTED_BIND_LINES = [
     re.compile(r"\s*(?:const\s+)?(?:auto|auto&|const\s+auto&|DWORD|const\s+DWORD|WORD|const\s+WORD|ErrorCode|const\s+ErrorCode|WinHandle&|const\s+WinHandle&|std::uint64_t&|const\s+std::uint64_t&)\s+\w+\s*=\s*\*\w+\s*;\s*"),
+    re.compile(r"\s*auto\s+\w+\s*=\s*std::move\s*\(\s*\*\w+\s*\)\s*;\s*"),
 ]
 
 CONTROL_KEYWORDS = {"if", "while", "for", "switch", "return", "sizeof", "static_cast", "reinterpret_cast", "const_cast"}
@@ -216,6 +217,8 @@ def check_expected_access(path: pathlib.Path) -> list[str]:
                 failures.append(f"[FAIL] {path.name}:{line_number}: B2 direct expected dereference: *{name}")
             if re.search(rf"(?<![\w]){re.escape(name)}\s*->", line):
                 failures.append(f"[FAIL] {path.name}:{line_number}: B2 expected operator-> access: {name}->")
+            if not path.name.endswith("Tests.cpp") and re.search(rf"(?<![\w]){re.escape(name)}\s*\.value\s*\(", line):
+                failures.append(f"[FAIL] {path.name}:{line_number}: B2 expected value() access: {name}.value()")
     return failures
 
 

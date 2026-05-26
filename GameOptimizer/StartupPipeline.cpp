@@ -94,7 +94,7 @@ namespace
             return std::unexpected(processorGroupResult.error());
         }
 
-        const WORD processorGroup = processorGroupResult.value();
+        const WORD processorGroup = *processorGroupResult;
         const auto fallbackTopology = TopologyAnalyzer::buildProcessAffinityFallbackMask(
             processMask,
             systemMask,
@@ -104,7 +104,7 @@ namespace
             return std::unexpected(fallbackTopology.error());
         }
 
-        const TopologyResult& topology = fallbackTopology.value();
+        const TopologyResult& topology = *fallbackTopology;
         return SchedulerPolicy{
             .affinityMask = topology.validatedMask,
             .processorGroup = topology.processorGroup,
@@ -124,7 +124,8 @@ std::expected<RuntimeContext, ErrorCode> StartupPipeline::run(int argc, wchar_t*
         }
 
         RuntimeContext context{};
-        context.options = optionsResult.value();
+        const auto& options = *optionsResult;
+        context.options = options;
 
         const auto startupPlanResult = prepare(context.options);
         if (!startupPlanResult)
@@ -132,7 +133,8 @@ std::expected<RuntimeContext, ErrorCode> StartupPipeline::run(int argc, wchar_t*
             return std::unexpected(startupPlanResult.error());
         }
 
-        context.startupPlan = startupPlanResult.value();
+        const auto& startupPlan = *startupPlanResult;
+        context.startupPlan = startupPlan;
 
         context.threadTracker = std::make_unique<ThreadTracker>(
             context.startupPlan.targetProcessId,
@@ -213,7 +215,7 @@ std::expected<StartupPlan, ErrorCode> StartupPipeline::prepare(const CliOptions&
         return std::unexpected(processId.error());
     }
 
-    const DWORD targetProcessId = processId.value();
+    const DWORD targetProcessId = *processId;
     Logger::info("target PID: {}", targetProcessId);
     Logger::info("scheduler mode: {}", schedulerModeName(options.schedulerMode));
     if (options.schedulerMode == SchedulerMode::Apply)
@@ -279,7 +281,7 @@ std::expected<StartupPlan, ErrorCode> StartupPipeline::prepare(const CliOptions&
     const auto topologyResult = TopologyAnalyzer::buildMainThreadMask(targetProcessId);
     if (topologyResult)
     {
-        const auto& topology = topologyResult.value();
+        const auto& topology = *topologyResult;
         mainThreadPolicy.affinityMask = topology.validatedMask;
         mainThreadPolicy.processorGroup = topology.processorGroup;
     }
@@ -292,7 +294,7 @@ std::expected<StartupPlan, ErrorCode> StartupPipeline::prepare(const CliOptions&
         const auto fallbackPolicy = buildProcessAffinityFallbackPolicy(targetProcessId);
         if (fallbackPolicy)
         {
-            const auto& fallback = fallbackPolicy.value();
+            const auto& fallback = *fallbackPolicy;
             mainThreadPolicy = fallback;
             Logger::warn(
                 "topology fallback policy selected from process affinity: group={}, affinity=0x{:X}",

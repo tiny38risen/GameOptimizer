@@ -94,7 +94,7 @@ bool WatchdogCycleRunner::updateThreads(std::stop_token stopToken) noexcept
         return false;
     }
 
-    const ThreadTrackerUpdateDisposition disposition = updateResult.value();
+    const auto disposition = *updateResult;
     if (disposition == ThreadTrackerUpdateDisposition::ResetAfterInvariantFailure)
     {
         threadTrackerResetEventThisCycle_ = true;
@@ -137,7 +137,7 @@ void WatchdogCycleRunner::logThreadDetailsIfNeeded() noexcept
         return;
     }
 
-    const auto& observedThreads = topThreads.value();
+    const auto& observedThreads = *topThreads;
     logObservedThreads(observedThreads);
 }
 
@@ -386,7 +386,7 @@ void WatchdogCycleRunner::dispatchDecisionCommands(
         return;
     }
 
-    const auto& commands = commandsResult.value();
+    const auto& commands = *commandsResult;
     for (PolicyCommand command : commands)
     {
         ++validationSample.decisionCommandCount;

@@ -389,12 +389,13 @@ std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::
         }
 
         removeThreadState(threadId);
-        if (rollbackResult.value() == RollbackDisposition::RolledBack)
+        const RollbackDisposition disposition = *rollbackResult;
+        if (disposition == RollbackDisposition::RolledBack)
         {
             Logger::info("rollback completed for TID {}", threadId);
         }
 
-        return rollbackResult.value();
+        return disposition;
     }
     catch (const std::bad_alloc&)
     {
@@ -652,12 +653,13 @@ std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::
         }
 
         removeProcessState(processId);
-        if (rollbackResult.value() == RollbackDisposition::RolledBack)
+        const RollbackDisposition disposition = *rollbackResult;
+        if (disposition == RollbackDisposition::RolledBack)
         {
             Logger::info("background rollback completed for PID {}", processId);
         }
 
-        return rollbackResult.value();
+        return disposition;
     }
     catch (const std::bad_alloc&)
     {

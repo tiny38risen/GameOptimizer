@@ -144,7 +144,8 @@ int RuntimeOrchestrator::run() noexcept
         return 1;
     }
 
-    context_ = std::move(contextResult.value());
+    auto context = std::move(*contextResult);
+    context_ = std::move(context);
 
     TrackingWatchdog watchdog;
     WatchdogCycleRunner cycleRunner(context_, signalState_.runtimeTimeoutRequested, requestShutdown);

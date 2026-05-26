@@ -541,7 +541,8 @@ std::expected<ThreadTrackerUpdateDisposition, ErrorCode> ThreadTracker::update()
         return std::unexpected(updateResult.error());
     }
 
-    return updateResult.value();
+    const auto disposition = *updateResult;
+    return disposition;
 }
 
 std::expected<ThreadTrackerUpdateDisposition, ErrorCode> ThreadTracker::update(std::stop_token stopToken) noexcept

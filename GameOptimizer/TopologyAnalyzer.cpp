@@ -458,7 +458,7 @@ TopologyAnalyzer::buildMainThreadMask(DWORD processId) noexcept
             candidates.emplace(group, GroupCandidate{});
         }
 
-        const std::vector<std::byte>& topologyBuffer = bufferResult.value();
+        const auto& topologyBuffer = *bufferResult;
         const auto collectResult = collectTopologyCandidates(topologyBuffer, candidates);
         if (!collectResult)
         {

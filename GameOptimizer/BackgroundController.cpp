@@ -519,7 +519,7 @@ std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::app
             continue;
         }
 
-        const auto& processAffinity = affinityState.value();
+        const auto& processAffinity = *affinityState;
         const DWORD_PTR processMask = processAffinity.processMask;
         const DWORD_PTR targetMask = buildBackgroundMask(processMask, policy.gameAffinityMask);
         ++summary.candidateProcessCount;
