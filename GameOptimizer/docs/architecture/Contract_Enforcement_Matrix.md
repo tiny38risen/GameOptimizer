@@ -107,6 +107,8 @@ Compatibility summaries used by validators must remain available:
 
 Within `[RC-9]`, `run_rc_gate.bat` must run `verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json` before `verify_rc_candidate.py`, so real-game validation failures are visible as their own `BLOCKER`.
 
+`create_rc_evidence_bundle.py` must also call the real-game matrix validator before creating the bundle directory. Direct bundle creation is a release decision path and cannot bypass real-game validation.
+
 The expected chain is:
 
 ```text

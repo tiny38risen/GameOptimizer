@@ -22,6 +22,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - 60m soft-apply soak fails.
 - `verify-rc` fails.
 - Final evidence bundle generation fails.
+- Final evidence bundle generation does not repeat real-game validation before writing the bundle.
 - Required evidence field is missing.
 - Evidence schema mismatch.
 - Commit mismatch.

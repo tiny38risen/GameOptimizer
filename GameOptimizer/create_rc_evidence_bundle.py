@@ -176,6 +176,7 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
     failures.extend(verify_rc_candidate.validate_runbooks())
     failures.extend(verify_rc_candidate.validate_regression_log(regression_log))
     failures.extend(verify_rc_candidate.validate_evidence_bundle(target))
+    failures.extend(verify_rc_candidate.validate_real_game_matrix())
     if failures:
         for failure in failures:
             print(f"[BLOCKER] RC evidence bundle: {failure}")

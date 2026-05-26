@@ -46,6 +46,8 @@ When the candidate check passes, the same gate creates the immutable evidence bu
 create_rc_evidence_bundle.py --target <target.exe> --regression-log <log>
 ```
 
+The bundle creation script must repeat the real-game validation matrix check before creating the bundle directory, so direct `create_rc_evidence_bundle.py` execution cannot bypass real-game validation.
+
 Do not create the `v3.0-rc1` tag until the full gate, candidate verification, and bundle creation all pass.
 
 The static release gate must reject `run_rc_gate.bat` if any `[RC-1]` through `[RC-10]` step marker is missing or out of order. `run_rc_gate.bat` must run `run_release_gate_static_checks_selftest.py` before `run_release_gate_static_checks.py`, and the selftest must cover pass, missing-marker, and out-of-order-marker cases.

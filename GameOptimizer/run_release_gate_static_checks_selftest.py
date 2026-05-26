@@ -39,11 +39,25 @@ def test_rc9_real_game_validation_runs_before_candidate_verification() -> None:
     assert failures == []
 
 
+def test_bundle_creation_validates_real_game_matrix_before_writing_bundle() -> None:
+    bundle_text = static_checks.CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    ordered_markers = [
+        "verify_rc_candidate.validate_evidence_bundle(target)",
+        "verify_rc_candidate.validate_real_game_matrix()",
+        "create_bundle_dir(commit)",
+    ]
+    failures = static_checks.validate_ordered_markers("selftest", bundle_text, ordered_markers)
+    assert failures == []
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
     test_ordered_markers_reject_out_of_order_marker()
     test_rc9_real_game_validation_runs_before_candidate_verification()
+    test_bundle_creation_validates_real_game_matrix_before_writing_bundle()
     print("[PASS] static gate selftest passed")
     return 0
 

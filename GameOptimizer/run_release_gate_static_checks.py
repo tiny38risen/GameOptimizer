@@ -1010,6 +1010,7 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_ordered_markers_reject_missing_marker",
         "test_ordered_markers_reject_out_of_order_marker",
         "test_rc9_real_game_validation_runs_before_candidate_verification",
+        "test_bundle_creation_validates_real_game_matrix_before_writing_bundle",
         "[PASS] static gate selftest passed",
     ]
     for marker in required_markers:
@@ -1263,6 +1264,7 @@ def check_rc_candidate_contract() -> list[str]:
         "failed=0",
         "[PASS] all regression tests passed",
         "validate_evidence_bundle",
+        "validate_real_game_matrix",
         "validate_regression_log",
         "validate_runbooks",
         "Real_Game_Validation_Runbook.md",
@@ -1316,6 +1318,12 @@ def check_rc_candidate_contract() -> list[str]:
     for marker in required_markers:
         if marker not in combined_text:
             failures.append(f"[FAIL] RC candidate gate: missing marker: {marker}")
+
+    failures.extend(validate_ordered_markers("RC bundle real game validation", bundle_text, [
+        "verify_rc_candidate.validate_evidence_bundle(target)",
+        "verify_rc_candidate.validate_real_game_matrix()",
+        "create_bundle_dir(commit)",
+    ]))
     return failures
 
 
