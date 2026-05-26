@@ -43,6 +43,7 @@ docs/release/Game_Verification_Matrix.json
 ```
 
 Then replace every example value with real observations. Synthetic or placeholder values must not be used for RC approval.
+`verify_real_game_validation.py` rejects copied template notes, `example-*` process names, placeholder tokens, missing schema version, and synthetic observations.
 
 Required fields per game:
 

@@ -8,6 +8,7 @@ from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parent
 DEFAULT_MATRIX = ROOT / "docs" / "release" / "Game_Verification_Matrix.json"
+SCHEMA_VERSION = "gameoptimizer.real_game_validation.v1"
 REQUIRED_ROLES = {"Game A", "Game B", "Game C"}
 REQUIRED_FIELDS = (
     "role",
@@ -38,6 +39,17 @@ REQUIRED_FIELDS = (
     "runs",
 )
 MAX_SOFT_APPLY_WARN_COUNT_FOR_APPLY = 3
+PLACEHOLDER_TOKENS = (
+    "<",
+    ">",
+    "example",
+    "sample",
+    "placeholder",
+    "synthetic",
+    "copy this file",
+    "not measured",
+    "required",
+)
 
 
 def read_json(path: pathlib.Path) -> dict[str, Any]:
@@ -74,6 +86,15 @@ def has_policy_decision_telemetry(game: dict[str, Any]) -> bool:
 
 def confidence_is_sufficient(value: Any) -> bool:
     return str(value).strip().lower() in {"high", "sufficient", "confirmed"}
+
+
+def contains_placeholder(value: Any) -> bool:
+    if value is None:
+        return False
+    text = str(value).strip().lower()
+    if not text:
+        return True
+    return any(token in text for token in PLACEHOLDER_TOKENS)
 
 
 def successful_runs(game: dict[str, Any], mode: str, minimum_minutes: int) -> list[dict[str, Any]]:
@@ -151,6 +172,10 @@ def validate_game(game: dict[str, Any]) -> list[str]:
         if field not in game:
             failures.append(f"{role}: required field missing: {field}")
 
+    for field in ("process_name", "rtt_jitter_summary", "shutdown_reason", "rollback_result"):
+        if field in game and contains_placeholder(game.get(field)):
+            failures.append(f"{role}: placeholder value is forbidden for {field}")
+
     if game.get("blocker_count") != 0:
         failures.append(f"{role}: blocker_count must be 0")
     if game.get("abnormal_exit"):
@@ -179,6 +204,12 @@ def validate_matrix(path: pathlib.Path) -> list[str]:
     games = matrix.get("games")
     if not isinstance(games, list):
         return ["real game validation matrix must contain a games array"]
+
+    if matrix.get("schema_version") != SCHEMA_VERSION:
+        failures.append(
+            f"real game validation schema_version mismatch: expected {SCHEMA_VERSION}")
+    if contains_placeholder(matrix.get("notes")):
+        failures.append("real game validation notes still contain template or synthetic placeholder text")
 
     roles = {game.get("role") for game in games if isinstance(game, dict)}
     missing_roles = sorted(REQUIRED_ROLES - roles)
