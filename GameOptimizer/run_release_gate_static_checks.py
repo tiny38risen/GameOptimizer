@@ -1157,6 +1157,7 @@ def check_rc_candidate_contract() -> list[str]:
     real_game_text = VERIFY_REAL_GAME_VALIDATION_FILE.read_text(encoding="utf-8", errors="replace")
     bundle_text = CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(encoding="utf-8", errors="replace")
     runbook_text = (RELEASE_DOCS / "Release_Gate_Spec.md").read_text(encoding="utf-8", errors="replace")
+    rc_runbook_text = (RELEASE_DOCS / "RC_Runbook.md").read_text(encoding="utf-8", errors="replace")
     matrix_text = (RELEASE_DOCS / "Release_Regression_Matrix.md").read_text(encoding="utf-8", errors="replace")
     ops_text = (RELEASE_DOCS / "Operational_Runbook.md").read_text(encoding="utf-8", errors="replace")
     evidence_schema_text = EVIDENCE_SCHEMA_FILE.read_text(encoding="utf-8", errors="replace")
@@ -1167,6 +1168,7 @@ def check_rc_candidate_contract() -> list[str]:
         real_game_text,
         bundle_text,
         runbook_text,
+        rc_runbook_text,
         matrix_text,
         ops_text,
         evidence_schema_text,
@@ -1218,6 +1220,11 @@ def check_rc_candidate_contract() -> list[str]:
         "has_run_evidence",
         "evidence_report file is missing",
         "evidence_report contains a placeholder",
+        "Real game validation matrix still contains copied template notes",
+        "Real game validation run is missing an `evidence_report` field",
+        "Real game validation run `evidence_report` points to a missing artifact",
+        "Real game validation `schema_version` is missing or mismatched",
+        "every real-game validation run links to an existing `evidence_report` artifact",
         "placeholder value is forbidden",
         "real game validation notes still contain template or synthetic placeholder text",
         "real game validation schema_version mismatch",

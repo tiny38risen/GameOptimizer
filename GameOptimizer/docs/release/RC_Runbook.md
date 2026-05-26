@@ -36,6 +36,7 @@ Required order:
 - smoke and soak reports match the current commit and binary hash.
 - final regression reports `failed=0`.
 - `docs/release/Game_Verification_Matrix.json` passes `verify_real_game_validation.py`.
+- every real-game validation run links to an existing `evidence_report` artifact.
 - `docs/architecture/Architecture_Decision_Record.md` exists and matches the accepted runtime mutation, fallback, input pinning, limited apply, and evidence contracts.
 - Apply mode is limited, explicit, and allowed only after dry-run PASS plus soft-apply PASS evidence.
 
@@ -50,4 +51,5 @@ Do not create `v3.0-rc1` until:
 5. real game validation notes exist.
 6. three real game records exist: Game A, Game B, and Game C.
 7. any Apply record satisfies the fixed Apply Mode restriction policy.
-8. the ADR contract index remains current with the release gate behavior.
+8. every real-game validation run has a non-placeholder evidence artifact path.
+9. the ADR contract index remains current with the release gate behavior.

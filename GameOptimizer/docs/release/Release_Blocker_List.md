@@ -56,6 +56,10 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Real game validation has fewer than 2 successful 60m soft-apply runs.
 - Real game validation lacks a limited apply-mode validation.
 - Real game validation lacks policy decision telemetry.
+- Real game validation matrix still contains copied template notes, example process names, placeholder tokens, or synthetic observations.
+- Real game validation run is missing an `evidence_report` field.
+- Real game validation run `evidence_report` points to a missing artifact.
+- Real game validation `schema_version` is missing or mismatched.
 
 ## WARN
 
