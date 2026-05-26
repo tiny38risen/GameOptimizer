@@ -23,6 +23,8 @@ Required order:
 9. `verify-rc`
 10. evidence bundle generation
 
+The static release gate verifies this order through the `[RC-1]` through `[RC-10]` markers in `run_rc_gate.bat`; the static gate selftest covers missing and out-of-order marker rejection.
+
 ## Completion criteria
 
 - `BLOCKER` count is `0`.

@@ -15,6 +15,7 @@ RELEASE_GATE_EVIDENCE_SELFTEST_FILE = ROOT / "release_gate_evidence_selftest.py"
 VERIFY_RC_CANDIDATE_FILE = ROOT / "verify_rc_candidate.py"
 VERIFY_REAL_GAME_VALIDATION_FILE = ROOT / "verify_real_game_validation.py"
 CREATE_RC_EVIDENCE_BUNDLE_FILE = ROOT / "create_rc_evidence_bundle.py"
+STATIC_CHECKS_SELFTEST_FILE = ROOT / "run_release_gate_static_checks_selftest.py"
 RELEASE_DOCS = ROOT / "docs" / "release"
 ARCHITECTURE_DOCS = ROOT / "docs" / "architecture"
 DESIGN_DOCS = ROOT / "docs" / "design"
@@ -952,6 +953,54 @@ def check_rc_gate_contract() -> list[str]:
         if marker not in rc_text:
             failures.append(f"[FAIL] RC gate: missing marker: {marker}")
 
+    ordered_steps = [
+        "echo [RC-1] Python syntax gate",
+        "echo [RC-2] git diff whitespace gate",
+        "echo [RC-3] static release gate",
+        "echo [RC-4] Release x64 MSVC build",
+        "echo [RC-5] full regression",
+        "echo [RC-6] release smoke",
+        "echo [RC-7] long soak evidence gate: 30m dry-run + 60m soft-apply",
+        "echo [RC-8] verify RC evidence set",
+        "echo [RC-9] verify RC candidate package inputs",
+        "echo [RC-10] create final RC evidence bundle",
+    ]
+    failures.extend(validate_ordered_markers("RC gate", rc_text, ordered_steps))
+
+    return failures
+
+
+def validate_ordered_markers(label: str, text: str, ordered_markers: list[str]) -> list[str]:
+    failures: list[str] = []
+    previous_position = -1
+    for marker in ordered_markers:
+        position = text.find(marker)
+        if position == -1:
+            failures.append(f"[FAIL] {label}: missing ordered step marker: {marker}")
+            continue
+        if position <= previous_position:
+            failures.append(f"[FAIL] {label}: ordered step is out of sequence: {marker}")
+        previous_position = position
+    return failures
+
+
+def check_static_gate_selftest_contract() -> list[str]:
+    failures: list[str] = []
+    if not STATIC_CHECKS_SELFTEST_FILE.exists():
+        return ["[FAIL] static gate selftest: run_release_gate_static_checks_selftest.py is missing"]
+
+    text = STATIC_CHECKS_SELFTEST_FILE.read_text(encoding="utf-8", errors="replace")
+    required_markers = [
+        "validate_ordered_markers",
+        "test_ordered_markers_pass",
+        "test_ordered_markers_reject_missing_marker",
+        "test_ordered_markers_reject_out_of_order_marker",
+        "[PASS] static gate selftest passed",
+    ]
+    for marker in required_markers:
+        if marker not in text:
+            failures.append(f"[FAIL] static gate selftest: missing marker: {marker}")
+
     return failures
 
 
@@ -1651,6 +1700,7 @@ def main() -> int:
     failures.extend(check_timer_input_module_registration())
     failures.extend(check_anti_cheat_fallback_contract())
     failures.extend(check_rc_gate_contract())
+    failures.extend(check_static_gate_selftest_contract())
     failures.extend(check_long_soak_automation_contract())
     failures.extend(check_release_evidence_contract())
     failures.extend(check_apply_mode_policy_contract())

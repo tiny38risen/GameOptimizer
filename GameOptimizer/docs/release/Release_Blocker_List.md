@@ -7,6 +7,8 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 ## BLOCKER
 
 - `run_rc_gate.bat <target.exe>` fails.
+- `run_rc_gate.bat` is missing an `[RC-1]` through `[RC-10]` step marker or the markers are out of order.
+- The static gate selftest does not prove missing and out-of-order RC step markers are rejected.
 - Python `py_compile` fails.
 - `git diff --check` fails.
 - Static release gate fails.
