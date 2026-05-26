@@ -153,6 +153,12 @@ if errorlevel 1 (
 )
 
 echo [RC-9] verify RC candidate package inputs
+%PYTHON_CMD% verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json
+if errorlevel 1 (
+    set RC_BLOCKER=real game validation failed
+    goto fail
+)
+
 %PYTHON_CMD% verify_rc_candidate.py --target "%TARGET%" --regression-log "%FINAL_REGRESSION_LOG%"
 if errorlevel 1 (
     set RC_BLOCKER=RC candidate verification failed

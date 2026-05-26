@@ -105,6 +105,8 @@ Compatibility summaries used by validators must remain available:
 
 `run_rc_gate.bat` must execute the static gate selftest and static contract gate before build, regression, smoke, soak, verify-rc, candidate verification, and final bundle creation. The static gate must reject RC step drift by checking the ordered `[RC-1]` through `[RC-10]` markers in `run_rc_gate.bat`, and `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py` to prove missing or out-of-order markers are rejected.
 
+Within `[RC-9]`, `run_rc_gate.bat` must run `verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json` before `verify_rc_candidate.py`, so real-game validation failures are visible as their own `BLOCKER`.
+
 The expected chain is:
 
 ```text

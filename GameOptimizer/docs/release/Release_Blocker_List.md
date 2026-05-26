@@ -57,6 +57,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - A development change skips the atomic governance change unit: document contract 1 -> static gate 1 -> validator/evidence coupling 1 -> selftest or regression 1 -> document/blocker/runbook sync -> verification -> commit 1.
 - A governance contract changes without a matching static gate, validator/evidence coupling, selftest or regression, and release blocker/runbook synchronization.
 - Real game validation record is missing before `v3.0-rc1` tagging.
+- `run_rc_gate.bat` does not run `verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json` before `verify_rc_candidate.py`.
 - Real game validation has fewer than 3 games.
 - Real game validation has fewer than 2 successful 60m soft-apply runs.
 - Real game validation lacks a limited apply-mode validation.

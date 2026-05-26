@@ -24,6 +24,7 @@ Required order:
 10. evidence bundle generation
 
 The static release gate verifies this order through the `[RC-1]` through `[RC-10]` markers in `run_rc_gate.bat`; within `[RC-3]`, `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py`.
+Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json` must run before `verify_rc_candidate.py`.
 
 ## Completion criteria
 

@@ -28,10 +28,22 @@ def test_ordered_markers_reject_out_of_order_marker() -> None:
     assert any("ordered step is out of sequence" in failure for failure in failures)
 
 
+def test_rc9_real_game_validation_runs_before_candidate_verification() -> None:
+    ordered_markers = [
+        "echo [RC-9] verify RC candidate package inputs",
+        "verify_real_game_validation.py --matrix docs\\release\\Game_Verification_Matrix.json",
+        "verify_rc_candidate.py",
+    ]
+    text = "\n".join(ordered_markers)
+    failures = static_checks.validate_ordered_markers("selftest", text, ordered_markers)
+    assert failures == []
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
     test_ordered_markers_reject_out_of_order_marker()
+    test_rc9_real_game_validation_runs_before_candidate_verification()
     print("[PASS] static gate selftest passed")
     return 0
 

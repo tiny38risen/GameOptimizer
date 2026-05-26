@@ -36,6 +36,7 @@ This single command must run, in order:
 The gate now captures the final regression output automatically under `release_gate_logs` and then runs:
 
 ```bat
+verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json
 verify_rc_candidate.py --target <target.exe> --regression-log <log>
 ```
 
@@ -48,6 +49,8 @@ create_rc_evidence_bundle.py --target <target.exe> --regression-log <log>
 Do not create the `v3.0-rc1` tag until the full gate, candidate verification, and bundle creation all pass.
 
 The static release gate must reject `run_rc_gate.bat` if any `[RC-1]` through `[RC-10]` step marker is missing or out of order. `run_rc_gate.bat` must run `run_release_gate_static_checks_selftest.py` before `run_release_gate_static_checks.py`, and the selftest must cover pass, missing-marker, and out-of-order-marker cases.
+
+Within `[RC-9]`, `run_rc_gate.bat` must run `verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json` before `verify_rc_candidate.py`.
 
 ## RC candidate required artifacts
 

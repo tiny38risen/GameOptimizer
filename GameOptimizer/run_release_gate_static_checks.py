@@ -933,6 +933,7 @@ def check_rc_gate_contract() -> list[str]:
         "run_release_gate_smoke.bat",
         "run_long_soak_presets.bat",
         "release_gate_evidence.py verify-rc",
+        "verify_real_game_validation.py --matrix docs\\release\\Game_Verification_Matrix.json",
         "verify_rc_candidate.py",
         "create_rc_evidence_bundle.py",
         "RC_BLOCKER",
@@ -940,6 +941,7 @@ def check_rc_gate_contract() -> list[str]:
         "release smoke failed",
         "30m or 60m soak failed",
         "verify-rc failed",
+        "real game validation failed",
         "py_compile failed",
         "git diff --check failed",
         "static gate selftest failed",
@@ -973,6 +975,11 @@ def check_rc_gate_contract() -> list[str]:
         "run_release_gate_static_checks_selftest.py",
         "run_release_gate_static_checks.py",
     ]))
+    failures.extend(validate_ordered_markers("RC real game validation", rc_text, [
+        "echo [RC-9] verify RC candidate package inputs",
+        "verify_real_game_validation.py --matrix docs\\release\\Game_Verification_Matrix.json",
+        "verify_rc_candidate.py",
+    ]))
 
     return failures
 
@@ -1002,6 +1009,7 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_ordered_markers_pass",
         "test_ordered_markers_reject_missing_marker",
         "test_ordered_markers_reject_out_of_order_marker",
+        "test_rc9_real_game_validation_runs_before_candidate_verification",
         "[PASS] static gate selftest passed",
     ]
     for marker in required_markers:
