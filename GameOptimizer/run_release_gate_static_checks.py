@@ -1012,6 +1012,7 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_rc9_real_game_validation_runs_before_candidate_verification",
         "test_bundle_creation_validates_real_game_matrix_before_writing_bundle",
         "test_bundle_manifest_preserves_real_game_matrix_artifact",
+        "test_bundle_creation_validates_manifest_artifact_hashes_before_pass",
         "[PASS] static gate selftest passed",
     ]
     for marker in required_markers:
@@ -1264,6 +1265,11 @@ def check_rc_candidate_contract() -> list[str]:
         "real_game_validation_matrix",
         "real_game_validation_matrix_sha256",
         "real_game_validation_matrix_artifact",
+        "validate_bundle_artifacts",
+        "resolve_bundle_artifact_path",
+        "RC evidence bundle artifact validation",
+        "SHA-256 mismatch",
+        "byte size mismatch",
         "final regression result",
         "failed=0",
         "[PASS] all regression tests passed",
@@ -1327,6 +1333,11 @@ def check_rc_candidate_contract() -> list[str]:
         "verify_rc_candidate.validate_evidence_bundle(target)",
         "verify_rc_candidate.validate_real_game_matrix()",
         "create_bundle_dir(commit)",
+    ]))
+    failures.extend(validate_ordered_markers("RC bundle artifact validation", bundle_text, [
+        "artifact_failures = validate_bundle_artifacts(manifest)",
+        "write_json(bundle_dir / \"rc_evidence_bundle_manifest.json\", manifest)",
+        "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
     ]))
     return failures
 

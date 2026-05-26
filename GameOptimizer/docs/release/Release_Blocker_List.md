@@ -24,6 +24,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Final evidence bundle generation fails.
 - Final evidence bundle generation does not repeat real-game validation before writing the bundle.
 - Final evidence bundle manifest is missing `real_game_validation_matrix` or `real_game_validation_matrix_sha256`.
+- Final evidence bundle manifest artifact path, SHA-256, or byte-size validation fails.
 - Required evidence field is missing.
 - Evidence schema mismatch.
 - Commit mismatch.

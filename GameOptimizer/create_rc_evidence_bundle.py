@@ -149,6 +149,43 @@ def write_text_manifest(path: pathlib.Path, manifest: dict[str, Any]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def resolve_bundle_artifact_path(value: Any) -> pathlib.Path:
+    path = pathlib.Path(str(value))
+    if path.is_absolute():
+        return path
+    return ROOT / path
+
+
+def validate_bundle_artifacts(manifest: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list) or not artifacts:
+        return ["final bundle manifest has no artifact list"]
+
+    for index, artifact in enumerate(artifacts):
+        if not isinstance(artifact, dict):
+            failures.append(f"artifact #{index + 1} is not an object")
+            continue
+
+        label = artifact.get("label") or f"artifact #{index + 1}"
+        artifact_path = resolve_bundle_artifact_path(artifact.get("path"))
+        if not artifact_path.exists() or not artifact_path.is_file():
+            failures.append(f"{label}: bundled artifact is missing: {artifact_path}")
+            continue
+
+        expected_sha256 = artifact.get("sha256")
+        actual_sha256 = evidence.sha256_file(artifact_path)
+        if expected_sha256 != actual_sha256:
+            failures.append(f"{label}: SHA-256 mismatch")
+
+        expected_bytes = artifact.get("bytes")
+        actual_bytes = artifact_path.stat().st_size
+        if expected_bytes != actual_bytes:
+            failures.append(f"{label}: byte size mismatch")
+
+    return failures
+
+
 def collect_warnings(*states: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
     for state in states:
@@ -310,6 +347,12 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
         },
         "artifacts": artifacts,
     }
+    artifact_failures = validate_bundle_artifacts(manifest)
+    if artifact_failures:
+        for failure in artifact_failures:
+            print(f"[BLOCKER] RC evidence bundle artifact validation: {failure}")
+        raise SystemExit(1)
+
     write_json(bundle_dir / "rc_evidence_bundle_manifest.json", manifest)
     write_text_manifest(bundle_dir / "rc_evidence_bundle_manifest.txt", manifest)
     print(f"[PASS] RC evidence bundle created: {bundle_dir}")

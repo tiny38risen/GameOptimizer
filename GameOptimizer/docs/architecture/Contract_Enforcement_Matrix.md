@@ -113,6 +113,8 @@ Within `[RC-9]`, `run_rc_gate.bat` must run `verify_real_game_validation.py --ma
 
 The final RC evidence bundle must copy `docs/release/Game_Verification_Matrix.json` and expose both `real_game_validation_matrix` and `real_game_validation_matrix_sha256` in the bundle manifest.
 
+Before printing PASS, `create_rc_evidence_bundle.py` must validate every manifest artifact path, SHA-256, and byte size against the copied files.
+
 The expected chain is:
 
 ```text

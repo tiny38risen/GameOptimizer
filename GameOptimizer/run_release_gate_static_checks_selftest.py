@@ -66,6 +66,28 @@ def test_bundle_manifest_preserves_real_game_matrix_artifact() -> None:
         assert marker in bundle_text
 
 
+def test_bundle_creation_validates_manifest_artifact_hashes_before_pass() -> None:
+    bundle_text = static_checks.CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    for marker in [
+        "def validate_bundle_artifacts",
+        "resolve_bundle_artifact_path",
+        "SHA-256 mismatch",
+        "byte size mismatch",
+        "RC evidence bundle artifact validation",
+    ]:
+        assert marker in bundle_text
+
+    ordered_markers = [
+        "artifact_failures = validate_bundle_artifacts(manifest)",
+        "write_json(bundle_dir / \"rc_evidence_bundle_manifest.json\", manifest)",
+        "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
+    ]
+    failures = static_checks.validate_ordered_markers("selftest", bundle_text, ordered_markers)
+    assert failures == []
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
@@ -73,6 +95,7 @@ def main() -> int:
     test_rc9_real_game_validation_runs_before_candidate_verification()
     test_bundle_creation_validates_real_game_matrix_before_writing_bundle()
     test_bundle_manifest_preserves_real_game_matrix_artifact()
+    test_bundle_creation_validates_manifest_artifact_hashes_before_pass()
     print("[PASS] static gate selftest passed")
     return 0
 

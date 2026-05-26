@@ -65,6 +65,7 @@ Within `[RC-9]`, `run_rc_gate.bat` must run `verify_real_game_validation.py --ma
 - Final regression result: a saved regression log must contain `failed=0` and `[PASS] all regression tests passed`.
 - Real game validation record: dry-run and soft-apply observations must follow `docs/release/Real_Game_Validation_Runbook.md` before an RC tag is proposed.
 - Real game validation evidence: the final bundle manifest must include `real_game_validation_matrix` and `real_game_validation_matrix_sha256`.
+- Final bundle artifact integrity: `create_rc_evidence_bundle.py` must validate every manifest artifact path, SHA-256, and byte size before PASS.
 - Dirty tree state: evidence must record `git_dirty` and `git_status_short`.
 
 Any missing item is a `BLOCKER`.

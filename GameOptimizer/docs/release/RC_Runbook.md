@@ -41,6 +41,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - `docs/release/Game_Verification_Matrix.json` passes `verify_real_game_validation.py`.
 - `create_rc_evidence_bundle.py` repeats the real-game validation matrix check before writing the final bundle.
 - final bundle manifest records `real_game_validation_matrix` and `real_game_validation_matrix_sha256`.
+- final bundle artifact entries pass path, SHA-256, and byte-size validation before PASS.
 - every real-game validation run links to an existing `evidence_report` artifact.
 - `docs/architecture/Architecture_Decision_Record.md` exists and matches the accepted runtime mutation, fallback, input pinning, limited apply, and evidence contracts.
 - Apply mode is limited, explicit, and allowed only after dry-run PASS plus soft-apply PASS evidence.
