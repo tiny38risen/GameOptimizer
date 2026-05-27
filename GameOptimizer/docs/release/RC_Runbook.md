@@ -47,6 +47,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - static gate selftest exercises final bundle validators with real temporary files and mismatched-file failures.
 - full regression runs `run_release_gate_static_checks_selftest.py`.
 - final regression log contains PASS markers for `run_release_gate_static_checks_selftest.py` and `release_gate_evidence_selftest.py`.
+- final bundle manifest records `regression_selftest_summary`.
 - every real-game validation run links to an existing `evidence_report` artifact.
 - `docs/architecture/Architecture_Decision_Record.md` exists and matches the accepted runtime mutation, fallback, input pinning, limited apply, and evidence contracts.
 - Apply mode is limited, explicit, and allowed only after dry-run PASS plus soft-apply PASS evidence.

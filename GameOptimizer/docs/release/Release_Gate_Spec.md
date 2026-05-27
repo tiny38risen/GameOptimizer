@@ -71,6 +71,7 @@ Within `[RC-9]`, `run_rc_gate.bat` must run `verify_real_game_validation.py --ma
 - Static gate selftest integrity: `run_release_gate_static_checks_selftest.py` must exercise final bundle validators with real temporary files and expected failures.
 - Regression coverage: `run_regression_tests.bat` must execute `run_release_gate_static_checks_selftest.py`.
 - Regression evidence: `verify_rc_candidate.py` must reject final regression logs missing PASS markers for static gate and release evidence selftests.
+- Regression selftest evidence: the final bundle manifest must expose `regression_selftest_summary`.
 - Dirty tree state: evidence must record `git_dirty` and `git_status_short`.
 
 Any missing item is a `BLOCKER`.

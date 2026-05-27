@@ -114,6 +114,7 @@ def write_text_manifest(path: pathlib.Path, manifest: dict[str, Any]) -> None:
         f"SoftApply baseline summary: {manifest['soft_apply_baseline_summary']}",
         f"Real game validation matrix: {manifest['real_game_validation_matrix']}",
         f"Real game validation matrix SHA-256: {manifest['real_game_validation_matrix_sha256']}",
+        f"Regression selftest summary: {manifest['regression_selftest_summary']}",
         f"Test results: {manifest['test_results']}",
         f"Created UTC: {manifest['created_utc']}",
         "",
@@ -208,6 +209,7 @@ def validate_written_manifests(
         "candidate_decision",
         "commit_sha",
         "real_game_validation_matrix_sha256",
+        "regression_selftest_summary",
         "artifacts",
     ):
         if loaded_manifest.get(field) != manifest.get(field):
@@ -267,6 +269,16 @@ def collect_step_field(field_name: str, *states: dict[str, Any]) -> list[dict[st
                     "value": value,
                 })
     return values
+
+
+def collect_regression_selftest_summary(regression_log: pathlib.Path) -> dict[str, bool]:
+    text = regression_log.read_text(encoding="utf-8", errors="replace")
+    return {
+        "run_release_gate_static_checks_selftest": (
+            "[PASS] run_release_gate_static_checks_selftest passed" in text),
+        "release_gate_evidence_selftest": (
+            "[PASS] release_gate_evidence_selftest passed" in text),
+    }
 
 
 def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
@@ -392,6 +404,7 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
             soak_state),
         "real_game_validation_matrix": real_game_validation_matrix_artifact["path"],
         "real_game_validation_matrix_sha256": real_game_validation_matrix_artifact["sha256"],
+        "regression_selftest_summary": collect_regression_selftest_summary(regression_log),
         "severity_policy": evidence.SEVERITY_POLICY,
         "test_results": (
             smoke_state.get("test_results", [])

@@ -90,6 +90,7 @@ The evidence schema must expose release-facing fields sufficient to reject each 
 - `test_results`
 - `real_game_validation_matrix`
 - `real_game_validation_matrix_sha256`
+- `regression_selftest_summary`
 
 Compatibility summaries used by validators must remain available:
 
@@ -124,6 +125,8 @@ The final bundle manifest `source_reports` entries must point to existing smoke,
 `run_regression_tests.bat` must run `run_release_gate_static_checks_selftest.py` so local/full regression catches static-gate selftest failures before RC gate execution.
 
 `verify_rc_candidate.py` must reject final regression logs that do not include PASS markers for both `run_release_gate_static_checks_selftest.py` and `release_gate_evidence_selftest.py`.
+
+`create_rc_evidence_bundle.py` must expose those final regression selftest PASS markers as `regression_selftest_summary` in the final bundle manifest.
 
 The expected chain is:
 

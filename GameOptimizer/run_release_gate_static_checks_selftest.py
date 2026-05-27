@@ -254,6 +254,20 @@ def test_rc_candidate_regression_log_requires_selftest_pass_markers() -> None:
         assert any("release_gate_evidence_selftest" in failure for failure in failures)
 
 
+def test_bundle_manifest_records_regression_selftest_summary() -> None:
+    bundle_text = static_checks.CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    for marker in [
+        "def collect_regression_selftest_summary",
+        "\"regression_selftest_summary\"",
+        "\"run_release_gate_static_checks_selftest\"",
+        "\"release_gate_evidence_selftest\"",
+        "Regression selftest summary:",
+    ]:
+        assert marker in bundle_text
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
@@ -267,6 +281,7 @@ def main() -> int:
     test_bundle_validators_accept_real_files()
     test_bundle_validators_reject_missing_or_mismatched_files()
     test_rc_candidate_regression_log_requires_selftest_pass_markers()
+    test_bundle_manifest_records_regression_selftest_summary()
     print("[PASS] static gate selftest passed")
     return 0
 

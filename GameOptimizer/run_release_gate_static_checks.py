@@ -1018,6 +1018,7 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_bundle_validators_accept_real_files",
         "test_bundle_validators_reject_missing_or_mismatched_files",
         "test_rc_candidate_regression_log_requires_selftest_pass_markers",
+        "test_bundle_manifest_records_regression_selftest_summary",
         "[PASS] static gate selftest passed",
     ]
     for marker in required_markers:
@@ -1281,6 +1282,8 @@ def check_rc_candidate_contract() -> list[str]:
         "real_game_validation_matrix",
         "real_game_validation_matrix_sha256",
         "real_game_validation_matrix_artifact",
+        "regression_selftest_summary",
+        "collect_regression_selftest_summary",
         "validate_bundle_artifacts",
         "resolve_bundle_artifact_path",
         "RC evidence bundle artifact validation",

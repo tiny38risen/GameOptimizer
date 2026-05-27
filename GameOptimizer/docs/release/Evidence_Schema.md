@@ -52,6 +52,7 @@ Each `rc_evidence_report.json` and final bundle manifest must expose these relea
 - `test_results`
 - `real_game_validation_matrix`
 - `real_game_validation_matrix_sha256`
+- `regression_selftest_summary`
 
 Compatibility aliases such as `schema`, `git_commit`, `exe_sha256`, and `severity_summary` may remain, but the release-facing fields above are mandatory.
 
@@ -80,6 +81,7 @@ Compatibility aliases such as `schema`, `git_commit`, `exe_sha256`, and `severit
 - `test_results`: per-step command/assertion/runtime validation results.
 - `real_game_validation_matrix`: bundled copy path for `docs/release/Game_Verification_Matrix.json`.
 - `real_game_validation_matrix_sha256`: SHA-256 of the bundled real-game validation matrix.
+- `regression_selftest_summary`: final regression PASS booleans for `run_release_gate_static_checks_selftest.py` and `release_gate_evidence_selftest.py`.
 - final bundle artifact entries: each `artifacts[]` item must point to an existing copied file and match its recorded `sha256` and `bytes` before PASS is printed.
 - final bundle manifests: `rc_evidence_bundle_manifest.json` must reload with matching release fields, and `rc_evidence_bundle_manifest.txt` must contain the candidate decision, commit SHA, real-game matrix SHA-256, and BLOCKER none before PASS is printed.
 - final bundle `source_reports`: `smoke`, `soak`, `regression_log`, and `real_game_validation_matrix` must point to existing source files before PASS is printed.
