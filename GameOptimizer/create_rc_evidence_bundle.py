@@ -227,6 +227,24 @@ def validate_written_manifests(
     return failures
 
 
+def validate_bundle_source_reports(manifest: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    source_reports = manifest.get("source_reports")
+    if not isinstance(source_reports, dict):
+        return ["final bundle manifest source_reports is missing or invalid"]
+
+    for key in ("smoke", "soak", "regression_log", "real_game_validation_matrix"):
+        value = source_reports.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"source report is missing: {key}")
+            continue
+        source_path = resolve_bundle_artifact_path(value)
+        if not source_path.exists() or not source_path.is_file():
+            failures.append(f"source report path is missing: {key}: {source_path}")
+
+    return failures
+
+
 def collect_warnings(*states: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
     for state in states:
@@ -392,6 +410,12 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
     if artifact_failures:
         for failure in artifact_failures:
             print(f"[BLOCKER] RC evidence bundle artifact validation: {failure}")
+        raise SystemExit(1)
+
+    source_report_failures = validate_bundle_source_reports(manifest)
+    if source_report_failures:
+        for failure in source_report_failures:
+            print(f"[BLOCKER] RC evidence bundle source report validation: {failure}")
         raise SystemExit(1)
 
     json_manifest_path = bundle_dir / "rc_evidence_bundle_manifest.json"

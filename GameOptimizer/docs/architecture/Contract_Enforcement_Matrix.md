@@ -117,6 +117,8 @@ Before printing PASS, `create_rc_evidence_bundle.py` must validate every manifes
 
 After writing `rc_evidence_bundle_manifest.json` and `rc_evidence_bundle_manifest.txt`, `create_rc_evidence_bundle.py` must reload and validate both manifests before printing PASS.
 
+The final bundle manifest `source_reports` entries must point to existing smoke, soak, final regression, and real-game validation matrix source files before PASS.
+
 The expected chain is:
 
 ```text

@@ -110,6 +110,27 @@ def test_bundle_creation_validates_written_manifests_before_pass() -> None:
     assert failures == []
 
 
+def test_bundle_creation_validates_source_reports_before_pass() -> None:
+    bundle_text = static_checks.CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    for marker in [
+        "def validate_bundle_source_reports",
+        "source report path is missing",
+        "RC evidence bundle source report validation",
+        "\"smoke\", \"soak\", \"regression_log\", \"real_game_validation_matrix\"",
+    ]:
+        assert marker in bundle_text
+
+    ordered_markers = [
+        "source_report_failures = validate_bundle_source_reports(manifest)",
+        "write_json(json_manifest_path, manifest)",
+        "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
+    ]
+    failures = static_checks.validate_ordered_markers("selftest", bundle_text, ordered_markers)
+    assert failures == []
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
@@ -119,6 +140,7 @@ def main() -> int:
     test_bundle_manifest_preserves_real_game_matrix_artifact()
     test_bundle_creation_validates_manifest_artifact_hashes_before_pass()
     test_bundle_creation_validates_written_manifests_before_pass()
+    test_bundle_creation_validates_source_reports_before_pass()
     print("[PASS] static gate selftest passed")
     return 0
 
