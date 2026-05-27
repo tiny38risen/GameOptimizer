@@ -125,6 +125,21 @@ if "%PYTHON_CMD%"=="" (
 )
 
 set /a TEST_COUNT+=1
+echo [INFO] running run_release_gate_static_checks_selftest...
+if "%PYTHON_CMD%"=="" (
+    echo [FAIL] run_release_gate_static_checks_selftest failed because Python 3 was not found
+    set /a FAILURE_COUNT+=1
+) else (
+    %PYTHON_CMD% run_release_gate_static_checks_selftest.py
+    if errorlevel 1 (
+        echo [FAIL] run_release_gate_static_checks_selftest failed
+        set /a FAILURE_COUNT+=1
+    ) else (
+        echo [PASS] run_release_gate_static_checks_selftest passed
+    )
+)
+
+set /a TEST_COUNT+=1
 echo [INFO] running release_gate_evidence_selftest...
 if "%PYTHON_CMD%"=="" (
     echo [FAIL] release_gate_evidence_selftest failed because Python 3 was not found

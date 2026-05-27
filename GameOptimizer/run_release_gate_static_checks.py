@@ -1023,6 +1023,17 @@ def check_static_gate_selftest_contract() -> list[str]:
         if marker not in text:
             failures.append(f"[FAIL] static gate selftest: missing marker: {marker}")
 
+    regression_text = REGRESSION_TESTS_FILE.read_text(encoding="utf-8", errors="replace")
+    required_regression_markers = [
+        "running run_release_gate_static_checks_selftest",
+        "run_release_gate_static_checks_selftest.py",
+        "run_release_gate_static_checks_selftest failed",
+        "run_release_gate_static_checks_selftest passed",
+    ]
+    for marker in required_regression_markers:
+        if marker not in regression_text:
+            failures.append(f"[FAIL] static gate selftest: regression script missing marker: {marker}")
+
     return failures
 
 

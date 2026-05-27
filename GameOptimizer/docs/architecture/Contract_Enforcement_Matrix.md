@@ -121,6 +121,8 @@ The final bundle manifest `source_reports` entries must point to existing smoke,
 
 `run_release_gate_static_checks_selftest.py` must exercise the final bundle validators against real temporary files, including PASS cases and missing/mismatched file failures.
 
+`run_regression_tests.bat` must run `run_release_gate_static_checks_selftest.py` so local/full regression catches static-gate selftest failures before RC gate execution.
+
 The expected chain is:
 
 ```text

@@ -69,6 +69,7 @@ Within `[RC-9]`, `run_rc_gate.bat` must run `verify_real_game_validation.py --ma
 - Final manifest integrity: `create_rc_evidence_bundle.py` must reload the written JSON manifest and inspect the text manifest before PASS.
 - Final source report integrity: `create_rc_evidence_bundle.py` must validate manifest `source_reports` paths before PASS.
 - Static gate selftest integrity: `run_release_gate_static_checks_selftest.py` must exercise final bundle validators with real temporary files and expected failures.
+- Regression coverage: `run_regression_tests.bat` must execute `run_release_gate_static_checks_selftest.py`.
 - Dirty tree state: evidence must record `git_dirty` and `git_status_short`.
 
 Any missing item is a `BLOCKER`.
