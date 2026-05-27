@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+import tempfile
+
+import create_rc_evidence_bundle as bundle
 import run_release_gate_static_checks as static_checks
 
 
@@ -131,6 +135,98 @@ def test_bundle_creation_validates_source_reports_before_pass() -> None:
     assert failures == []
 
 
+def test_bundle_validators_accept_real_files() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = bundle.pathlib.Path(tmp)
+        artifact_path = root / "artifact.txt"
+        artifact_path.write_text("artifact", encoding="utf-8")
+        source_path = root / "source.txt"
+        source_path.write_text("source", encoding="utf-8")
+        json_manifest_path = root / "rc_evidence_bundle_manifest.json"
+        text_manifest_path = root / "rc_evidence_bundle_manifest.txt"
+        manifest = {
+            "schema_version": "gameoptimizer.rc_evidence_bundle.v1",
+            "candidate_decision": "RC_CANDIDATE_PASS",
+            "commit_sha": "abc123",
+            "real_game_validation_matrix_sha256": "matrix-sha",
+            "artifacts": [{
+                "label": "artifact",
+                "path": str(artifact_path),
+                "sha256": bundle.evidence.sha256_file(artifact_path),
+                "bytes": artifact_path.stat().st_size,
+            }],
+            "source_reports": {
+                "smoke": str(source_path),
+                "soak": str(source_path),
+                "regression_log": str(source_path),
+                "real_game_validation_matrix": str(source_path),
+            },
+        }
+        json_manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        text_manifest_path.write_text(
+            "\n".join([
+                "Decision: RC_CANDIDATE_PASS",
+                "Commit SHA: abc123",
+                "Real game validation matrix SHA-256: matrix-sha",
+                "BLOCKER:",
+                "- none",
+            ]),
+            encoding="utf-8")
+
+        assert bundle.validate_bundle_artifacts(manifest) == []
+        assert bundle.validate_bundle_source_reports(manifest) == []
+        assert bundle.validate_written_manifests(
+            json_manifest_path,
+            text_manifest_path,
+            manifest) == []
+
+
+def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = bundle.pathlib.Path(tmp)
+        artifact_path = root / "artifact.txt"
+        artifact_path.write_text("artifact", encoding="utf-8")
+        source_path = root / "source.txt"
+        source_path.write_text("source", encoding="utf-8")
+        json_manifest_path = root / "rc_evidence_bundle_manifest.json"
+        text_manifest_path = root / "rc_evidence_bundle_manifest.txt"
+        manifest = {
+            "schema_version": "gameoptimizer.rc_evidence_bundle.v1",
+            "candidate_decision": "RC_CANDIDATE_PASS",
+            "commit_sha": "abc123",
+            "real_game_validation_matrix_sha256": "matrix-sha",
+            "artifacts": [{
+                "label": "artifact",
+                "path": str(artifact_path),
+                "sha256": "bad-sha",
+                "bytes": artifact_path.stat().st_size + 1,
+            }],
+            "source_reports": {
+                "smoke": str(source_path),
+                "soak": str(root / "missing-soak.json"),
+                "regression_log": str(source_path),
+                "real_game_validation_matrix": str(source_path),
+            },
+        }
+        wrong_manifest = dict(manifest)
+        wrong_manifest["commit_sha"] = "different"
+        json_manifest_path.write_text(json.dumps(wrong_manifest), encoding="utf-8")
+        text_manifest_path.write_text("Decision: RC_CANDIDATE_PASS\n", encoding="utf-8")
+
+        artifact_failures = bundle.validate_bundle_artifacts(manifest)
+        source_failures = bundle.validate_bundle_source_reports(manifest)
+        manifest_failures = bundle.validate_written_manifests(
+            json_manifest_path,
+            text_manifest_path,
+            manifest)
+
+        assert any("SHA-256 mismatch" in failure for failure in artifact_failures)
+        assert any("byte size mismatch" in failure for failure in artifact_failures)
+        assert any("source report path is missing" in failure for failure in source_failures)
+        assert any("JSON bundle manifest field mismatch" in failure for failure in manifest_failures)
+        assert any("text bundle manifest missing marker" in failure for failure in manifest_failures)
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
@@ -141,6 +237,8 @@ def main() -> int:
     test_bundle_creation_validates_manifest_artifact_hashes_before_pass()
     test_bundle_creation_validates_written_manifests_before_pass()
     test_bundle_creation_validates_source_reports_before_pass()
+    test_bundle_validators_accept_real_files()
+    test_bundle_validators_reject_missing_or_mismatched_files()
     print("[PASS] static gate selftest passed")
     return 0
 

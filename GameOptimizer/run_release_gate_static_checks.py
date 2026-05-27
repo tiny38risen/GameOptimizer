@@ -1015,6 +1015,8 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_bundle_creation_validates_manifest_artifact_hashes_before_pass",
         "test_bundle_creation_validates_written_manifests_before_pass",
         "test_bundle_creation_validates_source_reports_before_pass",
+        "test_bundle_validators_accept_real_files",
+        "test_bundle_validators_reject_missing_or_mismatched_files",
         "[PASS] static gate selftest passed",
     ]
     for marker in required_markers:

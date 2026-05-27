@@ -27,6 +27,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Final evidence bundle manifest artifact path, SHA-256, or byte-size validation fails.
 - Written final JSON/TXT bundle manifest reload or marker validation fails.
 - Final evidence bundle `source_reports` path validation fails.
+- Static gate selftest does not exercise final bundle validators with real temporary files and expected missing/mismatched-file failures.
 - Required evidence field is missing.
 - Evidence schema mismatch.
 - Commit mismatch.
