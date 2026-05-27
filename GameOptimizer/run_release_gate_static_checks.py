@@ -1006,6 +1006,17 @@ def validate_ordered_markers(label: str, text: str, ordered_markers: list[str]) 
     return failures
 
 
+def markdown_section_contains_marker(text: str, heading: str, marker: str) -> bool:
+    heading_marker = f"## {heading}"
+    heading_index = text.find(heading_marker)
+    if heading_index < 0:
+        return False
+
+    next_heading_index = text.find("\n## ", heading_index + len(heading_marker))
+    section = text[heading_index:] if next_heading_index < 0 else text[heading_index:next_heading_index]
+    return marker in section
+
+
 def check_static_gate_selftest_contract() -> list[str]:
     failures: list[str] = []
     if not STATIC_CHECKS_SELFTEST_FILE.exists():
@@ -1396,6 +1407,16 @@ def check_rc_candidate_contract() -> list[str]:
     for marker in required_markers:
         if marker not in combined_text:
             failures.append(f"[FAIL] RC candidate gate: missing marker: {marker}")
+
+    soft_apply_preserved_marker = (
+        "SoftApply baseline evidence increases `rollback_preserved_state_count` "
+        "or creates BLOCKER/WARN findings by itself.")
+    if not markdown_section_contains_marker(blocker_list_text, "BLOCKER", soft_apply_preserved_marker):
+        failures.append(
+            "[FAIL] RC candidate gate: SoftApply preserved-state evidence drift must be listed as BLOCKER")
+    if markdown_section_contains_marker(blocker_list_text, "WARN", soft_apply_preserved_marker):
+        failures.append(
+            "[FAIL] RC candidate gate: SoftApply preserved-state evidence drift must not be listed as WARN")
 
     failures.extend(validate_ordered_markers("RC bundle real game validation", bundle_text, [
         "verify_rc_candidate.validate_evidence_bundle(target)",

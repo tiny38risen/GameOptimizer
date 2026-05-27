@@ -103,6 +103,8 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 - the step `rollback_preserved_state_summary.has_preserved_state` must remain `false`,
 - the report must remain `PASS` when only SoftApply baseline audit evidence is present.
 
+`Release_Blocker_List.md` must classify SoftApply baseline evidence that increases `rollback_preserved_state_count` or creates BLOCKER/WARN findings by itself under `BLOCKER`, not `WARN`.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:

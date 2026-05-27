@@ -33,6 +33,22 @@ def test_ordered_markers_reject_out_of_order_marker() -> None:
     assert any("ordered step is out of sequence" in failure for failure in failures)
 
 
+def test_markdown_section_contains_marker_is_section_scoped() -> None:
+    text = "\n".join([
+        "# Release Blocker List",
+        "",
+        "## BLOCKER",
+        "- blocker item",
+        "",
+        "## WARN",
+        "- warn item",
+    ])
+    assert static_checks.markdown_section_contains_marker(text, "BLOCKER", "blocker item")
+    assert not static_checks.markdown_section_contains_marker(text, "BLOCKER", "warn item")
+    assert static_checks.markdown_section_contains_marker(text, "WARN", "warn item")
+    assert not static_checks.markdown_section_contains_marker(text, "MISSING", "blocker item")
+
+
 def test_rc9_real_game_validation_runs_before_candidate_verification() -> None:
     ordered_markers = [
         "echo [RC-9] verify RC candidate package inputs",
@@ -455,10 +471,22 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
         assert marker in cem_text
 
 
+def test_soft_apply_preserved_state_drift_is_blocker_not_warn() -> None:
+    blocker_text = static_checks.RELEASE_BLOCKER_LIST_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    marker = (
+        "SoftApply baseline evidence increases `rollback_preserved_state_count` "
+        "or creates BLOCKER/WARN findings by itself.")
+    assert static_checks.markdown_section_contains_marker(blocker_text, "BLOCKER", marker)
+    assert not static_checks.markdown_section_contains_marker(blocker_text, "WARN", marker)
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
     test_ordered_markers_reject_out_of_order_marker()
+    test_markdown_section_contains_marker_is_section_scoped()
     test_rc9_real_game_validation_runs_before_candidate_verification()
     test_bundle_creation_validates_real_game_matrix_before_writing_bundle()
     test_bundle_manifest_preserves_real_game_matrix_artifact()
@@ -474,6 +502,7 @@ def main() -> int:
     test_rc_candidate_regression_log_requires_selftest_pass_markers()
     test_bundle_manifest_records_regression_selftest_summary()
     test_cem_gate_requires_recent_contract_markers()
+    test_soft_apply_preserved_state_drift_is_blocker_not_warn()
     print("[PASS] static gate selftest passed")
     return 0
 

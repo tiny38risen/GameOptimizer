@@ -166,6 +166,8 @@ SoftApply baseline evidence is already connected through `release_gate_evidence.
 
 The CEM gate must require the recent SchedulerController helper markers, StartupPipeline helper markers, ApplyGuard rollback selftest markers, and SoftApply baseline separation markers. Losing those CEM markers is a static gate failure.
 
+The release blocker list must classify SoftApply baseline evidence that increments preserved rollback state or creates severity findings by itself as `BLOCKER`; the static gate rejects that marker under `WARN`.
+
 ## ADR contract gate
 
 `docs/architecture/Architecture_Decision_Record.md` is the accepted architecture contract index. The static gate requires the ADR file to exist and to include the accepted decisions for transactional runtime mutation, observation-only `ThreadTracker`, thread-level `SchedulerController` mutation, processor-group policy, soft-apply evidence, release evidence, process-level `BackgroundController` restriction, access-boundary fallback, input pinning eligibility, and limited explicit apply mode.
