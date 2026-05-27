@@ -95,6 +95,13 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 - explicit rollback failure without shutdown-transfer evidence, which must add the transfer-missing BLOCKER,
 - explicit rollback failure with shutdown-transfer evidence, which must not duplicate the transfer-missing BLOCKER.
 
+`release_gate_evidence_selftest.py` must prove SoftApply baseline evidence stays separate from rollback preserved-state evidence:
+
+- `soft_apply_baseline_summary` may record thread and process baseline counts,
+- `rollback_preserved_state_count` must remain `0`,
+- the step `rollback_preserved_state_summary.has_preserved_state` must remain `false`,
+- the report must remain `PASS` when only SoftApply baseline audit evidence is present.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:

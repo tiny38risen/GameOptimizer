@@ -189,6 +189,8 @@ def assert_shutdown_reason_and_soft_apply_baseline_are_recorded(run_id: str, exe
     log_path.write_text(
         "\n".join([
             "[INFO] soft-apply validated scheduling baseline captured for TID 42 (audit-only, not stored as rollback state; affinity=0x3, group=0, priority=0, creationTime100ns=100)",
+            "[INFO] background rollback baseline validated for PID 77 (observedGroup=0, affinity=0x3, priorityClass=0x20, creationTime100ns=200)",
+            "[INFO] preserved rollback state count: thread=0, process=0",
             "[INFO] runtime validation summary: cycles=1, minimum_required=1, minimum_satisfied=true, main_detected_cycles=1, main_policy_applied_cycles=1, decision_commands=0, feedback_commands=0, dispatch_failures=0, rollback_requests=0, thread_tracker_reset_events=0, high_rtt_cycles=0, high_dpc_cycles=0, high_migration_cycles=0, consecutive_no_main_cycles=0, critical_failure=false",
             "[INFO] shutdown result: reason=MaxRuntimeHardTimeout, timerRollbackFailed=false, schedulerRollbackFailed=false, runtimeValidationFailed=false, rollbackStatePreserved=false",
         ]) + "\n",
@@ -212,8 +214,18 @@ def assert_shutdown_reason_and_soft_apply_baseline_are_recorded(run_id: str, exe
     return (
         record_result == 0
         and finalize_result == 0
+        and report["status"] == "PASS"
+        and report["rollback_preserved_state_count"] == 0
+        and report["severity_summary"]["BLOCKER"] == 0
+        and report["severity_summary"]["WARN"] == 0
         and step["shutdown_failure_classification"]["shutdown_reason"] == "MaxRuntimeHardTimeout"
         and step["soft_apply_baseline_summary"]["thread_baseline_count"] == 1
+        and step["soft_apply_baseline_summary"]["process_baseline_count"] == 1
+        and step["soft_apply_baseline_summary"]["not_stored_as_rollback_state_count"] == 1
+        and step["rollback_preserved_state_summary"]["summary_present"] is True
+        and step["rollback_preserved_state_summary"]["total"] == 0
+        and step["rollback_preserved_state_summary"]["has_preserved_state"] is False
+        and "Rollback preserved state count: 0" in text_report
         and "shutdown failure classification:" in text_report
         and "shutdown_reason': 'MaxRuntimeHardTimeout" in text_report
         and "soft-apply baseline summary:" in text_report

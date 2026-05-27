@@ -94,6 +94,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Processor Group 1+ background process-wide restriction blocked as monitoring-only.
 - DPC spike observed while IRQ mutation backend is unavailable.
 - SoftApply baseline validation records a limitation without mutation.
+- SoftApply baseline evidence increases `rollback_preserved_state_count` or creates BLOCKER/WARN findings by itself.
 
 ## INFO
 

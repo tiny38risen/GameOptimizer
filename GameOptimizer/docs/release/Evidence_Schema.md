@@ -94,6 +94,7 @@ Step-level evidence still records compatibility and audit fields used by the gat
 
 - `shutdown_failure_classification.shutdown_reason`
 - `soft_apply_baseline_summary`
+- SoftApply baseline evidence is audit-only. `soft_apply_baseline_summary` counts must not increase `rollback_preserved_state_count`, and SoftApply-only baseline evidence must remain PASS/INFO when no preserved rollback state exists.
 - `apply_guard_rollback_failure`
 - `apply_guard_rollback_failure_count`
 - `rollback_failure_transferred_to_shutdown_count`
