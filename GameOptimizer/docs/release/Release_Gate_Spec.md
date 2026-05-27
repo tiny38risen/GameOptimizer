@@ -66,7 +66,7 @@ Within `[RC-9]`, `run_rc_gate.bat` must run `verify_real_game_validation.py --ma
 - Real game validation record: dry-run and soft-apply observations must follow `docs/release/Real_Game_Validation_Runbook.md` before an RC tag is proposed.
 - Real game validation evidence: the final bundle manifest must include `real_game_validation_matrix` and `real_game_validation_matrix_sha256`.
 - Final bundle artifact integrity: `create_rc_evidence_bundle.py` must validate every manifest artifact path, SHA-256, and byte size before PASS.
-- Final manifest integrity: `create_rc_evidence_bundle.py` must reload the written JSON manifest and inspect the text manifest before PASS.
+- Final manifest integrity: `create_rc_evidence_bundle.py` must reload the written JSON manifest and inspect the text manifest before PASS; schema, schema hash, and status must be preserved.
 - Final source report integrity: `create_rc_evidence_bundle.py` must validate manifest `source_reports` paths before PASS.
 - Final source report artifact identity: each `source_reports` source must SHA-256 match the copied bundle artifact before PASS.
 - Static gate selftest integrity: `run_release_gate_static_checks_selftest.py` must exercise final bundle validators with real temporary files and expected failures.

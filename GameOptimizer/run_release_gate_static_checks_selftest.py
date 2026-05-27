@@ -99,7 +99,10 @@ def test_bundle_creation_validates_written_manifests_before_pass() -> None:
         errors="replace")
     for marker in [
         "def validate_written_manifests",
+        "\"schema\"",
+        "\"schema_hash\"",
         "JSON bundle manifest field mismatch",
+        "Schema hash:",
         "text bundle manifest missing marker",
         "RC evidence bundle manifest validation",
     ]:
@@ -193,8 +196,11 @@ def test_bundle_validators_accept_real_files() -> None:
         json_manifest_path = root / "rc_evidence_bundle_manifest.json"
         text_manifest_path = root / "rc_evidence_bundle_manifest.txt"
         manifest = {
+            "schema": "gameoptimizer.rc_evidence_bundle.v1",
             "schema_version": "gameoptimizer.rc_evidence_bundle.v1",
+            "schema_hash": "schema-sha",
             "candidate_decision": "RC_CANDIDATE_PASS",
+            "status": "PASS",
             "commit_sha": "abc123",
             "real_game_validation_matrix_sha256": "matrix-sha",
             "regression_selftest_summary": {
@@ -218,6 +224,9 @@ def test_bundle_validators_accept_real_files() -> None:
         text_manifest_path.write_text(
             "\n".join([
                 "Decision: RC_CANDIDATE_PASS",
+                "Schema: gameoptimizer.rc_evidence_bundle.v1",
+                "Schema hash: schema-sha",
+                "Status: PASS",
                 "Commit SHA: abc123",
                 "Real game validation matrix SHA-256: matrix-sha",
                 "Regression selftest summary:",
@@ -320,8 +329,11 @@ def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
         json_manifest_path = root / "rc_evidence_bundle_manifest.json"
         text_manifest_path = root / "rc_evidence_bundle_manifest.txt"
         manifest = {
+            "schema": "gameoptimizer.rc_evidence_bundle.v1",
             "schema_version": "gameoptimizer.rc_evidence_bundle.v1",
+            "schema_hash": "schema-sha",
             "candidate_decision": "RC_CANDIDATE_PASS",
+            "status": "PASS",
             "commit_sha": "abc123",
             "real_game_validation_matrix_sha256": "matrix-sha",
             "regression_selftest_summary": {
@@ -342,7 +354,7 @@ def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
             },
         }
         wrong_manifest = dict(manifest)
-        wrong_manifest["commit_sha"] = "different"
+        wrong_manifest["schema_hash"] = "different"
         json_manifest_path.write_text(json.dumps(wrong_manifest), encoding="utf-8")
         text_manifest_path.write_text("Decision: RC_CANDIDATE_PASS\n", encoding="utf-8")
 
@@ -356,7 +368,7 @@ def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
         assert any("SHA-256 mismatch" in failure for failure in artifact_failures)
         assert any("byte size mismatch" in failure for failure in artifact_failures)
         assert any("source report path is missing" in failure for failure in source_failures)
-        assert any("JSON bundle manifest field mismatch" in failure for failure in manifest_failures)
+        assert any("JSON bundle manifest field mismatch: schema_hash" in failure for failure in manifest_failures)
         assert any("regression selftest did not pass" in failure for failure in manifest_failures)
         assert any("text bundle manifest missing marker" in failure for failure in manifest_failures)
 

@@ -205,8 +205,11 @@ def validate_written_manifests(
         return [f"JSON bundle manifest is unreadable: {exc}"]
 
     for field in (
+        "schema",
         "schema_version",
+        "schema_hash",
         "candidate_decision",
+        "status",
         "commit_sha",
         "real_game_validation_matrix_sha256",
         "regression_selftest_summary",
@@ -226,6 +229,9 @@ def validate_written_manifests(
     text_manifest = text_manifest_path.read_text(encoding="utf-8", errors="replace")
     for marker in (
         "Decision: RC_CANDIDATE_PASS",
+        f"Schema: {manifest['schema']}",
+        f"Schema hash: {manifest['schema_hash']}",
+        f"Status: {manifest['status']}",
         f"Commit SHA: {manifest['commit_sha']}",
         f"Real game validation matrix SHA-256: {manifest['real_game_validation_matrix_sha256']}",
         "Regression selftest summary:",
