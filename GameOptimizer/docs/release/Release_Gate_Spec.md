@@ -160,7 +160,7 @@ Run `python run_release_gate_static_checks.py` before every merge. The gate veri
 
 `StartupPipeline::prepare()` must keep startup policy logging, main-thread policy construction, background filter preparation, and background policy assembly in named helpers. The static gate rejects loss of those helper markers because startup preparation is the boundary before runtime mutation.
 
-ApplyGuard rollback failure evidence is already connected through `release_gate_evidence.py`; release selftests must cover missing shutdown-transfer evidence and must prove transfer-present cases do not add the transfer-missing BLOCKER.
+ApplyGuard rollback failure evidence is already connected through `release_gate_evidence.py`; release selftests must cover missing shutdown-transfer evidence, must prove transfer-present cases do not add the transfer-missing BLOCKER, and must prove destructor rollback failure is exactly one rollback failure BLOCKER without explicit transfer-missing evidence.
 
 SoftApply baseline evidence is already connected through `release_gate_evidence.py`; release selftests must prove thread/process baseline counts do not increase `rollback_preserved_state_count` or produce BLOCKER/WARN findings by themselves.
 

@@ -98,6 +98,7 @@ Step-level evidence still records compatibility and audit fields used by the gat
 - `apply_guard_rollback_failure`
 - `apply_guard_rollback_failure_count`
 - `rollback_failure_transferred_to_shutdown_count`
+- Destructor `ApplyGuard` rollback failures are rollback failure BLOCKER evidence, but they must not require `rollback_failure_transferred_to_shutdown_count` or create the explicit transfer-missing BLOCKER.
 
 ## Identity mismatch messages
 
@@ -123,6 +124,7 @@ The RC verifier must treat these identity failures as `BLOCKER` conditions:
 - `ApplyGuard` rollback failure
 - `ApplyGuard` explicit rollback failure without matching shutdown responsibility transfer evidence
 - `ApplyGuard` explicit rollback failure fixture with matching shutdown transfer evidence must not add the transfer-missing BLOCKER
+- `ApplyGuard` destructor rollback failure fixture must add exactly one rollback failure BLOCKER and no explicit transfer-missing BLOCKER
 - `SetThreadGroupAffinity` failure plus audit query failure
 - `SetThreadGroupAffinity` failure plus audit mismatch
 - runtime validation `FAILED`

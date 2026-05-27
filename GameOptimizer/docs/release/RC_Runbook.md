@@ -61,7 +61,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - verification notes identify the static gate and validator/selftest or regression evidence used for the committed contract chain.
 - `SchedulerController` affinity failure handling remains split into explicit audit, result, and rollback-log helpers.
 - `StartupPipeline::prepare()` remains split into startup policy log, main-thread policy, background filter, and background policy helpers.
-- `release_gate_evidence_selftest.py` covers ApplyGuard rollback failure with and without shutdown-transfer evidence.
+- `release_gate_evidence_selftest.py` covers ApplyGuard explicit rollback failure with and without shutdown-transfer evidence, plus destructor rollback failure classification.
 - `release_gate_evidence_selftest.py` proves SoftApply baseline evidence does not increase rollback preserved-state count.
 - `check_contract_enforcement_matrix` requires the recent helper/evidence selftest markers from CEM.
 - `Release_Blocker_List.md` classifies SoftApply baseline preserved-state/severity drift as BLOCKER, not WARN.

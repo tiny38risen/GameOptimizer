@@ -324,6 +324,35 @@ def assert_apply_guard_rollback_failure_does_not_duplicate_transfer_blocker(
     )
 
 
+def assert_apply_guard_destructor_rollback_failure_is_single_blocker(
+    run_id: str,
+    exe_path: pathlib.Path) -> bool:
+    finalize_result, report, _text_report = finalize_single_step_report(
+        run_id,
+        "apply_guard_destructor_failure",
+        exe_path,
+        [
+            "[ERROR] apply guard destructor rollback failed for target 42: rollback failed",
+            "[INFO] shutdown result: reason=PolicyRollbackRequest, timerRollbackFailed=false, schedulerRollbackFailed=false, runtimeValidationFailed=false, rollbackStatePreserved=false",
+        ],
+        step_name="apply_guard_destructor_failure",
+        mode="apply",
+    )
+    blockers = report.get("blockers", [])
+    step = report["steps"][0]
+    return (
+        finalize_result == 1
+        and report.get("status") == "FAIL"
+        and report.get("apply_guard_rollback_failure_count") == 1
+        and report.get("rollback_failure_transferred_to_shutdown_count") == 0
+        and report.get("blocker_count") == 1
+        and step.get("apply_guard_rollback_failure_count") == 1
+        and step.get("apply_guard_explicit_rollback_failure_count") == 0
+        and sum("ApplyGuard rollback failure" in blocker for blocker in blockers) == 1
+        and not any("ApplyGuard explicit rollback failure was not fully transferred" in blocker for blocker in blockers)
+    )
+
+
 def finalize_single_step_report(
     run_id: str,
     target_suffix: str,
@@ -482,6 +511,7 @@ def main() -> int:
     apply_guard_failure_run_id = f"synthetic_selftest_apply_guard_failure_{unique_id}"
     apply_guard_missing_transfer_run_id = f"synthetic_selftest_apply_guard_missing_transfer_{unique_id}"
     apply_guard_transfer_present_run_id = f"synthetic_selftest_apply_guard_transfer_present_{unique_id}"
+    apply_guard_destructor_failure_run_id = f"synthetic_selftest_apply_guard_destructor_failure_{unique_id}"
     runtime_validation_failure_run_id = f"synthetic_selftest_runtime_validation_failure_{unique_id}"
     rollback_failure_run_id = f"synthetic_selftest_rollback_failure_{unique_id}"
     thread_group_audit_query_run_id = f"synthetic_selftest_thread_group_audit_query_{unique_id}"
@@ -512,6 +542,7 @@ def main() -> int:
         evidence.LOG_ROOT / apply_guard_failure_run_id,
         evidence.LOG_ROOT / apply_guard_missing_transfer_run_id,
         evidence.LOG_ROOT / apply_guard_transfer_present_run_id,
+        evidence.LOG_ROOT / apply_guard_destructor_failure_run_id,
         evidence.LOG_ROOT / runtime_validation_failure_run_id,
         evidence.LOG_ROOT / rollback_failure_run_id,
         evidence.LOG_ROOT / thread_group_audit_query_run_id,
@@ -593,6 +624,12 @@ def main() -> int:
             apply_guard_transfer_present_run_id,
             synthetic_exe):
             print("[FAIL] RC evidence self-test: ApplyGuard rollback failure with transfer duplicated transfer BLOCKER")
+            return 1
+
+        if not assert_apply_guard_destructor_rollback_failure_is_single_blocker(
+            apply_guard_destructor_failure_run_id,
+            synthetic_exe):
+            print("[FAIL] RC evidence self-test: ApplyGuard destructor rollback failure did not become a single BLOCKER")
             return 1
 
         if not assert_blocker_injection(
