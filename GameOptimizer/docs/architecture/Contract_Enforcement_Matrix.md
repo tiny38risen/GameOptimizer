@@ -128,6 +128,8 @@ The final bundle manifest `source_reports` entries must point to existing smoke,
 
 `create_rc_evidence_bundle.py` must expose those final regression selftest PASS markers as `regression_selftest_summary` in the final bundle manifest.
 
+`validate_written_manifests` must treat any false or missing `regression_selftest_summary` entry as a `BLOCKER`.
+
 The expected chain is:
 
 ```text

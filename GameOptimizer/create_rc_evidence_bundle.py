@@ -215,6 +215,14 @@ def validate_written_manifests(
         if loaded_manifest.get(field) != manifest.get(field):
             failures.append(f"JSON bundle manifest field mismatch: {field}")
 
+    regression_selftest_summary = loaded_manifest.get("regression_selftest_summary")
+    if not isinstance(regression_selftest_summary, dict):
+        failures.append("regression selftest summary is missing or invalid")
+    else:
+        for key in ("run_release_gate_static_checks_selftest", "release_gate_evidence_selftest"):
+            if regression_selftest_summary.get(key) is not True:
+                failures.append(f"regression selftest did not pass: {key}")
+
     text_manifest = text_manifest_path.read_text(encoding="utf-8", errors="replace")
     for marker in (
         "Decision: RC_CANDIDATE_PASS",

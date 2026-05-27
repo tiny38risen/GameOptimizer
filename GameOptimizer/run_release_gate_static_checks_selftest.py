@@ -150,6 +150,10 @@ def test_bundle_validators_accept_real_files() -> None:
             "candidate_decision": "RC_CANDIDATE_PASS",
             "commit_sha": "abc123",
             "real_game_validation_matrix_sha256": "matrix-sha",
+            "regression_selftest_summary": {
+                "run_release_gate_static_checks_selftest": True,
+                "release_gate_evidence_selftest": True,
+            },
             "artifacts": [{
                 "label": "artifact",
                 "path": str(artifact_path),
@@ -196,6 +200,10 @@ def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
             "candidate_decision": "RC_CANDIDATE_PASS",
             "commit_sha": "abc123",
             "real_game_validation_matrix_sha256": "matrix-sha",
+            "regression_selftest_summary": {
+                "run_release_gate_static_checks_selftest": False,
+                "release_gate_evidence_selftest": True,
+            },
             "artifacts": [{
                 "label": "artifact",
                 "path": str(artifact_path),
@@ -225,6 +233,7 @@ def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
         assert any("byte size mismatch" in failure for failure in artifact_failures)
         assert any("source report path is missing" in failure for failure in source_failures)
         assert any("JSON bundle manifest field mismatch" in failure for failure in manifest_failures)
+        assert any("regression selftest did not pass" in failure for failure in manifest_failures)
         assert any("text bundle manifest missing marker" in failure for failure in manifest_failures)
 
 
