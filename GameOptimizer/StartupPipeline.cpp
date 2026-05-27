@@ -110,6 +110,140 @@ namespace
             .processorGroup = topology.processorGroup,
             .threadPriority = THREAD_PRIORITY_ABOVE_NORMAL};
     }
+
+    void logStartupPolicySummary(const CliOptions& options) noexcept
+    {
+        Logger::info("scheduler mode: {}", schedulerModeName(options.schedulerMode));
+        if (options.schedulerMode == SchedulerMode::Apply)
+        {
+            Logger::warn("apply mode enabled: SetThreadGroupAffinity and SetThreadPriority may modify the target thread until shutdown rollback");
+            Logger::warn(
+                "apply mode restriction policy: use only after dry-run PASS, soft-apply PASS, no Access Denied, rollback state save success, sufficient ThreadTracker confidence, ApplyGuard audit PASS, and verified group-aware thread path");
+            Logger::warn(
+                "apply mode blocked by policy when anti-cheat is suspected, Access Denied repeats, rollback state save fails, Raw Input TID confidence is Low, group 1+ process-wide background restriction is required, or soft-apply WARN count is high");
+        }
+        else if (options.schedulerMode == SchedulerMode::SoftApply)
+        {
+            Logger::info("soft-apply: OpenThread scheduling-rights validation is enabled, but SetThread* calls are blocked");
+        }
+        else
+        {
+            Logger::info("dry-run: target thread will not be opened or modified");
+        }
+
+        Logger::info("pre-apply gate enabled: non-zero affinity mask and valid processor group are required before thread access");
+        Logger::info(
+            "policy drift watchdog enabled for apply mode: current thread policy will be audited every {} watchdog cycle(s)",
+            kPolicyAuditIntervalCycles);
+        Logger::info(
+            "multi-sampling enabled: {} samples, {} ms interval",
+            kSampleCount,
+            kSampleInterval.count());
+        Logger::info("policy command router enabled: E2E decision layer can emit BG_RESTRICT_UP, IRQ_REPIN, STICKY_UP, ROLLBACK");
+        Logger::info("policy stabilizer enabled: hysteresis + debounce + per-command cooldown are active");
+        Logger::info("background controller enabled: BG_RESTRICT_UP can isolate non-target processes from the selected game mask");
+        if (options.runtimeLogConfig.threadDetailLogEnabled)
+        {
+            Logger::info(
+                "thread detail log enabled: interval={} watchdog cycle(s)",
+                options.runtimeLogConfig.threadDetailLogIntervalCycles);
+        }
+        else
+        {
+            Logger::info("thread detail log disabled by default: pass --thread-detail-log to print top thread rows");
+        }
+        if (!options.backgroundFilterConfigPath.empty())
+        {
+            Logger::info("background filter config path: {}", narrowForLog(options.backgroundFilterConfigPath));
+        }
+        if (!options.latencyPingTarget.empty())
+        {
+            Logger::info("ICMP RTT fallback enabled: target={}", narrowForLog(options.latencyPingTarget));
+        }
+        else
+        {
+            Logger::info("ICMP RTT fallback disabled: pass --latency-ping <ipv4> to enable RTT jitter metrics");
+        }
+        if (options.maxRuntime.has_value())
+        {
+            Logger::info("max runtime limit enabled: {} seconds", options.maxRuntime->count());
+        }
+    }
+
+    [[nodiscard]] SchedulerPolicy buildMainThreadPolicy(DWORD targetProcessId) noexcept
+    {
+        SchedulerPolicy mainThreadPolicy{
+            .affinityMask = 0,
+            .processorGroup = 0,
+            .threadPriority = THREAD_PRIORITY_ABOVE_NORMAL};
+
+        const auto topologyResult = TopologyAnalyzer::buildMainThreadMask(targetProcessId);
+        if (topologyResult)
+        {
+            const auto& topology = *topologyResult;
+            mainThreadPolicy.affinityMask = topology.validatedMask;
+            mainThreadPolicy.processorGroup = topology.processorGroup;
+            return mainThreadPolicy;
+        }
+
+        Logger::warn(
+            "topology analyzer unavailable: {}; attempting process-affinity fallback policy",
+            toString(topologyResult.error()));
+
+        const auto fallbackPolicy = buildProcessAffinityFallbackPolicy(targetProcessId);
+        if (fallbackPolicy)
+        {
+            const auto& fallback = *fallbackPolicy;
+            Logger::warn(
+                "topology fallback policy selected from process affinity: group={}, affinity=0x{:X}",
+                static_cast<unsigned int>(fallback.processorGroup),
+                static_cast<unsigned long long>(fallback.affinityMask));
+            return fallback;
+        }
+
+        Logger::error(
+            "topology fallback policy unavailable: {}; scheduler/background policies will remain disabled until a valid mask is available",
+            toString(fallbackPolicy.error()));
+        return mainThreadPolicy;
+    }
+
+    [[nodiscard]] BackgroundFilterConfig loadAndPrepareBackgroundFilterConfig(const CliOptions& options)
+    {
+        BackgroundFilterConfig backgroundFilterConfig =
+            BackgroundController::loadFilterConfigFromFile(options.backgroundFilterConfigPath);
+        backgroundFilterConfig.logRestrictedProcessDetails = options.backgroundDetailLogEnabled;
+        backgroundFilterConfig.logSkippedProcessDetails = options.backgroundDetailLogEnabled;
+        if (options.backgroundDetailLogEnabled)
+        {
+            Logger::info("background detail log enabled: per-process restriction and skip lines will be printed");
+        }
+        if (options.schedulerMode == SchedulerMode::Apply &&
+            backgroundFilterConfig.requireExplicitRestrictionTargetsInApply &&
+            backgroundFilterConfig.restrictionTargetProcessNames.empty())
+        {
+            Logger::warn(
+                "apply mode safety: background restriction will be blocked because no deny/restrict targets were loaded; "
+                "main-thread scheduling may still run, but BG_RESTRICT_UP will not change other processes");
+        }
+        else if (!backgroundFilterConfig.restrictionTargetProcessNames.empty())
+        {
+            Logger::info(
+                "background apply safety: explicit restriction target count={}",
+                backgroundFilterConfig.restrictionTargetProcessNames.size());
+        }
+
+        return backgroundFilterConfig;
+    }
+
+    [[nodiscard]] BackgroundRestrictionPolicy buildBackgroundRestrictionPolicy(
+        DWORD targetProcessId,
+        const SchedulerPolicy& mainThreadPolicy) noexcept
+    {
+        return BackgroundRestrictionPolicy{
+            .targetProcessId = targetProcessId,
+            .gameAffinityMask = mainThreadPolicy.affinityMask,
+            .processorGroup = mainThreadPolicy.processorGroup};
+    }
 }
 
 std::expected<RuntimeContext, ErrorCode> StartupPipeline::run(int argc, wchar_t* argv[]) noexcept
@@ -217,128 +351,17 @@ std::expected<StartupPlan, ErrorCode> StartupPipeline::prepare(const CliOptions&
 
     const DWORD targetProcessId = *processId;
     Logger::info("target PID: {}", targetProcessId);
-    Logger::info("scheduler mode: {}", schedulerModeName(options.schedulerMode));
-    if (options.schedulerMode == SchedulerMode::Apply)
-    {
-        Logger::warn("apply mode enabled: SetThreadGroupAffinity and SetThreadPriority may modify the target thread until shutdown rollback");
-        Logger::warn(
-            "apply mode restriction policy: use only after dry-run PASS, soft-apply PASS, no Access Denied, rollback state save success, sufficient ThreadTracker confidence, ApplyGuard audit PASS, and verified group-aware thread path");
-        Logger::warn(
-            "apply mode blocked by policy when anti-cheat is suspected, Access Denied repeats, rollback state save fails, Raw Input TID confidence is Low, group 1+ process-wide background restriction is required, or soft-apply WARN count is high");
-    }
-    else if (options.schedulerMode == SchedulerMode::SoftApply)
-    {
-        Logger::info("soft-apply: OpenThread scheduling-rights validation is enabled, but SetThread* calls are blocked");
-    }
-    else
-    {
-        Logger::info("dry-run: target thread will not be opened or modified");
-    }
+    logStartupPolicySummary(options);
 
-    Logger::info("pre-apply gate enabled: non-zero affinity mask and valid processor group are required before thread access");
-    Logger::info(
-        "policy drift watchdog enabled for apply mode: current thread policy will be audited every {} watchdog cycle(s)",
-        kPolicyAuditIntervalCycles);
-    Logger::info(
-        "multi-sampling enabled: {} samples, {} ms interval",
-        kSampleCount,
-        kSampleInterval.count());
-    Logger::info("policy command router enabled: E2E decision layer can emit BG_RESTRICT_UP, IRQ_REPIN, STICKY_UP, ROLLBACK");
-    Logger::info("policy stabilizer enabled: hysteresis + debounce + per-command cooldown are active");
-    Logger::info("background controller enabled: BG_RESTRICT_UP can isolate non-target processes from the selected game mask");
-    if (options.runtimeLogConfig.threadDetailLogEnabled)
-    {
-        Logger::info(
-            "thread detail log enabled: interval={} watchdog cycle(s)",
-            options.runtimeLogConfig.threadDetailLogIntervalCycles);
-    }
-    else
-    {
-        Logger::info("thread detail log disabled by default: pass --thread-detail-log to print top thread rows");
-    }
-    if (!options.backgroundFilterConfigPath.empty())
-    {
-        Logger::info("background filter config path: {}", narrowForLog(options.backgroundFilterConfigPath));
-    }
-    if (!options.latencyPingTarget.empty())
-    {
-        Logger::info("ICMP RTT fallback enabled: target={}", narrowForLog(options.latencyPingTarget));
-    }
-    else
-    {
-        Logger::info("ICMP RTT fallback disabled: pass --latency-ping <ipv4> to enable RTT jitter metrics");
-    }
-    if (options.maxRuntime.has_value())
-    {
-        Logger::info("max runtime limit enabled: {} seconds", options.maxRuntime->count());
-    }
-
-    SchedulerPolicy mainThreadPolicy{
-        .affinityMask = 0,
-        .processorGroup = 0,
-        .threadPriority = THREAD_PRIORITY_ABOVE_NORMAL};
-
-    const auto topologyResult = TopologyAnalyzer::buildMainThreadMask(targetProcessId);
-    if (topologyResult)
-    {
-        const auto& topology = *topologyResult;
-        mainThreadPolicy.affinityMask = topology.validatedMask;
-        mainThreadPolicy.processorGroup = topology.processorGroup;
-    }
-    else
-    {
-        Logger::warn(
-            "topology analyzer unavailable: {}; attempting process-affinity fallback policy",
-            toString(topologyResult.error()));
-
-        const auto fallbackPolicy = buildProcessAffinityFallbackPolicy(targetProcessId);
-        if (fallbackPolicy)
-        {
-            const auto& fallback = *fallbackPolicy;
-            mainThreadPolicy = fallback;
-            Logger::warn(
-                "topology fallback policy selected from process affinity: group={}, affinity=0x{:X}",
-                static_cast<unsigned int>(mainThreadPolicy.processorGroup),
-                static_cast<unsigned long long>(mainThreadPolicy.affinityMask));
-        }
-        else
-        {
-            Logger::error(
-                "topology fallback policy unavailable: {}; scheduler/background policies will remain disabled until a valid mask is available",
-                toString(fallbackPolicy.error()));
-        }
-    }
-
-    BackgroundFilterConfig backgroundFilterConfig =
-        BackgroundController::loadFilterConfigFromFile(options.backgroundFilterConfigPath);
-    backgroundFilterConfig.logRestrictedProcessDetails = options.backgroundDetailLogEnabled;
-    backgroundFilterConfig.logSkippedProcessDetails = options.backgroundDetailLogEnabled;
-    if (options.backgroundDetailLogEnabled)
-    {
-        Logger::info("background detail log enabled: per-process restriction and skip lines will be printed");
-    }
-    if (options.schedulerMode == SchedulerMode::Apply &&
-        backgroundFilterConfig.requireExplicitRestrictionTargetsInApply &&
-        backgroundFilterConfig.restrictionTargetProcessNames.empty())
-    {
-        Logger::warn(
-            "apply mode safety: background restriction will be blocked because no deny/restrict targets were loaded; "
-            "main-thread scheduling may still run, but BG_RESTRICT_UP will not change other processes");
-    }
-    else if (!backgroundFilterConfig.restrictionTargetProcessNames.empty())
-    {
-        Logger::info(
-            "background apply safety: explicit restriction target count={}",
-            backgroundFilterConfig.restrictionTargetProcessNames.size());
-    }
+    const SchedulerPolicy mainThreadPolicy = buildMainThreadPolicy(targetProcessId);
+    BackgroundFilterConfig backgroundFilterConfig = loadAndPrepareBackgroundFilterConfig(options);
+    const BackgroundRestrictionPolicy backgroundPolicy =
+        buildBackgroundRestrictionPolicy(targetProcessId, mainThreadPolicy);
 
     return StartupPlan{
         .targetProcessId = targetProcessId,
         .mainThreadPolicy = mainThreadPolicy,
-        .backgroundPolicy = BackgroundRestrictionPolicy{
-            .targetProcessId = targetProcessId,
-            .gameAffinityMask = mainThreadPolicy.affinityMask,
-            .processorGroup = mainThreadPolicy.processorGroup},
+        .backgroundPolicy = backgroundPolicy,
         .trackerConfig = ThreadTrackerConfig{
             .emaAlpha = kEmaAlpha,
             .stickinessDuration = kStickinessDuration,

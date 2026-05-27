@@ -55,6 +55,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Unsafe rollback state discard is reintroduced.
 - `SetThreadGroupAffinity` failure path discards rollback state without post-failure state audit.
 - `SchedulerController` affinity failure audit/result/rollback-log helper markers are missing.
+- `StartupPipeline::prepare()` startup policy/main-thread policy/background filter/background policy helper markers are missing.
 - `SetThreadGroupAffinity` failure plus post-failure audit query failure.
 - `SetThreadGroupAffinity` failure plus post-failure audit mismatch.
 - Timeline monotonicity failure.

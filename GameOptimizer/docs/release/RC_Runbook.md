@@ -60,6 +60,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - each development commit preserves the atomic governance change unit: document contract 1 -> static gate 1 -> validator/evidence coupling 1 -> selftest or regression 1 -> document/blocker/runbook sync -> verification -> commit 1.
 - verification notes identify the static gate and validator/selftest or regression evidence used for the committed contract chain.
 - `SchedulerController` affinity failure handling remains split into explicit audit, result, and rollback-log helpers.
+- `StartupPipeline::prepare()` remains split into startup policy log, main-thread policy, background filter, and background policy helpers.
 
 ## Tag rule
 

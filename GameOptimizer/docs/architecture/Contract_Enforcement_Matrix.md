@@ -53,6 +53,7 @@ The release static gate must fail when:
 - group 1+ background process-wide mutation can bypass the processor-group guard,
 - ApplyGuard transaction ordering markers are missing,
 - SchedulerController affinity failure helper markers are missing,
+- StartupPipeline prepare helper markers are missing,
 - SoftApply baseline storage writes into rollback state,
 - release evidence schema/blocker/runbook contracts are stale.
 - the atomic governance change unit is missing from engineering guidance, CEM, release blockers, runbook, or static gate.
@@ -79,6 +80,15 @@ Runtime validation must surface these as `BLOCKER` evidence:
 - `logAffinityRollbackFailure`
 
 Inlining these responsibilities back into `applyMainThreadPolicy()` is a `BLOCKER` because it obscures the audit -> rollback/discard -> evidence contract.
+
+`StartupPipeline::prepare()` must keep startup responsibilities helper-split:
+
+- `logStartupPolicySummary`
+- `buildMainThreadPolicy`
+- `loadAndPrepareBackgroundFilterConfig`
+- `buildBackgroundRestrictionPolicy`
+
+Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it hides topology fallback, background filter preparation, and policy assembly boundaries.
 
 ## Required Evidence Coupling
 
