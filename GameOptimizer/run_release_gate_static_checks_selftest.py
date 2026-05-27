@@ -429,6 +429,32 @@ def test_bundle_manifest_records_regression_selftest_summary() -> None:
         assert marker in bundle_text
 
 
+def test_cem_gate_requires_recent_contract_markers() -> None:
+    static_gate_text = static_checks.pathlib.Path("run_release_gate_static_checks.py").read_text(
+        encoding="utf-8",
+        errors="replace")
+    cem_text = static_checks.CONTRACT_ENFORCEMENT_MATRIX_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    for marker in [
+        "FailedAffinityApplyDisposition",
+        "auditFailedAffinityApply",
+        "makeAffinityApplyFailureResult",
+        "logAffinityRollbackFailure",
+        "logStartupPolicySummary",
+        "buildMainThreadPolicy",
+        "loadAndPrepareBackgroundFilterConfig",
+        "buildBackgroundRestrictionPolicy",
+        "ApplyGuard rollback failure fixtures",
+        "not duplicate the transfer-missing BLOCKER",
+        "SoftApply baseline evidence stays separate",
+        "rollback_preserved_state_summary.has_preserved_state",
+        "report must remain `PASS`",
+    ]:
+        assert marker in static_gate_text
+        assert marker in cem_text
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
@@ -447,6 +473,7 @@ def main() -> int:
     test_bundle_validators_reject_missing_or_mismatched_files()
     test_rc_candidate_regression_log_requires_selftest_pass_markers()
     test_bundle_manifest_records_regression_selftest_summary()
+    test_cem_gate_requires_recent_contract_markers()
     print("[PASS] static gate selftest passed")
     return 0
 

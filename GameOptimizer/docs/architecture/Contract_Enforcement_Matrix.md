@@ -57,6 +57,7 @@ The release static gate must fail when:
 - SoftApply baseline storage writes into rollback state,
 - release evidence schema/blocker/runbook contracts are stale.
 - the atomic governance change unit is missing from engineering guidance, CEM, release blockers, runbook, or static gate.
+- CEM loses the recent contract markers required by `check_contract_enforcement_matrix`.
 
 ## Required Runtime Validation Behavior
 

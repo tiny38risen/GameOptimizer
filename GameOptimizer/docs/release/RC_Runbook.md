@@ -63,6 +63,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - `StartupPipeline::prepare()` remains split into startup policy log, main-thread policy, background filter, and background policy helpers.
 - `release_gate_evidence_selftest.py` covers ApplyGuard rollback failure with and without shutdown-transfer evidence.
 - `release_gate_evidence_selftest.py` proves SoftApply baseline evidence does not increase rollback preserved-state count.
+- `check_contract_enforcement_matrix` requires the recent helper/evidence selftest markers from CEM.
 
 ## Tag rule
 

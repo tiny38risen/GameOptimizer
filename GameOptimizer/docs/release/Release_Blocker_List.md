@@ -15,6 +15,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Static release gate fails.
 - `docs/architecture/Architecture_Decision_Record.md` is missing or stale.
 - `docs/architecture/Contract_Enforcement_Matrix.md` is missing or stale.
+- `docs/architecture/Contract_Enforcement_Matrix.md` loses required helper/evidence selftest markers.
 - Release x64 MSVC build fails.
 - Full regression fails.
 - Release smoke fails.
