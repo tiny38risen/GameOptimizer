@@ -136,6 +136,28 @@ def test_bundle_creation_validates_source_reports_before_pass() -> None:
     assert failures == []
 
 
+def test_bundle_creation_validates_regression_selftest_summary_against_artifact_before_pass() -> None:
+    bundle_text = static_checks.CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    for marker in [
+        "def validate_bundled_regression_selftest_summary",
+        "find_bundle_artifact(manifest, \"final_regression_log\")",
+        "collect_regression_selftest_summary_from_text",
+        "regression selftest summary mismatch",
+        "RC evidence bundle regression selftest validation",
+    ]:
+        assert marker in bundle_text
+
+    ordered_markers = [
+        "regression_selftest_failures = validate_bundled_regression_selftest_summary(manifest)",
+        "write_json(json_manifest_path, manifest)",
+        "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
+    ]
+    failures = static_checks.validate_ordered_markers("selftest", bundle_text, ordered_markers)
+    assert failures == []
+
+
 def test_bundle_validators_accept_real_files() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = bundle.pathlib.Path(tmp)
@@ -187,6 +209,42 @@ def test_bundle_validators_accept_real_files() -> None:
             json_manifest_path,
             text_manifest_path,
             manifest) == []
+
+
+def test_bundle_regression_selftest_summary_matches_bundled_log() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = bundle.pathlib.Path(tmp)
+        regression_log = root / "final_regression.log"
+        regression_log.write_text(
+            "\n".join([
+                "[PASS] run_release_gate_static_checks_selftest passed",
+                "[PASS] release_gate_evidence_selftest passed",
+                "[INFO] regression summary: total=11, failed=0",
+                "[PASS] all regression tests passed",
+            ]),
+            encoding="utf-8")
+        manifest = {
+            "regression_selftest_summary": {
+                "run_release_gate_static_checks_selftest": True,
+                "release_gate_evidence_selftest": True,
+            },
+            "artifacts": [{
+                "label": "final_regression_log",
+                "path": str(regression_log),
+                "sha256": bundle.evidence.sha256_file(regression_log),
+                "bytes": regression_log.stat().st_size,
+            }],
+        }
+
+        assert bundle.validate_bundled_regression_selftest_summary(manifest) == []
+
+        mismatched_manifest = dict(manifest)
+        mismatched_manifest["regression_selftest_summary"] = {
+            "run_release_gate_static_checks_selftest": False,
+            "release_gate_evidence_selftest": True,
+        }
+        failures = bundle.validate_bundled_regression_selftest_summary(mismatched_manifest)
+        assert any("regression selftest summary mismatch" in failure for failure in failures)
 
 
 def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
@@ -290,7 +348,9 @@ def main() -> int:
     test_bundle_creation_validates_manifest_artifact_hashes_before_pass()
     test_bundle_creation_validates_written_manifests_before_pass()
     test_bundle_creation_validates_source_reports_before_pass()
+    test_bundle_creation_validates_regression_selftest_summary_against_artifact_before_pass()
     test_bundle_validators_accept_real_files()
+    test_bundle_regression_selftest_summary_matches_bundled_log()
     test_bundle_validators_reject_missing_or_mismatched_files()
     test_rc_candidate_regression_log_requires_selftest_pass_markers()
     test_bundle_manifest_records_regression_selftest_summary()

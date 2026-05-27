@@ -258,6 +258,47 @@ def validate_bundle_source_reports(manifest: dict[str, Any]) -> list[str]:
     return failures
 
 
+def collect_regression_selftest_summary_from_text(text: str) -> dict[str, bool]:
+    return {
+        "run_release_gate_static_checks_selftest": (
+            "[PASS] run_release_gate_static_checks_selftest passed" in text),
+        "release_gate_evidence_selftest": (
+            "[PASS] release_gate_evidence_selftest passed" in text),
+    }
+
+
+def find_bundle_artifact(manifest: dict[str, Any], label: str) -> dict[str, Any] | None:
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        return None
+    for artifact in artifacts:
+        if isinstance(artifact, dict) and artifact.get("label") == label:
+            return artifact
+    return None
+
+
+def validate_bundled_regression_selftest_summary(manifest: dict[str, Any]) -> list[str]:
+    expected_summary = manifest.get("regression_selftest_summary")
+    if not isinstance(expected_summary, dict):
+        return ["regression selftest summary is missing or invalid"]
+
+    regression_artifact = find_bundle_artifact(manifest, "final_regression_log")
+    if regression_artifact is None:
+        return ["final_regression_log artifact is missing"]
+
+    artifact_path = resolve_bundle_artifact_path(regression_artifact.get("path"))
+    if not artifact_path.exists() or not artifact_path.is_file():
+        return [f"final_regression_log artifact is missing: {artifact_path}"]
+
+    text = artifact_path.read_text(encoding="utf-8", errors="replace")
+    artifact_summary = collect_regression_selftest_summary_from_text(text)
+    failures: list[str] = []
+    for key, artifact_value in artifact_summary.items():
+        if expected_summary.get(key) is not artifact_value:
+            failures.append(f"regression selftest summary mismatch: {key}")
+    return failures
+
+
 def collect_warnings(*states: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
     for state in states:
@@ -284,12 +325,7 @@ def collect_step_field(field_name: str, *states: dict[str, Any]) -> list[dict[st
 
 def collect_regression_selftest_summary(regression_log: pathlib.Path) -> dict[str, bool]:
     text = regression_log.read_text(encoding="utf-8", errors="replace")
-    return {
-        "run_release_gate_static_checks_selftest": (
-            "[PASS] run_release_gate_static_checks_selftest passed" in text),
-        "release_gate_evidence_selftest": (
-            "[PASS] release_gate_evidence_selftest passed" in text),
-    }
+    return collect_regression_selftest_summary_from_text(text)
 
 
 def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
@@ -440,6 +476,12 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
     if source_report_failures:
         for failure in source_report_failures:
             print(f"[BLOCKER] RC evidence bundle source report validation: {failure}")
+        raise SystemExit(1)
+
+    regression_selftest_failures = validate_bundled_regression_selftest_summary(manifest)
+    if regression_selftest_failures:
+        for failure in regression_selftest_failures:
+            print(f"[BLOCKER] RC evidence bundle regression selftest validation: {failure}")
         raise SystemExit(1)
 
     json_manifest_path = bundle_dir / "rc_evidence_bundle_manifest.json"

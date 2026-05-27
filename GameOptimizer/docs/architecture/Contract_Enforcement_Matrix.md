@@ -132,6 +132,8 @@ The final bundle manifest `source_reports` entries must point to existing smoke,
 
 The text bundle manifest must include `Regression selftest summary:` plus both selftest keys before PASS.
 
+`create_rc_evidence_bundle.py` must compare `regression_selftest_summary` with the bundled `final_regression_log` artifact before PASS; any mismatch is a `BLOCKER`.
+
 The expected chain is:
 
 ```text

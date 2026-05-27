@@ -1015,7 +1015,9 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_bundle_creation_validates_manifest_artifact_hashes_before_pass",
         "test_bundle_creation_validates_written_manifests_before_pass",
         "test_bundle_creation_validates_source_reports_before_pass",
+        "test_bundle_creation_validates_regression_selftest_summary_against_artifact_before_pass",
         "test_bundle_validators_accept_real_files",
+        "test_bundle_regression_selftest_summary_matches_bundled_log",
         "test_bundle_validators_reject_missing_or_mismatched_files",
         "test_rc_candidate_regression_log_requires_selftest_pass_markers",
         "test_bundle_manifest_records_regression_selftest_summary",
@@ -1284,6 +1286,12 @@ def check_rc_candidate_contract() -> list[str]:
         "real_game_validation_matrix_artifact",
         "regression_selftest_summary",
         "collect_regression_selftest_summary",
+        "collect_regression_selftest_summary_from_text",
+        "validate_bundled_regression_selftest_summary",
+        "find_bundle_artifact(manifest, \"final_regression_log\")",
+        "RC evidence bundle regression selftest validation",
+        "regression selftest summary mismatch",
+        "final_regression_log",
         "regression selftest did not pass",
         "regression selftest summary is missing or invalid",
         "Regression selftest summary:",
@@ -1379,6 +1387,12 @@ def check_rc_candidate_contract() -> list[str]:
     ]))
     failures.extend(validate_ordered_markers("RC bundle source report validation", bundle_text, [
         "source_report_failures = validate_bundle_source_reports(manifest)",
+        "write_json(json_manifest_path, manifest)",
+        "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
+    ]))
+    failures.extend(validate_ordered_markers("RC bundle regression selftest validation", bundle_text, [
+        "validate_bundle_artifacts(manifest)",
+        "validate_bundled_regression_selftest_summary(manifest)",
         "write_json(json_manifest_path, manifest)",
         "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
     ]))
