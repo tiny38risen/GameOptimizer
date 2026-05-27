@@ -81,6 +81,7 @@ Compatibility aliases such as `schema`, `git_commit`, `exe_sha256`, and `severit
 - `real_game_validation_matrix`: bundled copy path for `docs/release/Game_Verification_Matrix.json`.
 - `real_game_validation_matrix_sha256`: SHA-256 of the bundled real-game validation matrix.
 - final bundle artifact entries: each `artifacts[]` item must point to an existing copied file and match its recorded `sha256` and `bytes` before PASS is printed.
+- final bundle manifests: `rc_evidence_bundle_manifest.json` must reload with matching release fields, and `rc_evidence_bundle_manifest.txt` must contain the candidate decision, commit SHA, real-game matrix SHA-256, and BLOCKER none before PASS is printed.
 
 Step-level evidence still records compatibility and audit fields used by the gate:
 

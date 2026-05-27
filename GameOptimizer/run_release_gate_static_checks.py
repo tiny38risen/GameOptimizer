@@ -1013,6 +1013,7 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_bundle_creation_validates_real_game_matrix_before_writing_bundle",
         "test_bundle_manifest_preserves_real_game_matrix_artifact",
         "test_bundle_creation_validates_manifest_artifact_hashes_before_pass",
+        "test_bundle_creation_validates_written_manifests_before_pass",
         "[PASS] static gate selftest passed",
     ]
     for marker in required_markers:
@@ -1268,6 +1269,10 @@ def check_rc_candidate_contract() -> list[str]:
         "validate_bundle_artifacts",
         "resolve_bundle_artifact_path",
         "RC evidence bundle artifact validation",
+        "validate_written_manifests",
+        "RC evidence bundle manifest validation",
+        "JSON bundle manifest field mismatch",
+        "text bundle manifest missing marker",
         "SHA-256 mismatch",
         "byte size mismatch",
         "final regression result",
@@ -1336,7 +1341,13 @@ def check_rc_candidate_contract() -> list[str]:
     ]))
     failures.extend(validate_ordered_markers("RC bundle artifact validation", bundle_text, [
         "artifact_failures = validate_bundle_artifacts(manifest)",
-        "write_json(bundle_dir / \"rc_evidence_bundle_manifest.json\", manifest)",
+        "json_manifest_path = bundle_dir / \"rc_evidence_bundle_manifest.json\"",
+        "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
+    ]))
+    failures.extend(validate_ordered_markers("RC written manifest validation", bundle_text, [
+        "write_json(json_manifest_path, manifest)",
+        "write_text_manifest(text_manifest_path, manifest)",
+        "manifest_failures = validate_written_manifests(",
         "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
     ]))
     return failures

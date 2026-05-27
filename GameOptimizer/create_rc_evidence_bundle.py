@@ -186,6 +186,47 @@ def validate_bundle_artifacts(manifest: dict[str, Any]) -> list[str]:
     return failures
 
 
+def validate_written_manifests(
+    json_manifest_path: pathlib.Path,
+    text_manifest_path: pathlib.Path,
+    manifest: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    if not json_manifest_path.exists() or not json_manifest_path.is_file():
+        failures.append(f"JSON bundle manifest is missing: {json_manifest_path}")
+    if not text_manifest_path.exists() or not text_manifest_path.is_file():
+        failures.append(f"text bundle manifest is missing: {text_manifest_path}")
+    if failures:
+        return failures
+
+    try:
+        loaded_manifest = json.loads(json_manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"JSON bundle manifest is unreadable: {exc}"]
+
+    for field in (
+        "schema_version",
+        "candidate_decision",
+        "commit_sha",
+        "real_game_validation_matrix_sha256",
+        "artifacts",
+    ):
+        if loaded_manifest.get(field) != manifest.get(field):
+            failures.append(f"JSON bundle manifest field mismatch: {field}")
+
+    text_manifest = text_manifest_path.read_text(encoding="utf-8", errors="replace")
+    for marker in (
+        "Decision: RC_CANDIDATE_PASS",
+        f"Commit SHA: {manifest['commit_sha']}",
+        f"Real game validation matrix SHA-256: {manifest['real_game_validation_matrix_sha256']}",
+        "BLOCKER:",
+        "- none",
+    ):
+        if marker not in text_manifest:
+            failures.append(f"text bundle manifest missing marker: {marker}")
+
+    return failures
+
+
 def collect_warnings(*states: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
     for state in states:
@@ -353,8 +394,19 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
             print(f"[BLOCKER] RC evidence bundle artifact validation: {failure}")
         raise SystemExit(1)
 
-    write_json(bundle_dir / "rc_evidence_bundle_manifest.json", manifest)
-    write_text_manifest(bundle_dir / "rc_evidence_bundle_manifest.txt", manifest)
+    json_manifest_path = bundle_dir / "rc_evidence_bundle_manifest.json"
+    text_manifest_path = bundle_dir / "rc_evidence_bundle_manifest.txt"
+    write_json(json_manifest_path, manifest)
+    write_text_manifest(text_manifest_path, manifest)
+    manifest_failures = validate_written_manifests(
+        json_manifest_path,
+        text_manifest_path,
+        manifest)
+    if manifest_failures:
+        for failure in manifest_failures:
+            print(f"[BLOCKER] RC evidence bundle manifest validation: {failure}")
+        raise SystemExit(1)
+
     print(f"[PASS] RC evidence bundle created: {bundle_dir}")
     return bundle_dir
 

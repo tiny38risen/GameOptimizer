@@ -115,6 +115,8 @@ The final RC evidence bundle must copy `docs/release/Game_Verification_Matrix.js
 
 Before printing PASS, `create_rc_evidence_bundle.py` must validate every manifest artifact path, SHA-256, and byte size against the copied files.
 
+After writing `rc_evidence_bundle_manifest.json` and `rc_evidence_bundle_manifest.txt`, `create_rc_evidence_bundle.py` must reload and validate both manifests before printing PASS.
+
 The expected chain is:
 
 ```text
