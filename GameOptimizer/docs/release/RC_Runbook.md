@@ -44,6 +44,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - final bundle artifact entries pass path, SHA-256, and byte-size validation before PASS.
 - written JSON/TXT bundle manifests pass reload and marker validation before PASS.
 - written JSON/TXT bundle manifests preserve schema, schema hash, and PASS status before PASS.
+- written JSON/TXT bundle manifests preserve target process, git commit, build hash, and binary SHA-256 before PASS.
 - final bundle `source_reports` entries point to existing smoke, soak, final regression, and real-game validation matrix files before PASS.
 - final bundle `source_reports` entries SHA-256 match their copied bundle artifacts.
 - static gate selftest exercises final bundle validators with real temporary files and mismatched-file failures.

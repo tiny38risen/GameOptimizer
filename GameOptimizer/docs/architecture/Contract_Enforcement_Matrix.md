@@ -120,6 +120,8 @@ After writing `rc_evidence_bundle_manifest.json` and `rc_evidence_bundle_manifes
 
 Written final bundle manifests must preserve `schema`, `schema_version`, `schema_hash`, and `status` exactly; any mismatch is a `BLOCKER`.
 
+Written final bundle manifests must preserve release identity fields exactly: `target`, `target_process`, `git_commit`, `commit_sha`, `build_hash`, and `binary_sha256`; any mismatch is a `BLOCKER`.
+
 The final bundle manifest `source_reports` entries must point to existing smoke, soak, final regression, and real-game validation matrix source files before PASS.
 
 The final bundle manifest `source_reports` entries must SHA-256 match their copied bundle artifacts (`smoke_json`, `soak_json`, `final_regression_log`, and `real_game_validation_matrix`) before PASS.

@@ -103,6 +103,7 @@ def test_bundle_creation_validates_written_manifests_before_pass() -> None:
         "\"schema_hash\"",
         "JSON bundle manifest field mismatch",
         "Schema hash:",
+        "Binary SHA-256:",
         "text bundle manifest missing marker",
         "RC evidence bundle manifest validation",
     ]:
@@ -201,7 +202,12 @@ def test_bundle_validators_accept_real_files() -> None:
             "schema_hash": "schema-sha",
             "candidate_decision": "RC_CANDIDATE_PASS",
             "status": "PASS",
+            "target": "target.exe",
+            "target_process": "target.exe",
+            "git_commit": "abc123",
             "commit_sha": "abc123",
+            "build_hash": "build-sha",
+            "binary_sha256": "binary-sha",
             "real_game_validation_matrix_sha256": "matrix-sha",
             "regression_selftest_summary": {
                 "run_release_gate_static_checks_selftest": True,
@@ -227,7 +233,12 @@ def test_bundle_validators_accept_real_files() -> None:
                 "Schema: gameoptimizer.rc_evidence_bundle.v1",
                 "Schema hash: schema-sha",
                 "Status: PASS",
+                "Target: target.exe",
+                "Target process: target.exe",
+                "Git commit: abc123",
                 "Commit SHA: abc123",
+                "Build hash: build-sha",
+                "Binary SHA-256: binary-sha",
                 "Real game validation matrix SHA-256: matrix-sha",
                 "Regression selftest summary:",
                 "run_release_gate_static_checks_selftest",
@@ -334,7 +345,12 @@ def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
             "schema_hash": "schema-sha",
             "candidate_decision": "RC_CANDIDATE_PASS",
             "status": "PASS",
+            "target": "target.exe",
+            "target_process": "target.exe",
+            "git_commit": "abc123",
             "commit_sha": "abc123",
+            "build_hash": "build-sha",
+            "binary_sha256": "binary-sha",
             "real_game_validation_matrix_sha256": "matrix-sha",
             "regression_selftest_summary": {
                 "run_release_gate_static_checks_selftest": False,
@@ -354,7 +370,7 @@ def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
             },
         }
         wrong_manifest = dict(manifest)
-        wrong_manifest["schema_hash"] = "different"
+        wrong_manifest["binary_sha256"] = "different"
         json_manifest_path.write_text(json.dumps(wrong_manifest), encoding="utf-8")
         text_manifest_path.write_text("Decision: RC_CANDIDATE_PASS\n", encoding="utf-8")
 
@@ -368,7 +384,7 @@ def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
         assert any("SHA-256 mismatch" in failure for failure in artifact_failures)
         assert any("byte size mismatch" in failure for failure in artifact_failures)
         assert any("source report path is missing" in failure for failure in source_failures)
-        assert any("JSON bundle manifest field mismatch: schema_hash" in failure for failure in manifest_failures)
+        assert any("JSON bundle manifest field mismatch: binary_sha256" in failure for failure in manifest_failures)
         assert any("regression selftest did not pass" in failure for failure in manifest_failures)
         assert any("text bundle manifest missing marker" in failure for failure in manifest_failures)
 
