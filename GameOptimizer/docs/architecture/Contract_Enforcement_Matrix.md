@@ -120,6 +120,8 @@ After writing `rc_evidence_bundle_manifest.json` and `rc_evidence_bundle_manifes
 
 The final bundle manifest `source_reports` entries must point to existing smoke, soak, final regression, and real-game validation matrix source files before PASS.
 
+The final bundle manifest `source_reports` entries must SHA-256 match their copied bundle artifacts (`smoke_json`, `soak_json`, `final_regression_log`, and `real_game_validation_matrix`) before PASS.
+
 `run_release_gate_static_checks_selftest.py` must exercise the final bundle validators against real temporary files, including PASS cases and missing/mismatched file failures.
 
 `run_regression_tests.bat` must run `run_release_gate_static_checks_selftest.py` so local/full regression catches static-gate selftest failures before RC gate execution.

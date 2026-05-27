@@ -136,6 +136,31 @@ def test_bundle_creation_validates_source_reports_before_pass() -> None:
     assert failures == []
 
 
+def test_bundle_creation_validates_source_report_artifact_identity_before_pass() -> None:
+    bundle_text = static_checks.CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    for marker in [
+        "def validate_bundle_source_report_artifact_identity",
+        "(\"smoke\", \"smoke_json\")",
+        "(\"soak\", \"soak_json\")",
+        "(\"regression_log\", \"final_regression_log\")",
+        "(\"real_game_validation_matrix\", \"real_game_validation_matrix\")",
+        "source report artifact SHA-256 mismatch",
+        "RC evidence bundle source report artifact validation",
+    ]:
+        assert marker in bundle_text
+
+    ordered_markers = [
+        "source_identity_failures = validate_bundle_source_report_artifact_identity(manifest)",
+        "regression_selftest_failures = validate_bundled_regression_selftest_summary(manifest)",
+        "write_json(json_manifest_path, manifest)",
+        "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
+    ]
+    failures = static_checks.validate_ordered_markers("selftest", bundle_text, ordered_markers)
+    assert failures == []
+
+
 def test_bundle_creation_validates_regression_selftest_summary_against_artifact_before_pass() -> None:
     bundle_text = static_checks.CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(
         encoding="utf-8",
@@ -247,6 +272,44 @@ def test_bundle_regression_selftest_summary_matches_bundled_log() -> None:
         assert any("regression selftest summary mismatch" in failure for failure in failures)
 
 
+def test_bundle_source_report_artifact_identity_matches_real_files() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = bundle.pathlib.Path(tmp)
+        source_paths = {
+            "smoke": root / "source-smoke.json",
+            "soak": root / "source-soak.json",
+            "regression_log": root / "source-final-regression.log",
+            "real_game_validation_matrix": root / "source-matrix.json",
+        }
+        artifact_labels = {
+            "smoke": "smoke_json",
+            "soak": "soak_json",
+            "regression_log": "final_regression_log",
+            "real_game_validation_matrix": "real_game_validation_matrix",
+        }
+        artifacts = []
+        for key, source_path in source_paths.items():
+            source_path.write_text(f"{key} source content", encoding="utf-8")
+            artifact_path = root / f"artifact-{source_path.name}"
+            artifact_path.write_text(source_path.read_text(encoding="utf-8"), encoding="utf-8")
+            artifacts.append({
+                "label": artifact_labels[key],
+                "path": str(artifact_path),
+                "sha256": bundle.evidence.sha256_file(artifact_path),
+                "bytes": artifact_path.stat().st_size,
+            })
+
+        manifest = {
+            "source_reports": {key: str(path) for key, path in source_paths.items()},
+            "artifacts": artifacts,
+        }
+        assert bundle.validate_bundle_source_report_artifact_identity(manifest) == []
+
+        source_paths["soak"].write_text("mutated source content", encoding="utf-8")
+        failures = bundle.validate_bundle_source_report_artifact_identity(manifest)
+        assert any("source report artifact SHA-256 mismatch" in failure for failure in failures)
+
+
 def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = bundle.pathlib.Path(tmp)
@@ -348,9 +411,11 @@ def main() -> int:
     test_bundle_creation_validates_manifest_artifact_hashes_before_pass()
     test_bundle_creation_validates_written_manifests_before_pass()
     test_bundle_creation_validates_source_reports_before_pass()
+    test_bundle_creation_validates_source_report_artifact_identity_before_pass()
     test_bundle_creation_validates_regression_selftest_summary_against_artifact_before_pass()
     test_bundle_validators_accept_real_files()
     test_bundle_regression_selftest_summary_matches_bundled_log()
+    test_bundle_source_report_artifact_identity_matches_real_files()
     test_bundle_validators_reject_missing_or_mismatched_files()
     test_rc_candidate_regression_log_requires_selftest_pass_markers()
     test_bundle_manifest_records_regression_selftest_summary()

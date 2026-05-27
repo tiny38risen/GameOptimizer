@@ -88,6 +88,7 @@ Compatibility aliases such as `schema`, `git_commit`, `exe_sha256`, and `severit
 - final bundle manifests: `rc_evidence_bundle_manifest.json` must reload with matching release fields, and `rc_evidence_bundle_manifest.txt` must contain the candidate decision, commit SHA, real-game matrix SHA-256, and BLOCKER none before PASS is printed.
 - final bundle text manifest must include `Regression selftest summary:` plus both selftest keys before PASS is printed.
 - final bundle `source_reports`: `smoke`, `soak`, `regression_log`, and `real_game_validation_matrix` must point to existing source files before PASS is printed.
+- final bundle `source_reports` must SHA-256 match their copied artifacts: `smoke_json`, `soak_json`, `final_regression_log`, and `real_game_validation_matrix`.
 
 Step-level evidence still records compatibility and audit fields used by the gate:
 

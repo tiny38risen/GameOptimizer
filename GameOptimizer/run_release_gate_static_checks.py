@@ -1015,9 +1015,11 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_bundle_creation_validates_manifest_artifact_hashes_before_pass",
         "test_bundle_creation_validates_written_manifests_before_pass",
         "test_bundle_creation_validates_source_reports_before_pass",
+        "test_bundle_creation_validates_source_report_artifact_identity_before_pass",
         "test_bundle_creation_validates_regression_selftest_summary_against_artifact_before_pass",
         "test_bundle_validators_accept_real_files",
         "test_bundle_regression_selftest_summary_matches_bundled_log",
+        "test_bundle_source_report_artifact_identity_matches_real_files",
         "test_bundle_validators_reject_missing_or_mismatched_files",
         "test_rc_candidate_regression_log_requires_selftest_pass_markers",
         "test_bundle_manifest_records_regression_selftest_summary",
@@ -1300,11 +1302,14 @@ def check_rc_candidate_contract() -> list[str]:
         "RC evidence bundle artifact validation",
         "validate_written_manifests",
         "validate_bundle_source_reports",
+        "validate_bundle_source_report_artifact_identity",
         "RC evidence bundle manifest validation",
         "RC evidence bundle source report validation",
+        "RC evidence bundle source report artifact validation",
         "JSON bundle manifest field mismatch",
         "text bundle manifest missing marker",
         "source report path is missing",
+        "source report artifact SHA-256 mismatch",
         "SHA-256 mismatch",
         "byte size mismatch",
         "final regression result",
@@ -1387,8 +1392,15 @@ def check_rc_candidate_contract() -> list[str]:
     ]))
     failures.extend(validate_ordered_markers("RC bundle source report validation", bundle_text, [
         "source_report_failures = validate_bundle_source_reports(manifest)",
+        "source_identity_failures = validate_bundle_source_report_artifact_identity(manifest)",
         "write_json(json_manifest_path, manifest)",
         "print(f\"[PASS] RC evidence bundle created: {bundle_dir}\")",
+    ]))
+    failures.extend(validate_ordered_markers("RC bundle source report artifact validation", bundle_text, [
+        "validate_bundle_source_reports(manifest)",
+        "validate_bundle_source_report_artifact_identity(manifest)",
+        "validate_bundled_regression_selftest_summary(manifest)",
+        "write_json(json_manifest_path, manifest)",
     ]))
     failures.extend(validate_ordered_markers("RC bundle regression selftest validation", bundle_text, [
         "validate_bundle_artifacts(manifest)",

@@ -258,6 +258,43 @@ def validate_bundle_source_reports(manifest: dict[str, Any]) -> list[str]:
     return failures
 
 
+def validate_bundle_source_report_artifact_identity(manifest: dict[str, Any]) -> list[str]:
+    source_reports = manifest.get("source_reports")
+    if not isinstance(source_reports, dict):
+        return ["final bundle manifest source_reports is missing or invalid"]
+
+    required_pairs = (
+        ("smoke", "smoke_json"),
+        ("soak", "soak_json"),
+        ("regression_log", "final_regression_log"),
+        ("real_game_validation_matrix", "real_game_validation_matrix"),
+    )
+    failures: list[str] = []
+    for source_key, artifact_label in required_pairs:
+        source_value = source_reports.get(source_key)
+        artifact = find_bundle_artifact(manifest, artifact_label)
+        if not isinstance(source_value, str) or not source_value:
+            failures.append(f"source report is missing: {source_key}")
+            continue
+        if artifact is None:
+            failures.append(f"source report bundled artifact is missing: {artifact_label}")
+            continue
+
+        source_path = resolve_bundle_artifact_path(source_value)
+        artifact_path = resolve_bundle_artifact_path(artifact.get("path"))
+        if not source_path.exists() or not source_path.is_file():
+            failures.append(f"source report path is missing: {source_key}: {source_path}")
+            continue
+        if not artifact_path.exists() or not artifact_path.is_file():
+            failures.append(f"source report bundled artifact is missing: {artifact_label}: {artifact_path}")
+            continue
+
+        if evidence.sha256_file(source_path) != evidence.sha256_file(artifact_path):
+            failures.append(f"source report artifact SHA-256 mismatch: {source_key} -> {artifact_label}")
+
+    return failures
+
+
 def collect_regression_selftest_summary_from_text(text: str) -> dict[str, bool]:
     return {
         "run_release_gate_static_checks_selftest": (
@@ -476,6 +513,12 @@ def create_bundle(target: str, regression_log: pathlib.Path) -> pathlib.Path:
     if source_report_failures:
         for failure in source_report_failures:
             print(f"[BLOCKER] RC evidence bundle source report validation: {failure}")
+        raise SystemExit(1)
+
+    source_identity_failures = validate_bundle_source_report_artifact_identity(manifest)
+    if source_identity_failures:
+        for failure in source_identity_failures:
+            print(f"[BLOCKER] RC evidence bundle source report artifact validation: {failure}")
         raise SystemExit(1)
 
     regression_selftest_failures = validate_bundled_regression_selftest_summary(manifest)
