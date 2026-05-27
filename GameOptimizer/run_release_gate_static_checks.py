@@ -1017,6 +1017,7 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_bundle_creation_validates_source_reports_before_pass",
         "test_bundle_validators_accept_real_files",
         "test_bundle_validators_reject_missing_or_mismatched_files",
+        "test_rc_candidate_regression_log_requires_selftest_pass_markers",
         "[PASS] static gate selftest passed",
     ]
     for marker in required_markers:
@@ -1295,6 +1296,9 @@ def check_rc_candidate_contract() -> list[str]:
         "final regression result",
         "failed=0",
         "[PASS] all regression tests passed",
+        "final regression log missing required selftest PASS marker",
+        "[PASS] run_release_gate_static_checks_selftest passed",
+        "[PASS] release_gate_evidence_selftest passed",
         "validate_evidence_bundle",
         "validate_real_game_matrix",
         "validate_regression_log",

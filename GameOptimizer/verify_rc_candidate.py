@@ -242,6 +242,12 @@ def validate_regression_log(path: pathlib.Path) -> list[str]:
     failures: list[str] = []
     if "[PASS] all regression tests passed" not in text:
         failures.append("final regression log missing PASS marker")
+    for marker in (
+        "[PASS] run_release_gate_static_checks_selftest passed",
+        "[PASS] release_gate_evidence_selftest passed",
+    ):
+        if marker not in text:
+            failures.append(f"final regression log missing required selftest PASS marker: {marker}")
     summary = re.search(r"regression summary:\s*total=(\d+),\s*failed=(\d+)", text, re.IGNORECASE)
     if not summary:
         failures.append("final regression log missing total/failed summary")

@@ -5,6 +5,7 @@ import tempfile
 
 import create_rc_evidence_bundle as bundle
 import run_release_gate_static_checks as static_checks
+import verify_rc_candidate
 
 
 ORDERED_MARKERS = [
@@ -227,6 +228,32 @@ def test_bundle_validators_reject_missing_or_mismatched_files() -> None:
         assert any("text bundle manifest missing marker" in failure for failure in manifest_failures)
 
 
+def test_rc_candidate_regression_log_requires_selftest_pass_markers() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = bundle.pathlib.Path(tmp)
+        good_log = root / "good-regression.log"
+        good_log.write_text(
+            "\n".join([
+                "[PASS] run_release_gate_static_checks_selftest passed",
+                "[PASS] release_gate_evidence_selftest passed",
+                "[INFO] regression summary: total=11, failed=0",
+                "[PASS] all regression tests passed",
+            ]),
+            encoding="utf-8")
+        assert verify_rc_candidate.validate_regression_log(good_log) == []
+
+        bad_log = root / "bad-regression.log"
+        bad_log.write_text(
+            "\n".join([
+                "[INFO] regression summary: total=11, failed=0",
+                "[PASS] all regression tests passed",
+            ]),
+            encoding="utf-8")
+        failures = verify_rc_candidate.validate_regression_log(bad_log)
+        assert any("run_release_gate_static_checks_selftest" in failure for failure in failures)
+        assert any("release_gate_evidence_selftest" in failure for failure in failures)
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
@@ -239,6 +266,7 @@ def main() -> int:
     test_bundle_creation_validates_source_reports_before_pass()
     test_bundle_validators_accept_real_files()
     test_bundle_validators_reject_missing_or_mismatched_files()
+    test_rc_candidate_regression_log_requires_selftest_pass_markers()
     print("[PASS] static gate selftest passed")
     return 0
 
