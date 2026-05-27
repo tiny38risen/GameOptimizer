@@ -52,6 +52,7 @@ The release static gate must fail when:
 - expected values are consumed outside Assign -> Check -> Bind,
 - group 1+ background process-wide mutation can bypass the processor-group guard,
 - ApplyGuard transaction ordering markers are missing,
+- SchedulerController affinity failure helper markers are missing,
 - SoftApply baseline storage writes into rollback state,
 - release evidence schema/blocker/runbook contracts are stale.
 - the atomic governance change unit is missing from engineering guidance, CEM, release blockers, runbook, or static gate.
@@ -69,6 +70,15 @@ Runtime validation must surface these as `BLOCKER` evidence:
 - missing fallback evidence after access-boundary events,
 - input pinning without High confidence `ConcreteTid`,
 - group 1+ process-wide background affinity mutation.
+
+`SchedulerController` affinity failure handling must remain helper-split:
+
+- `FailedAffinityApplyDisposition`
+- `auditFailedAffinityApply`
+- `makeAffinityApplyFailureResult`
+- `logAffinityRollbackFailure`
+
+Inlining these responsibilities back into `applyMainThreadPolicy()` is a `BLOCKER` because it obscures the audit -> rollback/discard -> evidence contract.
 
 ## Required Evidence Coupling
 

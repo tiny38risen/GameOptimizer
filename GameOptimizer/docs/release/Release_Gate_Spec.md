@@ -156,6 +156,8 @@ Before tagging:
 
 Run `python run_release_gate_static_checks.py` before every merge. The gate verifies a minimum function-scope lexical ordering heuristic for the concrete SchedulerController and BackgroundController ApplyGuard transaction paths, including save-before-arm and commit-after-apply marker ordering inside the target function body. Treat the gate as mandatory, but do not treat it as a control-flow proof; branch-level rollbackNow/discardSavedState paths still require manual review.
 
+`SchedulerController` `SetThreadGroupAffinity` failure handling must remain split into disposition, audit, result-mapping, and rollback-failure log helpers. The static gate rejects loss of those helper markers because the failure path is release-critical.
+
 ## ADR contract gate
 
 `docs/architecture/Architecture_Decision_Record.md` is the accepted architecture contract index. The static gate requires the ADR file to exist and to include the accepted decisions for transactional runtime mutation, observation-only `ThreadTracker`, thread-level `SchedulerController` mutation, processor-group policy, soft-apply evidence, release evidence, process-level `BackgroundController` restriction, access-boundary fallback, input pinning eligibility, and limited explicit apply mode.

@@ -129,6 +129,14 @@ namespace
             "affinity failure audit must bind expected state explicitly");
         REQUIRE(contains(schedulerText, "matchesOriginalState(auditedState, original)"),
             "affinity failure audit must compare bound state with the original state");
+        REQUIRE(contains(schedulerText, "enum class FailedAffinityApplyDisposition"),
+            "affinity failure handling must keep an explicit disposition enum");
+        REQUIRE(contains(schedulerText, "auditFailedAffinityApply("),
+            "affinity failure audit must be isolated in a helper");
+        REQUIRE(contains(schedulerText, "makeAffinityApplyFailureResult("),
+            "affinity failure return mapping must be isolated in a helper");
+        REQUIRE(contains(schedulerText, "logAffinityRollbackFailure("),
+            "affinity rollback failure context logging must be isolated in a helper");
         REQUIRE(contains(schedulerText, "applyGuard.discardSavedState();"),
             "affinity failure may discard rollback state only after original-state audit match");
         REQUIRE(contains(schedulerText, "post-failure audit could not query current state"),

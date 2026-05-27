@@ -24,6 +24,12 @@ namespace
         int priority = THREAD_PRIORITY_ERROR_RETURN;
     };
 
+    enum class FailedAffinityApplyDisposition
+    {
+        DiscardRollbackState,
+        RollbackRequired
+    };
+
     [[nodiscard]] std::expected<CurrentSchedulingState, ErrorCode> queryCurrentSchedulingState(HANDLE threadHandle) noexcept
     {
         const int currentPriority = GetThreadPriority(threadHandle);
@@ -66,6 +72,67 @@ namespace
         return currentState.affinityMask == originalState.affinityMask &&
                currentState.processorGroup == originalState.processorGroup &&
                currentState.priority == originalState.priority;
+    }
+
+    [[nodiscard]] FailedAffinityApplyDisposition auditFailedAffinityApply(
+        HANDLE threadHandle,
+        DWORD threadId,
+        const CurrentSchedulingState& original) noexcept
+    {
+        const auto stateAfterFailedAffinityApply = queryCurrentSchedulingState(threadHandle);
+        if (!stateAfterFailedAffinityApply)
+        {
+            Logger::error(
+                "main-thread affinity apply failed for TID {}, and post-failure audit could not query current state: {}; invoking rollback",
+                threadId,
+                toString(stateAfterFailedAffinityApply.error()));
+            return FailedAffinityApplyDisposition::RollbackRequired;
+        }
+
+        const auto& auditedState = *stateAfterFailedAffinityApply;
+        if (matchesOriginalState(auditedState, original))
+        {
+            Logger::info(
+                "main-thread affinity apply failed for TID {}, but post-failure audit matched the original state; saved rollback state discarded",
+                threadId);
+            return FailedAffinityApplyDisposition::DiscardRollbackState;
+        }
+
+        Logger::error(
+            "main-thread affinity apply failed for TID {}, and post-failure audit found state drift: current(group={}, affinity=0x{:X}, priority={}) original(group={}, affinity=0x{:X}, priority={}); invoking rollback",
+            threadId,
+            static_cast<unsigned int>(auditedState.processorGroup),
+            static_cast<unsigned long long>(auditedState.affinityMask),
+            auditedState.priority,
+            static_cast<unsigned int>(original.processorGroup),
+            static_cast<unsigned long long>(original.affinityMask),
+            original.priority);
+        return FailedAffinityApplyDisposition::RollbackRequired;
+    }
+
+    void logAffinityRollbackFailure(DWORD threadId, ErrorCode rollbackError) noexcept
+    {
+        Logger::error(
+            "affinity apply failed and rollback also failed for TID {}: {}; rollback state is preserved for shutdown recovery",
+            threadId,
+            toString(rollbackError));
+    }
+
+    [[nodiscard]] std::expected<void, ErrorCode> makeAffinityApplyFailureResult(
+        DWORD threadId,
+        ErrorCode mappedError,
+        bool recoverableAccessLimitation) noexcept
+    {
+        if (recoverableAccessLimitation)
+        {
+            Logger::warn(
+                "main-thread affinity apply blocked by recoverable access limitation for TID {}; monitoring-only fallback remains active ({})",
+                threadId,
+                toString(mappedError));
+            return std::unexpected(mappedError);
+        }
+
+        return std::unexpected(ErrorCode::ThreadAffinityApplyFailed);
     }
 }
 
@@ -266,72 +333,23 @@ std::expected<void, ErrorCode> SchedulerController::applyMainThreadPolicy(
     if (!SetThreadGroupAffinity(threadHandle.get(), &targetAffinity, &previousAffinity))
     {
         const ErrorCode mappedError = mapLastErrorToErrorCode(GetLastError());
-        const auto stateAfterFailedAffinityApply = queryCurrentSchedulingState(threadHandle.get());
-        if (!stateAfterFailedAffinityApply)
-        {
-            Logger::error(
-                "main-thread affinity apply failed for TID {}, and post-failure audit could not query current state: {}; invoking rollback",
-                threadId,
-                toString(stateAfterFailedAffinityApply.error()));
-        }
-        else
-        {
-            const auto& auditedState = *stateAfterFailedAffinityApply;
-            const bool auditMatchedOriginal = matchesOriginalState(auditedState, original);
-            if (auditMatchedOriginal)
-            {
-                Logger::info(
-                    "main-thread affinity apply failed for TID {}, but post-failure audit matched the original state; saved rollback state discarded",
-                    threadId);
-                applyGuard.discardSavedState();
-            }
-            else
-            {
-                Logger::error(
-                    "main-thread affinity apply failed for TID {}, and post-failure audit found state drift: current(group={}, affinity=0x{:X}, priority={}) original(group={}, affinity=0x{:X}, priority={}); invoking rollback",
-                    threadId,
-                    static_cast<unsigned int>(auditedState.processorGroup),
-                    static_cast<unsigned long long>(auditedState.affinityMask),
-                    auditedState.priority,
-                    static_cast<unsigned int>(original.processorGroup),
-                    static_cast<unsigned long long>(original.affinityMask),
-                    original.priority);
-            }
+        const bool recoverableAccessLimitation = isRecoverableAccessLimitation(mappedError);
+        const FailedAffinityApplyDisposition failedAffinityApplyDisposition =
+            auditFailedAffinityApply(threadHandle.get(), threadId, original);
 
-            if (auditMatchedOriginal)
-            {
-                if (isRecoverableAccessLimitation(mappedError))
-                {
-                    Logger::warn(
-                        "main-thread affinity apply blocked by recoverable access limitation for TID {}; monitoring-only fallback remains active ({})",
-                        threadId,
-                        toString(mappedError));
-                    return std::unexpected(mappedError);
-                }
-
-                return std::unexpected(ErrorCode::ThreadAffinityApplyFailed);
-            }
+        if (failedAffinityApplyDisposition == FailedAffinityApplyDisposition::DiscardRollbackState)
+        {
+            applyGuard.discardSavedState();
+            return makeAffinityApplyFailureResult(threadId, mappedError, recoverableAccessLimitation);
         }
 
         auto rollbackResult = applyGuard.rollbackNow();
         if (!rollbackResult)
         {
-            Logger::error(
-                "affinity apply failed and rollback also failed for TID {}: {}; rollback state is preserved for shutdown recovery",
-                threadId,
-                toString(rollbackResult.error()));
+            logAffinityRollbackFailure(threadId, rollbackResult.error());
         }
 
-        if (isRecoverableAccessLimitation(mappedError))
-        {
-            Logger::warn(
-                "main-thread affinity apply blocked by recoverable access limitation for TID {}; monitoring-only fallback remains active ({})",
-                threadId,
-                toString(mappedError));
-            return std::unexpected(mappedError);
-        }
-
-        return std::unexpected(ErrorCode::ThreadAffinityApplyFailed);
+        return makeAffinityApplyFailureResult(threadId, mappedError, recoverableAccessLimitation);
     }
 
     if (!SetThreadPriority(threadHandle.get(), policy.threadPriority))
