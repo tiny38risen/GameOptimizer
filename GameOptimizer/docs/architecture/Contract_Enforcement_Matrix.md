@@ -90,6 +90,11 @@ Inlining these responsibilities back into `applyMainThreadPolicy()` is a `BLOCKE
 
 Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it hides topology fallback, background filter preparation, and policy assembly boundaries.
 
+`release_gate_evidence_selftest.py` must include ApplyGuard rollback failure fixtures for both:
+
+- explicit rollback failure without shutdown-transfer evidence, which must add the transfer-missing BLOCKER,
+- explicit rollback failure with shutdown-transfer evidence, which must not duplicate the transfer-missing BLOCKER.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:

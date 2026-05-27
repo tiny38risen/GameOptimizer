@@ -121,6 +121,7 @@ The RC verifier must treat these identity failures as `BLOCKER` conditions:
 - rollback failure
 - `ApplyGuard` rollback failure
 - `ApplyGuard` explicit rollback failure without matching shutdown responsibility transfer evidence
+- `ApplyGuard` explicit rollback failure fixture with matching shutdown transfer evidence must not add the transfer-missing BLOCKER
 - `SetThreadGroupAffinity` failure plus audit query failure
 - `SetThreadGroupAffinity` failure plus audit mismatch
 - runtime validation `FAILED`

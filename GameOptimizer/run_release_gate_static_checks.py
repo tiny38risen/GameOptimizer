@@ -1180,6 +1180,8 @@ def check_release_evidence_contract() -> list[str]:
         "unsafe rollback state discard did not become a BLOCKER",
         "ApplyGuard rollback failure count: 1",
         "Rollback failure transferred to shutdown count: 1",
+        "ApplyGuard rollback failure without transfer did not add transfer BLOCKER",
+        "ApplyGuard rollback failure with transfer duplicated transfer BLOCKER",
         "Access Denied fallback did not remain WARN-only",
         "group 1+ mock did not remain WARN-only",
         "telemetry INFO did not remain INFO-only",

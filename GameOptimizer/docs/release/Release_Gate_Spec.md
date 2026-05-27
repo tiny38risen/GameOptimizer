@@ -160,6 +160,8 @@ Run `python run_release_gate_static_checks.py` before every merge. The gate veri
 
 `StartupPipeline::prepare()` must keep startup policy logging, main-thread policy construction, background filter preparation, and background policy assembly in named helpers. The static gate rejects loss of those helper markers because startup preparation is the boundary before runtime mutation.
 
+ApplyGuard rollback failure evidence is already connected through `release_gate_evidence.py`; release selftests must cover missing shutdown-transfer evidence and must prove transfer-present cases do not add the transfer-missing BLOCKER.
+
 ## ADR contract gate
 
 `docs/architecture/Architecture_Decision_Record.md` is the accepted architecture contract index. The static gate requires the ADR file to exist and to include the accepted decisions for transactional runtime mutation, observation-only `ThreadTracker`, thread-level `SchedulerController` mutation, processor-group policy, soft-apply evidence, release evidence, process-level `BackgroundController` restriction, access-boundary fallback, input pinning eligibility, and limited explicit apply mode.

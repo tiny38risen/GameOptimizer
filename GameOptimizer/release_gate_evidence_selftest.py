@@ -258,6 +258,60 @@ def assert_apply_guard_rollback_failure_is_blocked(run_id: str, exe_path: pathli
     )
 
 
+def assert_apply_guard_rollback_failure_without_transfer_is_blocked(
+    run_id: str,
+    exe_path: pathlib.Path) -> bool:
+    finalize_result, report, text_report = finalize_single_step_report(
+        run_id,
+        "apply_guard_missing_transfer",
+        exe_path,
+        [
+            "[ERROR] apply guard explicit rollback failed for target 42; rollback state remains preserved: rollback failed",
+            "[INFO] shutdown result: reason=PolicyRollbackRequest, timerRollbackFailed=false, schedulerRollbackFailed=false, runtimeValidationFailed=false, rollbackStatePreserved=false",
+        ],
+        step_name="apply_guard_missing_transfer",
+        mode="apply",
+    )
+    blockers = report.get("blockers", [])
+    return (
+        finalize_result == 1
+        and report.get("status") == "FAIL"
+        and report.get("apply_guard_rollback_failure_count") == 1
+        and report.get("rollback_failure_transferred_to_shutdown_count") == 0
+        and report.get("blocker_count") == 2
+        and sum("ApplyGuard rollback failure" in blocker for blocker in blockers) == 1
+        and sum("ApplyGuard explicit rollback failure was not fully transferred" in blocker for blocker in blockers) == 1
+        and "ApplyGuard rollback failure count: 1" in text_report
+        and "Rollback failure transferred to shutdown count: 0" in text_report
+    )
+
+
+def assert_apply_guard_rollback_failure_does_not_duplicate_transfer_blocker(
+    run_id: str,
+    exe_path: pathlib.Path) -> bool:
+    finalize_result, report, _text_report = finalize_single_step_report(
+        run_id,
+        "apply_guard_transfer_present",
+        exe_path,
+        [
+            "[ERROR] apply guard explicit rollback failed for target 42; rollback responsibility transferred to ShutdownPipeline/RollbackManager; rollback state remains preserved: rollback failed",
+            "[INFO] shutdown result: reason=PolicyRollbackRequest, timerRollbackFailed=false, schedulerRollbackFailed=false, runtimeValidationFailed=false, rollbackStatePreserved=false",
+        ],
+        step_name="apply_guard_transfer_present",
+        mode="apply",
+    )
+    blockers = report.get("blockers", [])
+    return (
+        finalize_result == 1
+        and report.get("status") == "FAIL"
+        and report.get("apply_guard_rollback_failure_count") == 1
+        and report.get("rollback_failure_transferred_to_shutdown_count") == 1
+        and report.get("blocker_count") == 1
+        and sum("ApplyGuard rollback failure" in blocker for blocker in blockers) == 1
+        and not any("ApplyGuard explicit rollback failure was not fully transferred" in blocker for blocker in blockers)
+    )
+
+
 def finalize_single_step_report(
     run_id: str,
     target_suffix: str,
@@ -414,6 +468,8 @@ def main() -> int:
     missing_binary_sha_prefix = f"synthetic_selftest_missing_binary_sha_{unique_id}"
     reason_run_id = f"synthetic_selftest_reason_{unique_id}"
     apply_guard_failure_run_id = f"synthetic_selftest_apply_guard_failure_{unique_id}"
+    apply_guard_missing_transfer_run_id = f"synthetic_selftest_apply_guard_missing_transfer_{unique_id}"
+    apply_guard_transfer_present_run_id = f"synthetic_selftest_apply_guard_transfer_present_{unique_id}"
     runtime_validation_failure_run_id = f"synthetic_selftest_runtime_validation_failure_{unique_id}"
     rollback_failure_run_id = f"synthetic_selftest_rollback_failure_{unique_id}"
     thread_group_audit_query_run_id = f"synthetic_selftest_thread_group_audit_query_{unique_id}"
@@ -442,6 +498,8 @@ def main() -> int:
         evidence.LOG_ROOT / f"{missing_binary_sha_prefix}_soak",
         evidence.LOG_ROOT / reason_run_id,
         evidence.LOG_ROOT / apply_guard_failure_run_id,
+        evidence.LOG_ROOT / apply_guard_missing_transfer_run_id,
+        evidence.LOG_ROOT / apply_guard_transfer_present_run_id,
         evidence.LOG_ROOT / runtime_validation_failure_run_id,
         evidence.LOG_ROOT / rollback_failure_run_id,
         evidence.LOG_ROOT / thread_group_audit_query_run_id,
@@ -511,6 +569,18 @@ def main() -> int:
 
         if not assert_apply_guard_rollback_failure_is_blocked(apply_guard_failure_run_id, synthetic_exe):
             print("[FAIL] RC evidence self-test: ApplyGuard rollback failure did not become a BLOCKER")
+            return 1
+
+        if not assert_apply_guard_rollback_failure_without_transfer_is_blocked(
+            apply_guard_missing_transfer_run_id,
+            synthetic_exe):
+            print("[FAIL] RC evidence self-test: ApplyGuard rollback failure without transfer did not add transfer BLOCKER")
+            return 1
+
+        if not assert_apply_guard_rollback_failure_does_not_duplicate_transfer_blocker(
+            apply_guard_transfer_present_run_id,
+            synthetic_exe):
+            print("[FAIL] RC evidence self-test: ApplyGuard rollback failure with transfer duplicated transfer BLOCKER")
             return 1
 
         if not assert_blocker_injection(
