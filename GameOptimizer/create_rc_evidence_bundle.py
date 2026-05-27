@@ -228,6 +228,9 @@ def validate_written_manifests(
         "Decision: RC_CANDIDATE_PASS",
         f"Commit SHA: {manifest['commit_sha']}",
         f"Real game validation matrix SHA-256: {manifest['real_game_validation_matrix_sha256']}",
+        "Regression selftest summary:",
+        "run_release_gate_static_checks_selftest",
+        "release_gate_evidence_selftest",
         "BLOCKER:",
         "- none",
     ):

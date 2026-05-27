@@ -1286,6 +1286,7 @@ def check_rc_candidate_contract() -> list[str]:
         "collect_regression_selftest_summary",
         "regression selftest did not pass",
         "regression selftest summary is missing or invalid",
+        "Regression selftest summary:",
         "validate_bundle_artifacts",
         "resolve_bundle_artifact_path",
         "RC evidence bundle artifact validation",

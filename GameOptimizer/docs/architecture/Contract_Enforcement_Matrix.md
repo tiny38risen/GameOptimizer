@@ -130,6 +130,8 @@ The final bundle manifest `source_reports` entries must point to existing smoke,
 
 `validate_written_manifests` must treat any false or missing `regression_selftest_summary` entry as a `BLOCKER`.
 
+The text bundle manifest must include `Regression selftest summary:` plus both selftest keys before PASS.
+
 The expected chain is:
 
 ```text

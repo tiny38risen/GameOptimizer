@@ -32,6 +32,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Final regression log is missing PASS markers for `run_release_gate_static_checks_selftest.py` or `release_gate_evidence_selftest.py`.
 - Final evidence bundle manifest is missing `regression_selftest_summary`.
 - Final evidence bundle manifest has a false `regression_selftest_summary` entry.
+- Final text bundle manifest is missing the regression selftest summary or either selftest key.
 - Required evidence field is missing.
 - Evidence schema mismatch.
 - Commit mismatch.
