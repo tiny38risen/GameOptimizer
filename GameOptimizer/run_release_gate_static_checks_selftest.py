@@ -465,6 +465,7 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
         "not duplicate the transfer-missing BLOCKER",
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
         "SoftApply baseline evidence stays separate",
+        "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "rollback_preserved_state_summary.has_preserved_state",
         "report must remain `PASS`",
     ]:
@@ -496,6 +497,15 @@ def test_apply_guard_rollback_markers_are_blocker_not_warn() -> None:
         assert not static_checks.markdown_section_contains_marker(blocker_text, "WARN", marker)
 
 
+def test_group_one_monitoring_only_marker_is_warn_not_blocker() -> None:
+    blocker_text = static_checks.RELEASE_BLOCKER_LIST_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    marker = "Processor Group 1+ background process-wide restriction blocked as monitoring-only."
+    assert static_checks.markdown_section_contains_marker(blocker_text, "WARN", marker)
+    assert not static_checks.markdown_section_contains_marker(blocker_text, "BLOCKER", marker)
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
@@ -518,6 +528,7 @@ def main() -> int:
     test_cem_gate_requires_recent_contract_markers()
     test_soft_apply_preserved_state_drift_is_blocker_not_warn()
     test_apply_guard_rollback_markers_are_blocker_not_warn()
+    test_group_one_monitoring_only_marker_is_warn_not_blocker()
     print("[PASS] static gate selftest passed")
     return 0
 

@@ -66,6 +66,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - `release_gate_evidence_selftest.py` proves SoftApply baseline evidence does not increase rollback preserved-state count.
 - `check_contract_enforcement_matrix` requires the recent helper/evidence selftest markers from CEM.
 - `Release_Blocker_List.md` classifies SoftApply baseline preserved-state/severity drift as BLOCKER, not WARN.
+- `Release_Blocker_List.md` classifies Processor Group 1+ monitoring-only background restriction as WARN, not BLOCKER.
 
 ## Tag rule
 

@@ -108,6 +108,8 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 
 ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`: explicit rollback failure, missing shutdown-transfer evidence, and destructor rollback failure.
 
+Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`: group 1+ process-wide background restriction is a documented limitation only when mutation is skipped and monitoring-only evidence exists.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:

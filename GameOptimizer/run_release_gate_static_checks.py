@@ -1432,6 +1432,17 @@ def check_rc_candidate_contract() -> list[str]:
             failures.append(
                 f"[FAIL] RC candidate gate: ApplyGuard rollback evidence marker must not be listed as WARN: {marker}")
 
+    warn_only_markers = [
+        "Processor Group 1+ background process-wide restriction blocked as monitoring-only.",
+    ]
+    for marker in warn_only_markers:
+        if not markdown_section_contains_marker(blocker_list_text, "WARN", marker):
+            failures.append(
+                f"[FAIL] RC candidate gate: monitoring-only limitation marker must be listed as WARN: {marker}")
+        if markdown_section_contains_marker(blocker_list_text, "BLOCKER", marker):
+            failures.append(
+                f"[FAIL] RC candidate gate: monitoring-only limitation marker must not be listed as BLOCKER: {marker}")
+
     failures.extend(validate_ordered_markers("RC bundle real game validation", bundle_text, [
         "verify_rc_candidate.validate_evidence_bundle(target)",
         "verify_rc_candidate.validate_real_game_matrix()",
@@ -1659,6 +1670,7 @@ def check_contract_enforcement_matrix() -> list[str]:
         "destructor rollback failure must add one rollback failure BLOCKER",
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
         "SoftApply baseline evidence stays separate",
+        "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "rollback_preserved_state_summary.has_preserved_state",
         "report must remain `PASS`",
         "run_release_gate_static_checks.py",

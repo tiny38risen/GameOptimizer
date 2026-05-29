@@ -149,6 +149,7 @@ The evidence self-test must inject these release failures or limitations:
 - `SetThreadGroupAffinity` failure plus audit mismatch: `BLOCKER`
 - Access Denied fallback: `WARN`
 - group 1+ mock background restriction: `WARN`
+- Processor Group 1+ monitoring-only background restriction must remain a `WARN` blocker-list classification, not `BLOCKER`, when mutation is skipped and monitoring-only evidence exists.
 - timeline monotonicity failure: `BLOCKER`
 - heartbeat progression failure: `BLOCKER`
 - telemetry-only observation: `INFO`

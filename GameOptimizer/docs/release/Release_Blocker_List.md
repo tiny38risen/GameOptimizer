@@ -70,6 +70,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Input thread pinning is attempted without High confidence and `ConcreteTid`.
 - Processor Group / HEDT group 1+ mock loses affinity, rollback, or log evidence.
 - Group 1+ process-wide background affinity mutation is enabled for `v3.0-rc1`.
+- Processor Group 1+ monitoring-only restriction marker is moved out of `WARN` or duplicated under `BLOCKER`.
 - Broad Apply mode is run without explicit background deny/restrict configuration.
 - Apply mode is run without prior dry-run PASS and soft-apply PASS.
 - Apply mode is run after Access Denied, anti-cheat suspicion, rollback state save failure, insufficient ThreadTracker confidence, ApplyGuard audit failure, unverified group-aware thread path, Low Raw Input TID confidence, group 1+ process-wide background restriction need, or many soft-apply WARN findings.
