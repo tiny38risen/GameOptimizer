@@ -465,6 +465,7 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
         "not duplicate the transfer-missing BLOCKER",
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
         "SoftApply baseline evidence stays separate",
+        "WARN-only release blocker markers must be centralized in `WARN_ONLY_RELEASE_BLOCKER_MARKERS`",
         "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "Access Denied fallback marker must stay in `WARN`, not `BLOCKER`",
         "IRQ unsupported monitoring-only marker must stay in `WARN`, not `BLOCKER`",
@@ -566,6 +567,16 @@ def test_soft_apply_limitation_marker_is_warn_not_blocker() -> None:
     assert not static_checks.markdown_section_contains_marker(blocker_text, "BLOCKER", marker)
 
 
+def test_warn_only_release_markers_are_warn_not_blocker() -> None:
+    blocker_text = static_checks.RELEASE_BLOCKER_LIST_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    assert len(static_checks.WARN_ONLY_RELEASE_BLOCKER_MARKERS) >= 7
+    for marker in static_checks.WARN_ONLY_RELEASE_BLOCKER_MARKERS:
+        assert static_checks.markdown_section_contains_marker(blocker_text, "WARN", marker)
+        assert not static_checks.markdown_section_contains_marker(blocker_text, "BLOCKER", marker)
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
@@ -595,6 +606,7 @@ def main() -> int:
     test_remote_raw_input_unsupported_marker_is_warn_not_blocker()
     test_dpc_spike_marker_is_warn_not_blocker()
     test_soft_apply_limitation_marker_is_warn_not_blocker()
+    test_warn_only_release_markers_are_warn_not_blocker()
     print("[PASS] static gate selftest passed")
     return 0
 

@@ -106,6 +106,8 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 
 `Release_Blocker_List.md` must classify SoftApply baseline evidence that increases `rollback_preserved_state_count` or creates BLOCKER/WARN findings by itself under `BLOCKER`, not `WARN`.
 
+WARN-only release blocker markers must be centralized in `WARN_ONLY_RELEASE_BLOCKER_MARKERS`; the static gate and its selftest must consume that shared list so fallback limitation classifications cannot drift.
+
 ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`: explicit rollback failure, missing shutdown-transfer evidence, and destructor rollback failure.
 
 Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`: group 1+ process-wide background restriction is a documented limitation only when mutation is skipped and monitoring-only evidence exists.

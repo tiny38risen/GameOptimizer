@@ -29,6 +29,16 @@ ARCHITECTURE_DECISION_RECORD_FILE = ARCHITECTURE_DOCS / "Architecture_Decision_R
 CONTRACT_ENFORCEMENT_MATRIX_FILE = ARCHITECTURE_DOCS / "Contract_Enforcement_Matrix.md"
 MODULE_OWNERSHIP_MATRIX_FILE = ARCHITECTURE_DOCS / "Module_Ownership_Matrix.md"
 
+WARN_ONLY_RELEASE_BLOCKER_MARKERS = [
+    "Access Denied or access boundary encountered with fallback evidence.",
+    "IRQ affinity unsupported, recorded as monitoring-only.",
+    "Raw Input not detected, fallback input policy active.",
+    "Remote Raw Input detection unsupported through public Win32 APIs.",
+    "DPC spike observed while IRQ mutation backend is unavailable.",
+    "SoftApply baseline validation records a limitation without mutation.",
+    "Processor Group 1+ background process-wide restriction blocked as monitoring-only.",
+]
+
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"RuntimeOrchestrator\s+orchestrator\s*\(\s*argc\s*,\s*argv\s*\)", "main must delegate to RuntimeOrchestrator"),
     ("RuntimeOrchestrator.cpp", r"RuntimeOrchestrator::run\s*\(\s*\)", "RuntimeOrchestrator run entry missing"),
@@ -1432,16 +1442,7 @@ def check_rc_candidate_contract() -> list[str]:
             failures.append(
                 f"[FAIL] RC candidate gate: ApplyGuard rollback evidence marker must not be listed as WARN: {marker}")
 
-    warn_only_markers = [
-        "Access Denied or access boundary encountered with fallback evidence.",
-        "IRQ affinity unsupported, recorded as monitoring-only.",
-        "Raw Input not detected, fallback input policy active.",
-        "Remote Raw Input detection unsupported through public Win32 APIs.",
-        "DPC spike observed while IRQ mutation backend is unavailable.",
-        "SoftApply baseline validation records a limitation without mutation.",
-        "Processor Group 1+ background process-wide restriction blocked as monitoring-only.",
-    ]
-    for marker in warn_only_markers:
+    for marker in WARN_ONLY_RELEASE_BLOCKER_MARKERS:
         if not markdown_section_contains_marker(blocker_list_text, "WARN", marker):
             failures.append(
                 f"[FAIL] RC candidate gate: monitoring-only limitation marker must be listed as WARN: {marker}")
@@ -1676,6 +1677,7 @@ def check_contract_enforcement_matrix() -> list[str]:
         "destructor rollback failure must add one rollback failure BLOCKER",
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
         "SoftApply baseline evidence stays separate",
+        "WARN-only release blocker markers must be centralized in `WARN_ONLY_RELEASE_BLOCKER_MARKERS`",
         "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "Access Denied fallback marker must stay in `WARN`, not `BLOCKER`",
         "IRQ unsupported monitoring-only marker must stay in `WARN`, not `BLOCKER`",
