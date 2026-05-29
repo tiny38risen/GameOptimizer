@@ -1433,6 +1433,7 @@ def check_rc_candidate_contract() -> list[str]:
                 f"[FAIL] RC candidate gate: ApplyGuard rollback evidence marker must not be listed as WARN: {marker}")
 
     warn_only_markers = [
+        "Access Denied or access boundary encountered with fallback evidence.",
         "Processor Group 1+ background process-wide restriction blocked as monitoring-only.",
     ]
     for marker in warn_only_markers:
@@ -1671,6 +1672,7 @@ def check_contract_enforcement_matrix() -> list[str]:
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
         "SoftApply baseline evidence stays separate",
         "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
+        "Access Denied fallback marker must stay in `WARN`, not `BLOCKER`",
         "rollback_preserved_state_summary.has_preserved_state",
         "report must remain `PASS`",
         "run_release_gate_static_checks.py",

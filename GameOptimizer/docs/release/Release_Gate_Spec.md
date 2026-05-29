@@ -172,6 +172,8 @@ The release blocker list must keep ApplyGuard explicit rollback failure, missing
 
 The release blocker list must keep Processor Group 1+ monitoring-only background restriction under `WARN`; the static gate rejects that marker under `BLOCKER`.
 
+The release blocker list must keep Access Denied/access-boundary events with fallback evidence under `WARN`; the static gate rejects that marker under `BLOCKER`.
+
 ## ADR contract gate
 
 `docs/architecture/Architecture_Decision_Record.md` is the accepted architecture contract index. The static gate requires the ADR file to exist and to include the accepted decisions for transactional runtime mutation, observation-only `ThreadTracker`, thread-level `SchedulerController` mutation, processor-group policy, soft-apply evidence, release evidence, process-level `BackgroundController` restriction, access-boundary fallback, input pinning eligibility, and limited explicit apply mode.
