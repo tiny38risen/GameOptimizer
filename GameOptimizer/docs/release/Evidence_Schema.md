@@ -154,6 +154,7 @@ The evidence self-test must inject these release failures or limitations:
 - Unsupported IRQ affinity with monitoring-only evidence must remain a `WARN` blocker-list classification, not `BLOCKER`; IRQ unsupported paths that become ERROR/FAIL remain `BLOCKER`.
 - Missing Raw Input detection with fallback input policy must remain a `WARN` blocker-list classification, not `BLOCKER`; input pinning without high-confidence `ConcreteTid` evidence remains `BLOCKER`.
 - Remote Raw Input detection unsupported through public Win32 APIs must remain a `WARN` blocker-list classification, not `BLOCKER`; remote pinning without concrete local evidence remains `BLOCKER`.
+- DPC spike observation while IRQ mutation backend is unavailable must remain a `WARN` blocker-list classification, not `BLOCKER`; unsupported IRQ mutation treated as ERROR/FAIL remains `BLOCKER`.
 - timeline monotonicity failure: `BLOCKER`
 - heartbeat progression failure: `BLOCKER`
 - telemetry-only observation: `INFO`

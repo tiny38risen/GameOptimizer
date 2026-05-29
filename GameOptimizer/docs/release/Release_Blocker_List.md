@@ -69,6 +69,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Access Denied fallback evidence marker is moved out of `WARN` or duplicated under `BLOCKER`.
 - IRQ unsupported path is treated as ERROR/FAIL instead of WARN + monitoring-only.
 - IRQ unsupported monitoring-only marker is moved out of `WARN` or duplicated under `BLOCKER`.
+- DPC spike monitoring-only marker is moved out of `WARN` or duplicated under `BLOCKER`.
 - Input thread pinning is attempted without High confidence and `ConcreteTid`.
 - Raw Input fallback marker is moved out of `WARN` or duplicated under `BLOCKER`.
 - Remote Raw Input unsupported marker is moved out of `WARN` or duplicated under `BLOCKER`.

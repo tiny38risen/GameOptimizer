@@ -1437,6 +1437,7 @@ def check_rc_candidate_contract() -> list[str]:
         "IRQ affinity unsupported, recorded as monitoring-only.",
         "Raw Input not detected, fallback input policy active.",
         "Remote Raw Input detection unsupported through public Win32 APIs.",
+        "DPC spike observed while IRQ mutation backend is unavailable.",
         "Processor Group 1+ background process-wide restriction blocked as monitoring-only.",
     ]
     for marker in warn_only_markers:
@@ -1679,6 +1680,7 @@ def check_contract_enforcement_matrix() -> list[str]:
         "IRQ unsupported monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "Raw Input fallback marker must stay in `WARN`, not `BLOCKER`",
         "Remote Raw Input unsupported marker must stay in `WARN`, not `BLOCKER`",
+        "DPC spike monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "rollback_preserved_state_summary.has_preserved_state",
         "report must remain `PASS`",
         "run_release_gate_static_checks.py",

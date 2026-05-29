@@ -118,6 +118,8 @@ Raw Input fallback marker must stay in `WARN`, not `BLOCKER`: missing local Raw 
 
 Remote Raw Input unsupported marker must stay in `WARN`, not `BLOCKER`: remote-process Raw Input detection is an intentional public Win32 limitation unless the runtime attempts pinning without concrete local evidence.
 
+DPC spike monitoring-only marker must stay in `WARN`, not `BLOCKER`: DPC spike observation is release-blocking only if the runtime treats unsupported IRQ mutation as ERROR/FAIL or applies an unsupported backend.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:
