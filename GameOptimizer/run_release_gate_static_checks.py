@@ -1435,6 +1435,7 @@ def check_rc_candidate_contract() -> list[str]:
     warn_only_markers = [
         "Access Denied or access boundary encountered with fallback evidence.",
         "IRQ affinity unsupported, recorded as monitoring-only.",
+        "Raw Input not detected, fallback input policy active.",
         "Processor Group 1+ background process-wide restriction blocked as monitoring-only.",
     ]
     for marker in warn_only_markers:
@@ -1675,6 +1676,7 @@ def check_contract_enforcement_matrix() -> list[str]:
         "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "Access Denied fallback marker must stay in `WARN`, not `BLOCKER`",
         "IRQ unsupported monitoring-only marker must stay in `WARN`, not `BLOCKER`",
+        "Raw Input fallback marker must stay in `WARN`, not `BLOCKER`",
         "rollback_preserved_state_summary.has_preserved_state",
         "report must remain `PASS`",
         "run_release_gate_static_checks.py",

@@ -70,6 +70,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - IRQ unsupported path is treated as ERROR/FAIL instead of WARN + monitoring-only.
 - IRQ unsupported monitoring-only marker is moved out of `WARN` or duplicated under `BLOCKER`.
 - Input thread pinning is attempted without High confidence and `ConcreteTid`.
+- Raw Input fallback marker is moved out of `WARN` or duplicated under `BLOCKER`.
 - Processor Group / HEDT group 1+ mock loses affinity, rollback, or log evidence.
 - Group 1+ process-wide background affinity mutation is enabled for `v3.0-rc1`.
 - Processor Group 1+ monitoring-only restriction marker is moved out of `WARN` or duplicated under `BLOCKER`.

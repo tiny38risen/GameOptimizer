@@ -468,6 +468,7 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
         "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "Access Denied fallback marker must stay in `WARN`, not `BLOCKER`",
         "IRQ unsupported monitoring-only marker must stay in `WARN`, not `BLOCKER`",
+        "Raw Input fallback marker must stay in `WARN`, not `BLOCKER`",
         "rollback_preserved_state_summary.has_preserved_state",
         "report must remain `PASS`",
     ]:
@@ -526,6 +527,15 @@ def test_irq_unsupported_marker_is_warn_not_blocker() -> None:
     assert not static_checks.markdown_section_contains_marker(blocker_text, "BLOCKER", marker)
 
 
+def test_raw_input_fallback_marker_is_warn_not_blocker() -> None:
+    blocker_text = static_checks.RELEASE_BLOCKER_LIST_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    marker = "Raw Input not detected, fallback input policy active."
+    assert static_checks.markdown_section_contains_marker(blocker_text, "WARN", marker)
+    assert not static_checks.markdown_section_contains_marker(blocker_text, "BLOCKER", marker)
+
+
 def main() -> int:
     test_ordered_markers_pass()
     test_ordered_markers_reject_missing_marker()
@@ -551,6 +561,7 @@ def main() -> int:
     test_group_one_monitoring_only_marker_is_warn_not_blocker()
     test_access_denied_fallback_marker_is_warn_not_blocker()
     test_irq_unsupported_marker_is_warn_not_blocker()
+    test_raw_input_fallback_marker_is_warn_not_blocker()
     print("[PASS] static gate selftest passed")
     return 0
 

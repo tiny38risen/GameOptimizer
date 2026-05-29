@@ -114,6 +114,8 @@ Access Denied fallback marker must stay in `WARN`, not `BLOCKER`: access-boundar
 
 IRQ unsupported monitoring-only marker must stay in `WARN`, not `BLOCKER`: unsupported IRQ affinity remains a documented limitation when mutation is suppressed and monitoring-only evidence exists.
 
+Raw Input fallback marker must stay in `WARN`, not `BLOCKER`: missing local Raw Input detection is release-blocking only if code attempts pinning without high-confidence `ConcreteTid` evidence.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:

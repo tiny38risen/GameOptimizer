@@ -152,6 +152,7 @@ The evidence self-test must inject these release failures or limitations:
 - group 1+ mock background restriction: `WARN`
 - Processor Group 1+ monitoring-only background restriction must remain a `WARN` blocker-list classification, not `BLOCKER`, when mutation is skipped and monitoring-only evidence exists.
 - Unsupported IRQ affinity with monitoring-only evidence must remain a `WARN` blocker-list classification, not `BLOCKER`; IRQ unsupported paths that become ERROR/FAIL remain `BLOCKER`.
+- Missing Raw Input detection with fallback input policy must remain a `WARN` blocker-list classification, not `BLOCKER`; input pinning without high-confidence `ConcreteTid` evidence remains `BLOCKER`.
 - timeline monotonicity failure: `BLOCKER`
 - heartbeat progression failure: `BLOCKER`
 - telemetry-only observation: `INFO`

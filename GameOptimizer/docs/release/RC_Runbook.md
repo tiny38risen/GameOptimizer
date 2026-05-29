@@ -69,6 +69,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - `Release_Blocker_List.md` classifies Processor Group 1+ monitoring-only background restriction as WARN, not BLOCKER.
 - `Release_Blocker_List.md` classifies Access Denied with fallback evidence as WARN, not BLOCKER.
 - `Release_Blocker_List.md` classifies unsupported IRQ affinity with monitoring-only evidence as WARN, not BLOCKER.
+- `Release_Blocker_List.md` classifies missing Raw Input detection with fallback input policy as WARN, not BLOCKER.
 
 ## Tag rule
 
