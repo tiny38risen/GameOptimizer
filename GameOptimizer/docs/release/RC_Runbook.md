@@ -75,6 +75,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - `Release_Blocker_List.md` classifies SoftApply baseline validation limitation without mutation as WARN, not BLOCKER.
 - `run_release_gate_static_checks_selftest.py` iterates `WARN_ONLY_RELEASE_BLOCKER_MARKERS` so WARN-only release classifications cannot drift from `Release_Blocker_List.md`.
 - `run_release_gate_static_checks_selftest.py` iterates `APPLY_GUARD_BLOCKER_RELEASE_MARKERS` so ApplyGuard rollback classifications cannot drift from `Release_Blocker_List.md`.
+- `run_release_gate_static_checks_selftest.py` iterates `SOFT_APPLY_BLOCKER_RELEASE_MARKERS` so SoftApply preserved-state classifications cannot drift from `Release_Blocker_List.md`.
 
 ## Tag rule
 

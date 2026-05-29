@@ -45,6 +45,11 @@ APPLY_GUARD_BLOCKER_RELEASE_MARKERS = [
     "`ApplyGuard` destructor rollback failure is logged.",
 ]
 
+SOFT_APPLY_BLOCKER_RELEASE_MARKERS = [
+    "SoftApply baseline evidence increases `rollback_preserved_state_count` "
+    "or creates BLOCKER/WARN findings by itself.",
+]
+
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"RuntimeOrchestrator\s+orchestrator\s*\(\s*argc\s*,\s*argv\s*\)", "main must delegate to RuntimeOrchestrator"),
     ("RuntimeOrchestrator.cpp", r"RuntimeOrchestrator::run\s*\(\s*\)", "RuntimeOrchestrator run entry missing"),
@@ -1425,15 +1430,13 @@ def check_rc_candidate_contract() -> list[str]:
         if marker not in combined_text:
             failures.append(f"[FAIL] RC candidate gate: missing marker: {marker}")
 
-    soft_apply_preserved_marker = (
-        "SoftApply baseline evidence increases `rollback_preserved_state_count` "
-        "or creates BLOCKER/WARN findings by itself.")
-    if not markdown_section_contains_marker(blocker_list_text, "BLOCKER", soft_apply_preserved_marker):
-        failures.append(
-            "[FAIL] RC candidate gate: SoftApply preserved-state evidence drift must be listed as BLOCKER")
-    if markdown_section_contains_marker(blocker_list_text, "WARN", soft_apply_preserved_marker):
-        failures.append(
-            "[FAIL] RC candidate gate: SoftApply preserved-state evidence drift must not be listed as WARN")
+    for marker in SOFT_APPLY_BLOCKER_RELEASE_MARKERS:
+        if not markdown_section_contains_marker(blocker_list_text, "BLOCKER", marker):
+            failures.append(
+                f"[FAIL] RC candidate gate: SoftApply preserved-state evidence drift must be listed as BLOCKER: {marker}")
+        if markdown_section_contains_marker(blocker_list_text, "WARN", marker):
+            failures.append(
+                f"[FAIL] RC candidate gate: SoftApply preserved-state evidence drift must not be listed as WARN: {marker}")
 
     for marker in APPLY_GUARD_BLOCKER_RELEASE_MARKERS:
         if not markdown_section_contains_marker(blocker_list_text, "BLOCKER", marker):
@@ -1679,6 +1682,7 @@ def check_contract_enforcement_matrix() -> list[str]:
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
         "ApplyGuard release blocker markers must be centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS`",
         "SoftApply baseline evidence stays separate",
+        "SoftApply release blocker markers must be centralized in `SOFT_APPLY_BLOCKER_RELEASE_MARKERS`",
         "WARN-only release blocker markers must be centralized in `WARN_ONLY_RELEASE_BLOCKER_MARKERS`",
         "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "Access Denied fallback marker must stay in `WARN`, not `BLOCKER`",

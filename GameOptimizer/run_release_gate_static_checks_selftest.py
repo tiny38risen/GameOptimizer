@@ -466,6 +466,7 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
         "ApplyGuard release blocker markers must be centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS`",
         "SoftApply baseline evidence stays separate",
+        "SoftApply release blocker markers must be centralized in `SOFT_APPLY_BLOCKER_RELEASE_MARKERS`",
         "WARN-only release blocker markers must be centralized in `WARN_ONLY_RELEASE_BLOCKER_MARKERS`",
         "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
         "Access Denied fallback marker must stay in `WARN`, not `BLOCKER`",
@@ -485,11 +486,10 @@ def test_soft_apply_preserved_state_drift_is_blocker_not_warn() -> None:
     blocker_text = static_checks.RELEASE_BLOCKER_LIST_FILE.read_text(
         encoding="utf-8",
         errors="replace")
-    marker = (
-        "SoftApply baseline evidence increases `rollback_preserved_state_count` "
-        "or creates BLOCKER/WARN findings by itself.")
-    assert static_checks.markdown_section_contains_marker(blocker_text, "BLOCKER", marker)
-    assert not static_checks.markdown_section_contains_marker(blocker_text, "WARN", marker)
+    assert len(static_checks.SOFT_APPLY_BLOCKER_RELEASE_MARKERS) == 1
+    for marker in static_checks.SOFT_APPLY_BLOCKER_RELEASE_MARKERS:
+        assert static_checks.markdown_section_contains_marker(blocker_text, "BLOCKER", marker)
+        assert not static_checks.markdown_section_contains_marker(blocker_text, "WARN", marker)
 
 
 def test_apply_guard_rollback_markers_are_blocker_not_warn() -> None:

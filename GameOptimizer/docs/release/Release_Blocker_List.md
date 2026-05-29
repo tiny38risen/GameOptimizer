@@ -56,6 +56,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - ApplyGuard rollback evidence markers are moved out of `BLOCKER` or duplicated under `WARN`.
 - ApplyGuard release blocker markers are not centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS` or the selftest does not iterate that list.
 - `ApplyGuard` destructor rollback failure is logged.
+- SoftApply release blocker markers are not centralized in `SOFT_APPLY_BLOCKER_RELEASE_MARKERS` or the selftest does not iterate that list.
 - Unsafe rollback state discard is reintroduced.
 - `SetThreadGroupAffinity` failure path discards rollback state without post-failure state audit.
 - `SchedulerController` affinity failure audit/result/rollback-log helper markers are missing.
