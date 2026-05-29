@@ -1419,6 +1419,19 @@ def check_rc_candidate_contract() -> list[str]:
         failures.append(
             "[FAIL] RC candidate gate: SoftApply preserved-state evidence drift must not be listed as WARN")
 
+    apply_guard_blocker_markers = [
+        "`ApplyGuard` explicit rollback failure is logged.",
+        "`ApplyGuard` explicit rollback failure is not paired with `rollback_failure_transferred_to_shutdown_count` evidence.",
+        "`ApplyGuard` destructor rollback failure is logged.",
+    ]
+    for marker in apply_guard_blocker_markers:
+        if not markdown_section_contains_marker(blocker_list_text, "BLOCKER", marker):
+            failures.append(
+                f"[FAIL] RC candidate gate: ApplyGuard rollback evidence marker must be listed as BLOCKER: {marker}")
+        if markdown_section_contains_marker(blocker_list_text, "WARN", marker):
+            failures.append(
+                f"[FAIL] RC candidate gate: ApplyGuard rollback evidence marker must not be listed as WARN: {marker}")
+
     failures.extend(validate_ordered_markers("RC bundle real game validation", bundle_text, [
         "verify_rc_candidate.validate_evidence_bundle(target)",
         "verify_rc_candidate.validate_real_game_matrix()",
@@ -1644,6 +1657,7 @@ def check_contract_enforcement_matrix() -> list[str]:
         "ApplyGuard rollback failure fixtures",
         "not duplicate the transfer-missing BLOCKER",
         "destructor rollback failure must add one rollback failure BLOCKER",
+        "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
         "SoftApply baseline evidence stays separate",
         "rollback_preserved_state_summary.has_preserved_state",
         "report must remain `PASS`",

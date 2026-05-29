@@ -106,6 +106,8 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 
 `Release_Blocker_List.md` must classify SoftApply baseline evidence that increases `rollback_preserved_state_count` or creates BLOCKER/WARN findings by itself under `BLOCKER`, not `WARN`.
 
+ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`: explicit rollback failure, missing shutdown-transfer evidence, and destructor rollback failure.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:
