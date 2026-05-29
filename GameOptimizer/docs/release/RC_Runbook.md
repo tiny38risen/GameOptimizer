@@ -72,6 +72,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - `Release_Blocker_List.md` classifies missing Raw Input detection with fallback input policy as WARN, not BLOCKER.
 - `Release_Blocker_List.md` classifies remote Raw Input detection unsupported through public Win32 APIs as WARN, not BLOCKER.
 - `Release_Blocker_List.md` classifies DPC spike observation while IRQ mutation backend is unavailable as WARN, not BLOCKER.
+- `Release_Blocker_List.md` classifies SoftApply baseline validation limitation without mutation as WARN, not BLOCKER.
 
 ## Tag rule
 

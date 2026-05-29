@@ -120,6 +120,8 @@ Remote Raw Input unsupported marker must stay in `WARN`, not `BLOCKER`: remote-p
 
 DPC spike monitoring-only marker must stay in `WARN`, not `BLOCKER`: DPC spike observation is release-blocking only if the runtime treats unsupported IRQ mutation as ERROR/FAIL or applies an unsupported backend.
 
+SoftApply limitation marker must stay in `WARN`, not `BLOCKER`: SoftApply baseline limitation evidence is release-blocking only if it increases rollback preserved-state evidence or creates severity findings by itself.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:
