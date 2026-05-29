@@ -116,6 +116,8 @@ IRQ unsupported monitoring-only marker must stay in `WARN`, not `BLOCKER`: unsup
 
 Raw Input fallback marker must stay in `WARN`, not `BLOCKER`: missing local Raw Input detection is release-blocking only if code attempts pinning without high-confidence `ConcreteTid` evidence.
 
+Remote Raw Input unsupported marker must stay in `WARN`, not `BLOCKER`: remote-process Raw Input detection is an intentional public Win32 limitation unless the runtime attempts pinning without concrete local evidence.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:
