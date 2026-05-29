@@ -110,7 +110,7 @@ namespace
         return FailedAffinityApplyDisposition::RollbackRequired;
     }
 
-    void logAffinityRollbackFailure(DWORD threadId, ErrorCode rollbackError) noexcept
+    void logRollbackFailureAfterAffinityApply(DWORD threadId, ErrorCode rollbackError) noexcept
     {
         Logger::error(
             "affinity apply failed and rollback also failed for TID {}: {}; rollback state is preserved for shutdown recovery",
@@ -346,7 +346,7 @@ std::expected<void, ErrorCode> SchedulerController::applyMainThreadPolicy(
         auto rollbackResult = applyGuard.rollbackNow();
         if (!rollbackResult)
         {
-            logAffinityRollbackFailure(threadId, rollbackResult.error());
+            logRollbackFailureAfterAffinityApply(threadId, rollbackResult.error());
         }
 
         return makeAffinityApplyFailureResult(threadId, mappedError, recoverableAccessLimitation);

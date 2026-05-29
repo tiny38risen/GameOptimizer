@@ -456,7 +456,7 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
         "FailedAffinityApplyDisposition",
         "auditFailedAffinityApply",
         "makeAffinityApplyFailureResult",
-        "logAffinityRollbackFailure",
+        "logRollbackFailureAfterAffinityApply",
         "logStartupPolicySummary",
         "buildMainThreadPolicy",
         "loadAndPrepareBackgroundFilterConfig",

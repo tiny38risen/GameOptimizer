@@ -78,7 +78,7 @@ Runtime validation must surface these as `BLOCKER` evidence:
 - `FailedAffinityApplyDisposition`
 - `auditFailedAffinityApply`
 - `makeAffinityApplyFailureResult`
-- `logAffinityRollbackFailure`
+- `logRollbackFailureAfterAffinityApply`
 
 Inlining these responsibilities back into `applyMainThreadPolicy()` is a `BLOCKER` because it obscures the audit -> rollback/discard -> evidence contract.
 

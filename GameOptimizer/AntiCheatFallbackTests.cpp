@@ -135,7 +135,7 @@ namespace
             "affinity failure audit must be isolated in a helper");
         REQUIRE(contains(schedulerText, "makeAffinityApplyFailureResult("),
             "affinity failure return mapping must be isolated in a helper");
-        REQUIRE(contains(schedulerText, "logAffinityRollbackFailure("),
+        REQUIRE(contains(schedulerText, "logRollbackFailureAfterAffinityApply("),
             "affinity rollback failure context logging must be isolated in a helper");
         REQUIRE(contains(schedulerText, "applyGuard.discardSavedState();"),
             "affinity failure may discard rollback state only after original-state audit match");
