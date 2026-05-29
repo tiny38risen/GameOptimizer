@@ -39,6 +39,12 @@ WARN_ONLY_RELEASE_BLOCKER_MARKERS = [
     "Processor Group 1+ background process-wide restriction blocked as monitoring-only.",
 ]
 
+APPLY_GUARD_BLOCKER_RELEASE_MARKERS = [
+    "`ApplyGuard` explicit rollback failure is logged.",
+    "`ApplyGuard` explicit rollback failure is not paired with `rollback_failure_transferred_to_shutdown_count` evidence.",
+    "`ApplyGuard` destructor rollback failure is logged.",
+]
+
 REQUIRED_MAIN_PATTERNS = [
     ("main.cpp", r"RuntimeOrchestrator\s+orchestrator\s*\(\s*argc\s*,\s*argv\s*\)", "main must delegate to RuntimeOrchestrator"),
     ("RuntimeOrchestrator.cpp", r"RuntimeOrchestrator::run\s*\(\s*\)", "RuntimeOrchestrator run entry missing"),
@@ -1429,12 +1435,7 @@ def check_rc_candidate_contract() -> list[str]:
         failures.append(
             "[FAIL] RC candidate gate: SoftApply preserved-state evidence drift must not be listed as WARN")
 
-    apply_guard_blocker_markers = [
-        "`ApplyGuard` explicit rollback failure is logged.",
-        "`ApplyGuard` explicit rollback failure is not paired with `rollback_failure_transferred_to_shutdown_count` evidence.",
-        "`ApplyGuard` destructor rollback failure is logged.",
-    ]
-    for marker in apply_guard_blocker_markers:
+    for marker in APPLY_GUARD_BLOCKER_RELEASE_MARKERS:
         if not markdown_section_contains_marker(blocker_list_text, "BLOCKER", marker):
             failures.append(
                 f"[FAIL] RC candidate gate: ApplyGuard rollback evidence marker must be listed as BLOCKER: {marker}")
@@ -1676,6 +1677,7 @@ def check_contract_enforcement_matrix() -> list[str]:
         "not duplicate the transfer-missing BLOCKER",
         "destructor rollback failure must add one rollback failure BLOCKER",
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
+        "ApplyGuard release blocker markers must be centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS`",
         "SoftApply baseline evidence stays separate",
         "WARN-only release blocker markers must be centralized in `WARN_ONLY_RELEASE_BLOCKER_MARKERS`",
         "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",

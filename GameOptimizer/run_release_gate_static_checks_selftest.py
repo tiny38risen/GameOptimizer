@@ -464,6 +464,7 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
         "ApplyGuard rollback failure fixtures",
         "not duplicate the transfer-missing BLOCKER",
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
+        "ApplyGuard release blocker markers must be centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS`",
         "SoftApply baseline evidence stays separate",
         "WARN-only release blocker markers must be centralized in `WARN_ONLY_RELEASE_BLOCKER_MARKERS`",
         "Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`",
@@ -495,11 +496,8 @@ def test_apply_guard_rollback_markers_are_blocker_not_warn() -> None:
     blocker_text = static_checks.RELEASE_BLOCKER_LIST_FILE.read_text(
         encoding="utf-8",
         errors="replace")
-    for marker in [
-        "`ApplyGuard` explicit rollback failure is logged.",
-        "`ApplyGuard` explicit rollback failure is not paired with `rollback_failure_transferred_to_shutdown_count` evidence.",
-        "`ApplyGuard` destructor rollback failure is logged.",
-    ]:
+    assert len(static_checks.APPLY_GUARD_BLOCKER_RELEASE_MARKERS) == 3
+    for marker in static_checks.APPLY_GUARD_BLOCKER_RELEASE_MARKERS:
         assert static_checks.markdown_section_contains_marker(blocker_text, "BLOCKER", marker)
         assert not static_checks.markdown_section_contains_marker(blocker_text, "WARN", marker)
 

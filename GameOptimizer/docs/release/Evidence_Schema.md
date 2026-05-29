@@ -126,6 +126,7 @@ The RC verifier must treat these identity failures as `BLOCKER` conditions:
 - `ApplyGuard` explicit rollback failure fixture with matching shutdown transfer evidence must not add the transfer-missing BLOCKER
 - `ApplyGuard` destructor rollback failure fixture must add exactly one rollback failure BLOCKER and no explicit transfer-missing BLOCKER
 - ApplyGuard rollback evidence markers must remain `BLOCKER` classifications in `Release_Blocker_List.md`, never `WARN`.
+- ApplyGuard release blocker markers are centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS` and must be verified as `BLOCKER`, not `WARN`, by the static gate selftest.
 - `SetThreadGroupAffinity` failure plus audit query failure
 - `SetThreadGroupAffinity` failure plus audit mismatch
 - runtime validation `FAILED`

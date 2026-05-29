@@ -54,6 +54,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - `ApplyGuard` explicit rollback failure is not paired with `rollback_failure_transferred_to_shutdown_count` evidence.
 - ApplyGuard rollback failure selftests do not cover missing-transfer, transfer-present, and destructor rollback cases.
 - ApplyGuard rollback evidence markers are moved out of `BLOCKER` or duplicated under `WARN`.
+- ApplyGuard release blocker markers are not centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS` or the selftest does not iterate that list.
 - `ApplyGuard` destructor rollback failure is logged.
 - Unsafe rollback state discard is reintroduced.
 - `SetThreadGroupAffinity` failure path discards rollback state without post-failure state audit.

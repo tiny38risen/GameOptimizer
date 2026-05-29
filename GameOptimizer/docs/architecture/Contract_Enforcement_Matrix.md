@@ -110,6 +110,8 @@ WARN-only release blocker markers must be centralized in `WARN_ONLY_RELEASE_BLOC
 
 ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`: explicit rollback failure, missing shutdown-transfer evidence, and destructor rollback failure.
 
+ApplyGuard release blocker markers must be centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS`; the static gate and its selftest must consume that shared list so rollback failure classifications cannot drift.
+
 Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`: group 1+ process-wide background restriction is a documented limitation only when mutation is skipped and monitoring-only evidence exists.
 
 Access Denied fallback marker must stay in `WARN`, not `BLOCKER`: access-boundary failures are release-blocking only when fallback or rollback evidence is missing.

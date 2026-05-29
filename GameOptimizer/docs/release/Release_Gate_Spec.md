@@ -186,6 +186,8 @@ The release blocker list must keep SoftApply baseline validation limitation with
 
 WARN-only release blocker markers must be centralized in `WARN_ONLY_RELEASE_BLOCKER_MARKERS`, and the static gate selftest must iterate that list against `Release_Blocker_List.md`.
 
+ApplyGuard release blocker markers must be centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS`, and the static gate selftest must iterate that list against `Release_Blocker_List.md`.
+
 ## ADR contract gate
 
 `docs/architecture/Architecture_Decision_Record.md` is the accepted architecture contract index. The static gate requires the ADR file to exist and to include the accepted decisions for transactional runtime mutation, observation-only `ThreadTracker`, thread-level `SchedulerController` mutation, processor-group policy, soft-apply evidence, release evidence, process-level `BackgroundController` restriction, access-boundary fallback, input pinning eligibility, and limited explicit apply mode.
