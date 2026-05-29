@@ -112,6 +112,8 @@ Processor Group 1+ monitoring-only marker must stay in `WARN`, not `BLOCKER`: gr
 
 Access Denied fallback marker must stay in `WARN`, not `BLOCKER`: access-boundary failures are release-blocking only when fallback or rollback evidence is missing.
 
+IRQ unsupported monitoring-only marker must stay in `WARN`, not `BLOCKER`: unsupported IRQ affinity remains a documented limitation when mutation is suppressed and monitoring-only evidence exists.
+
 ## Required Evidence Coupling
 
 The evidence schema must expose release-facing fields sufficient to reject each `BLOCKER` contract violation:

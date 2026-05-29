@@ -68,6 +68,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Access Denied or access-boundary event lacks fallback or rollback evidence.
 - Access Denied fallback evidence marker is moved out of `WARN` or duplicated under `BLOCKER`.
 - IRQ unsupported path is treated as ERROR/FAIL instead of WARN + monitoring-only.
+- IRQ unsupported monitoring-only marker is moved out of `WARN` or duplicated under `BLOCKER`.
 - Input thread pinning is attempted without High confidence and `ConcreteTid`.
 - Processor Group / HEDT group 1+ mock loses affinity, rollback, or log evidence.
 - Group 1+ process-wide background affinity mutation is enabled for `v3.0-rc1`.
