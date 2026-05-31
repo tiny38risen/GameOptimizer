@@ -26,7 +26,7 @@ namespace
 
     enum class FailedAffinityApplyDisposition
     {
-        DiscardRollbackState,
+        NoSideEffectDiscardAllowed,
         RollbackRequired
     };
 
@@ -95,7 +95,7 @@ namespace
             Logger::info(
                 "main-thread affinity apply failed for TID {}, but post-failure audit matched the original state; saved rollback state discarded",
                 threadId);
-            return FailedAffinityApplyDisposition::DiscardRollbackState;
+            return FailedAffinityApplyDisposition::NoSideEffectDiscardAllowed;
         }
 
         Logger::error(
@@ -118,7 +118,7 @@ namespace
             toString(rollbackError));
     }
 
-    [[nodiscard]] std::expected<void, ErrorCode> makeAffinityApplyFailureResult(
+    [[nodiscard]] std::expected<void, ErrorCode> logAndReturnAffinityApplyFailure(
         DWORD threadId,
         ErrorCode mappedError,
         bool recoverableAccessLimitation) noexcept
@@ -337,10 +337,10 @@ std::expected<void, ErrorCode> SchedulerController::applyMainThreadPolicy(
         const FailedAffinityApplyDisposition failedAffinityApplyDisposition =
             auditFailedAffinityApply(threadHandle.get(), threadId, original);
 
-        if (failedAffinityApplyDisposition == FailedAffinityApplyDisposition::DiscardRollbackState)
+        if (failedAffinityApplyDisposition == FailedAffinityApplyDisposition::NoSideEffectDiscardAllowed)
         {
             applyGuard.discardSavedState();
-            return makeAffinityApplyFailureResult(threadId, mappedError, recoverableAccessLimitation);
+            return logAndReturnAffinityApplyFailure(threadId, mappedError, recoverableAccessLimitation);
         }
 
         auto rollbackResult = applyGuard.rollbackNow();
@@ -349,7 +349,7 @@ std::expected<void, ErrorCode> SchedulerController::applyMainThreadPolicy(
             logRollbackFailureAfterAffinityApply(threadId, rollbackResult.error());
         }
 
-        return makeAffinityApplyFailureResult(threadId, mappedError, recoverableAccessLimitation);
+        return logAndReturnAffinityApplyFailure(threadId, mappedError, recoverableAccessLimitation);
     }
 
     if (!SetThreadPriority(threadHandle.get(), policy.threadPriority))

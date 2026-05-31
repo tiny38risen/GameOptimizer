@@ -133,7 +133,9 @@ namespace
             "affinity failure handling must keep an explicit disposition enum");
         REQUIRE(contains(schedulerText, "auditFailedAffinityApply("),
             "affinity failure audit must be isolated in a helper");
-        REQUIRE(contains(schedulerText, "makeAffinityApplyFailureResult("),
+        REQUIRE(contains(schedulerText, "NoSideEffectDiscardAllowed"),
+            "affinity no-side-effect discard disposition must be named explicitly");
+        REQUIRE(contains(schedulerText, "logAndReturnAffinityApplyFailure("),
             "affinity failure return mapping must be isolated in a helper");
         REQUIRE(contains(schedulerText, "logRollbackFailureAfterAffinityApply("),
             "affinity rollback failure context logging must be isolated in a helper");

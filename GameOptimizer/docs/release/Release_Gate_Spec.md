@@ -164,6 +164,8 @@ Run `python run_release_gate_static_checks.py` before every merge. The gate veri
 
 ApplyGuard rollback failure evidence is already connected through `release_gate_evidence.py`; release selftests must cover missing shutdown-transfer evidence, must prove transfer-present cases do not add the transfer-missing BLOCKER, and must prove destructor rollback failure is exactly one rollback failure BLOCKER without explicit transfer-missing evidence.
 
+SchedulerController affinity rollback context logging must remain context evidence only; release selftests must prove it does not create a second ApplyGuard rollback BLOCKER when paired with the ApplyGuard explicit rollback failure marker.
+
 Audited `SetThreadGroupAffinity` no-side-effect discard evidence is already connected through `release_gate_evidence.py`; release selftests must prove an affinity apply failure with post-failure audit matching the original state does not create a `SetThreadGroupAffinity failure` BLOCKER and does not increment `rollback_preserved_state_count`.
 
 SoftApply baseline evidence is already connected through `release_gate_evidence.py`; release selftests must prove thread/process baseline counts do not increase `rollback_preserved_state_count` or produce BLOCKER/WARN findings by themselves.

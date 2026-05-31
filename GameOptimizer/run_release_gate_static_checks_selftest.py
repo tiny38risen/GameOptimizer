@@ -454,8 +454,9 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
         errors="replace")
     for marker in [
         "FailedAffinityApplyDisposition",
+        "NoSideEffectDiscardAllowed",
         "auditFailedAffinityApply",
-        "makeAffinityApplyFailureResult",
+        "logAndReturnAffinityApplyFailure",
         "logRollbackFailureAfterAffinityApply",
         "buildRuntimeComponents",
         "applyStartupMutations",
@@ -466,6 +467,7 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
         "buildBackgroundRestrictionPolicy",
         "ApplyGuard rollback failure fixtures",
         "not duplicate the transfer-missing BLOCKER",
+        "SchedulerController affinity rollback context logging must not create a second ApplyGuard rollback BLOCKER",
         "audited affinity no-side-effect discard is not a BLOCKER",
         "the report must not contain any `SetThreadGroupAffinity failure` BLOCKER",
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",

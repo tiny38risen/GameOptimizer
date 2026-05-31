@@ -76,8 +76,9 @@ Runtime validation must surface these as `BLOCKER` evidence:
 `SchedulerController` affinity failure handling must remain helper-split:
 
 - `FailedAffinityApplyDisposition`
+- `NoSideEffectDiscardAllowed`
 - `auditFailedAffinityApply`
-- `makeAffinityApplyFailureResult`
+- `logAndReturnAffinityApplyFailure`
 - `logRollbackFailureAfterAffinityApply`
 
 Inlining these responsibilities back into `applyMainThreadPolicy()` is a `BLOCKER` because it obscures the audit -> rollback/discard -> evidence contract.
@@ -104,6 +105,7 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 - explicit rollback failure without shutdown-transfer evidence, which must add the transfer-missing BLOCKER,
 - explicit rollback failure with shutdown-transfer evidence, which must not duplicate the transfer-missing BLOCKER,
 - destructor rollback failure must add one rollback failure BLOCKER and must not add the explicit transfer-missing BLOCKER.
+- SchedulerController affinity rollback context logging must not create a second ApplyGuard rollback BLOCKER.
 
 `release_gate_evidence_selftest.py` must prove audited affinity no-side-effect discard is not a BLOCKER:
 
