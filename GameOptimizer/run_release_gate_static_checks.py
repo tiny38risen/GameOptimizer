@@ -28,6 +28,7 @@ RELEASE_BLOCKER_LIST_FILE = RELEASE_DOCS / "Release_Blocker_List.md"
 ARCHITECTURE_DECISION_RECORD_FILE = ARCHITECTURE_DOCS / "Architecture_Decision_Record.md"
 CONTRACT_ENFORCEMENT_MATRIX_FILE = ARCHITECTURE_DOCS / "Contract_Enforcement_Matrix.md"
 MODULE_OWNERSHIP_MATRIX_FILE = ARCHITECTURE_DOCS / "Module_Ownership_Matrix.md"
+CONTRACT_ENFORCEMENT_STATUS_FILE = ARCHITECTURE_DOCS / "Contract_Enforcement_Status.md"
 
 WARN_ONLY_RELEASE_BLOCKER_MARKERS = [
     "Access Denied or access boundary encountered with fallback evidence.",
@@ -1723,6 +1724,32 @@ def check_contract_enforcement_matrix() -> list[str]:
     for marker in required_markers:
         if marker not in cem_text:
             failures.append(f"[FAIL] CEM gate: missing marker: {marker}")
+
+    if not CONTRACT_ENFORCEMENT_STATUS_FILE.exists():
+        failures.append("[FAIL] CEM status gate: docs/architecture/Contract_Enforcement_Status.md is missing")
+    else:
+        status_text = CONTRACT_ENFORCEMENT_STATUS_FILE.read_text(encoding="utf-8", errors="replace")
+        status_required_markers = [
+            "CEM ID",
+            "Contract name",
+            "Static gate status",
+            "Runtime validation status",
+            "Evidence status",
+            "Self-test status",
+            "Remaining work",
+            "TODO",
+            "CEM-001",
+            "CEM-002",
+            "CEM-003",
+            "CEM-004",
+            "CEM-005",
+            "CEM-006",
+            "CEM-007",
+            "CEM-008",
+        ]
+        for marker in status_required_markers:
+            if marker not in status_text:
+                failures.append(f"[FAIL] CEM status gate: missing marker: {marker}")
 
     adr_text = ARCHITECTURE_DECISION_RECORD_FILE.read_text(encoding="utf-8", errors="replace") if ARCHITECTURE_DECISION_RECORD_FILE.exists() else ""
     for adr_marker in [

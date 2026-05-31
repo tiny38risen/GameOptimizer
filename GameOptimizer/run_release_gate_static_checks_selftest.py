@@ -452,6 +452,9 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
     cem_text = static_checks.CONTRACT_ENFORCEMENT_MATRIX_FILE.read_text(
         encoding="utf-8",
         errors="replace")
+    status_text = static_checks.CONTRACT_ENFORCEMENT_STATUS_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
     for marker in [
         "FailedAffinityApplyDisposition",
         "NoSideEffectDiscardAllowed",
@@ -491,6 +494,21 @@ def test_cem_gate_requires_recent_contract_markers() -> None:
     ]:
         assert marker in static_gate_text
         assert marker in cem_text
+    for marker in [
+        "CEM ID",
+        "Contract name",
+        "Static gate status",
+        "Runtime validation status",
+        "Evidence status",
+        "Self-test status",
+        "Remaining work",
+        "TODO",
+    ]:
+        assert marker in static_gate_text
+        assert marker in status_text
+    for index in range(1, 9):
+        assert f"CEM-{index:03d}" in static_gate_text
+        assert f"CEM-{index:03d}" in status_text
 
 
 def test_soft_apply_preserved_state_drift_is_blocker_not_warn() -> None:
