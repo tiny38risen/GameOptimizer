@@ -1685,6 +1685,8 @@ def check_contract_enforcement_matrix() -> list[str]:
         "ApplyGuard rollback failure fixtures",
         "not duplicate the transfer-missing BLOCKER",
         "destructor rollback failure must add one rollback failure BLOCKER",
+        "audited affinity no-side-effect discard is not a BLOCKER",
+        "the report must not contain any `SetThreadGroupAffinity failure` BLOCKER",
         "ApplyGuard rollback evidence markers must stay in `BLOCKER`, not `WARN`",
         "ApplyGuard release blocker markers must be centralized in `APPLY_GUARD_BLOCKER_RELEASE_MARKERS`",
         "SoftApply baseline evidence stays separate",

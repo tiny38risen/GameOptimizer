@@ -353,6 +353,33 @@ def assert_apply_guard_destructor_rollback_failure_is_single_blocker(
     )
 
 
+def assert_affinity_no_side_effect_discard_is_not_blocked(run_id: str, exe_path: pathlib.Path) -> bool:
+    finalize_result, report, text_report = finalize_single_step_report(
+        run_id,
+        "affinity_no_side_effect_discard",
+        exe_path,
+        [
+            "[WARN] main-thread affinity apply failed for TID 42, but post-failure audit matched the original state; saved rollback state discarded",
+            "[INFO] shutdown result: reason=ConsoleControl, timerRollbackFailed=false, schedulerRollbackFailed=false, runtimeValidationFailed=false, rollbackStatePreserved=false",
+        ],
+        step_name="affinity_no_side_effect_discard",
+        mode="apply",
+    )
+    step = report["steps"][0]
+    return (
+        finalize_result == 0
+        and report.get("status") == "PASS_WITH_WARNINGS"
+        and report.get("rollback_preserved_state_count") == 0
+        and report.get("blocker_count") == 0
+        and report.get("severity_summary", {}).get("BLOCKER", 0) == 0
+        and step.get("thread_group_affinity_audit_query_failure") is False
+        and step.get("thread_group_affinity_audit_mismatch") is False
+        and step.get("unsafe_rollback_state_discard") is False
+        and "unsafe rollback state discard: False" in text_report
+        and not any("SetThreadGroupAffinity failure" in blocker for blocker in report.get("blockers", []))
+    )
+
+
 def finalize_single_step_report(
     run_id: str,
     target_suffix: str,
@@ -516,6 +543,7 @@ def main() -> int:
     rollback_failure_run_id = f"synthetic_selftest_rollback_failure_{unique_id}"
     thread_group_audit_query_run_id = f"synthetic_selftest_thread_group_audit_query_{unique_id}"
     thread_group_audit_mismatch_run_id = f"synthetic_selftest_thread_group_audit_mismatch_{unique_id}"
+    affinity_no_side_effect_discard_run_id = f"synthetic_selftest_affinity_no_side_effect_discard_{unique_id}"
     access_denied_run_id = f"synthetic_selftest_access_denied_{unique_id}"
     group_one_run_id = f"synthetic_selftest_group_one_{unique_id}"
     timeline_run_id = f"synthetic_selftest_timeline_{unique_id}"
@@ -547,6 +575,7 @@ def main() -> int:
         evidence.LOG_ROOT / rollback_failure_run_id,
         evidence.LOG_ROOT / thread_group_audit_query_run_id,
         evidence.LOG_ROOT / thread_group_audit_mismatch_run_id,
+        evidence.LOG_ROOT / affinity_no_side_effect_discard_run_id,
         evidence.LOG_ROOT / access_denied_run_id,
         evidence.LOG_ROOT / group_one_run_id,
         evidence.LOG_ROOT / timeline_run_id,
@@ -688,6 +717,12 @@ def main() -> int:
             step_name="thread_group_audit_mismatch",
         ):
             print("[FAIL] RC evidence self-test: SetThreadGroupAffinity audit mismatch did not become a BLOCKER")
+            return 1
+
+        if not assert_affinity_no_side_effect_discard_is_not_blocked(
+            affinity_no_side_effect_discard_run_id,
+            synthetic_exe):
+            print("[FAIL] RC evidence self-test: affinity no-side-effect discard became a BLOCKER")
             return 1
 
         if not assert_blocker_injection(
