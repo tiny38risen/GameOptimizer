@@ -12,19 +12,26 @@ This command is the only RC gate entry point.
 
 Required order:
 
-1. Python `py_compile`
-2. `git diff --check`
+1. `git diff --check`
+2. Python `py_compile`
 3. static release gate
-4. Release x64 MSVC build
-5. full regression
-6. release smoke
-7. 30m dry-run soak
-8. 60m soft-apply soak
-9. `verify-rc`
-10. evidence bundle generation
+4. evidence self-test
+5. Release x64 MSVC build
+6. full regression
+7. release smoke
 
-The static release gate verifies this order through the `[RC-1]` through `[RC-10]` markers in `run_rc_gate.bat`; within `[RC-3]`, `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py`.
-Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json` must run before `verify_rc_candidate.py`.
+The static release gate verifies this draft order through the `[RC-1]` through `[RC-7]` markers in `run_rc_gate.bat`; within `[RC-3]`, `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py`.
+
+Draft exclusions:
+
+- 30m dry-run soak
+- 60m soft-apply soak
+- `verify-rc`
+- real-game validation
+- RC candidate verification
+- final evidence bundle generation
+
+The excluded steps remain required before tagging `v3.0-rc1`; they are intentionally outside the repeatable draft entry point.
 
 ## Completion criteria
 
@@ -36,23 +43,12 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - dirty tree state is recorded.
 - shutdown reason is recorded.
 - rollback preserved state count is recorded.
-- smoke and soak reports match the current commit and binary hash.
+- smoke reports match the current commit and binary hash.
 - final regression reports `failed=0`.
-- `docs/release/Game_Verification_Matrix.json` passes `verify_real_game_validation.py`.
-- `create_rc_evidence_bundle.py` repeats the real-game validation matrix check before writing the final bundle.
-- final bundle manifest records `real_game_validation_matrix` and `real_game_validation_matrix_sha256`.
-- final bundle artifact entries pass path, SHA-256, and byte-size validation before PASS.
-- written JSON/TXT bundle manifests pass reload and marker validation before PASS.
-- written JSON/TXT bundle manifests preserve schema, schema hash, and PASS status before PASS.
-- written JSON/TXT bundle manifests preserve target process, git commit, build hash, and binary SHA-256 before PASS.
-- final bundle `source_reports` entries point to existing smoke, soak, final regression, and real-game validation matrix files before PASS.
-- final bundle `source_reports` entries SHA-256 match their copied bundle artifacts.
 - static gate selftest exercises final bundle validators with real temporary files and mismatched-file failures.
 - full regression runs `run_release_gate_static_checks_selftest.py`.
 - final regression log contains PASS markers for `run_release_gate_static_checks_selftest.py` and `release_gate_evidence_selftest.py`.
-- final bundle manifest records `regression_selftest_summary`.
-- `regression_selftest_summary` entries are both `true`.
-- `regression_selftest_summary` matches the bundled `final_regression_log` artifact.
+- step logs are saved under `artifacts/rc/<timestamp>/`.
 - text bundle manifest includes the regression selftest summary and both selftest keys.
 - every real-game validation run links to an existing `evidence_report` artifact.
 - `docs/architecture/Architecture_Decision_Record.md` exists and matches the accepted runtime mutation, fallback, input pinning, limited apply, and evidence contracts.

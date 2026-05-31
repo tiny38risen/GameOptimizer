@@ -7,18 +7,20 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 ## BLOCKER
 
 - `run_rc_gate.bat <target.exe>` fails.
-- `run_rc_gate.bat` is missing an `[RC-1]` through `[RC-10]` step marker or the markers are out of order.
+- `run_rc_gate.bat` is missing an `[RC-1]` through `[RC-7]` draft step marker or the markers are out of order.
 - The static gate selftest does not prove missing and out-of-order RC step markers are rejected.
 - `run_rc_gate.bat` does not run `run_release_gate_static_checks_selftest.py` before `run_release_gate_static_checks.py`.
 - Python `py_compile` fails.
 - `git diff --check` fails.
 - Static release gate fails.
+- Evidence self-test fails.
 - `docs/architecture/Architecture_Decision_Record.md` is missing or stale.
 - `docs/architecture/Contract_Enforcement_Matrix.md` is missing or stale.
 - `docs/architecture/Contract_Enforcement_Matrix.md` loses required helper/evidence selftest markers.
 - Release x64 MSVC build fails.
 - Full regression fails.
 - Release smoke fails.
+- `run_rc_gate.bat` does not write step logs under `artifacts/rc/`.
 - 30m dry-run soak fails.
 - 60m soft-apply soak fails.
 - `verify-rc` fails.
@@ -89,7 +91,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - A governance contract changes without a matching static gate, validator/evidence coupling, selftest or regression, and release blocker/runbook synchronization.
 - WARN-only release blocker markers are not centralized in `WARN_ONLY_RELEASE_BLOCKER_MARKERS` or the selftest does not iterate that list.
 - Real game validation record is missing before `v3.0-rc1` tagging.
-- `run_rc_gate.bat` does not run `verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json` before `verify_rc_candidate.py`.
+- Full candidate verification does not run `verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json` before `verify_rc_candidate.py`.
 - Real game validation has fewer than 3 games.
 - Real game validation has fewer than 2 successful 60m soft-apply runs.
 - Real game validation lacks a limited apply-mode validation.

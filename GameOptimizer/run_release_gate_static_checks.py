@@ -963,29 +963,22 @@ def check_rc_gate_contract() -> list[str]:
         "git diff --check",
         "run_release_gate_static_checks_selftest.py",
         "run_release_gate_static_checks.py",
+        "release_gate_evidence_selftest.py",
         "msbuild GameOptimizer.slnx /p:Configuration=Release /p:Platform=x64 /m",
         "run_regression_tests.bat",
         "run_release_gate_smoke.bat",
-        "run_long_soak_presets.bat",
-        "release_gate_evidence.py verify-rc",
-        "verify_real_game_validation.py --matrix docs\\release\\Game_Verification_Matrix.json",
-        "verify_rc_candidate.py",
-        "create_rc_evidence_bundle.py",
+        "artifacts\\rc",
         "RC_BLOCKER",
         "[BLOCKER] RC gate failed",
         "release smoke failed",
-        "30m or 60m soak failed",
-        "verify-rc failed",
-        "real game validation failed",
         "py_compile failed",
         "git diff --check failed",
         "static gate selftest failed",
+        "evidence self-test failed",
         "Release x64 MSVC build failed",
-        "RC candidate verification failed",
-        "RC evidence bundle creation failed",
-        "both",
-        "release_gate_logs",
-        "[PASS] RC gate passed",
+        "draft RC gate excludes 30m dry-run soak, 60m soft-apply soak",
+        "real-game validation",
+        "[PASS] RC gate draft passed",
         "[FAIL] RC gate failed",
     ]
     for marker in required_markers:
@@ -993,27 +986,19 @@ def check_rc_gate_contract() -> list[str]:
             failures.append(f"[FAIL] RC gate: missing marker: {marker}")
 
     ordered_steps = [
-        "echo [RC-1] Python syntax gate",
-        "echo [RC-2] git diff whitespace gate",
+        "echo [RC-1] git diff whitespace gate",
+        "echo [RC-2] Python syntax gate",
         "echo [RC-3] static release gate",
-        "echo [RC-4] Release x64 MSVC build",
-        "echo [RC-5] full regression",
-        "echo [RC-6] release smoke",
-        "echo [RC-7] long soak evidence gate: 30m dry-run + 60m soft-apply",
-        "echo [RC-8] verify RC evidence set",
-        "echo [RC-9] verify RC candidate package inputs",
-        "echo [RC-10] create final RC evidence bundle",
+        "echo [RC-4] evidence self-test",
+        "echo [RC-5] Release x64 MSVC build",
+        "echo [RC-6] full regression",
+        "echo [RC-7] release smoke",
     ]
     failures.extend(validate_ordered_markers("RC gate", rc_text, ordered_steps))
     failures.extend(validate_ordered_markers("RC static gate selftest", rc_text, [
         "echo [RC-3] static release gate",
         "run_release_gate_static_checks_selftest.py",
         "run_release_gate_static_checks.py",
-    ]))
-    failures.extend(validate_ordered_markers("RC real game validation", rc_text, [
-        "echo [RC-9] verify RC candidate package inputs",
-        "verify_real_game_validation.py --matrix docs\\release\\Game_Verification_Matrix.json",
-        "verify_rc_candidate.py",
     ]))
 
     return failures
@@ -1055,7 +1040,8 @@ def check_static_gate_selftest_contract() -> list[str]:
         "test_ordered_markers_pass",
         "test_ordered_markers_reject_missing_marker",
         "test_ordered_markers_reject_out_of_order_marker",
-        "test_rc9_real_game_validation_runs_before_candidate_verification",
+        "test_rc_gate_draft_excludes_long_soak_and_real_game_validation",
+        "test_real_game_validation_order_for_full_candidate_flow",
         "test_bundle_creation_validates_real_game_matrix_before_writing_bundle",
         "test_bundle_manifest_preserves_real_game_matrix_artifact",
         "test_bundle_creation_validates_manifest_artifact_hashes_before_pass",

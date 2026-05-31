@@ -185,9 +185,11 @@ Compatibility summaries used by validators must remain available:
 
 ## Release Gate Consumption
 
-`run_rc_gate.bat` must execute the static gate selftest and static contract gate before build, regression, smoke, soak, verify-rc, candidate verification, and final bundle creation. The static gate must reject RC step drift by checking the ordered `[RC-1]` through `[RC-10]` markers in `run_rc_gate.bat`, and `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py` to prove missing or out-of-order markers are rejected.
+`run_rc_gate.bat` must execute the draft gate sequence: `git diff --check`, Python `py_compile`, static gate selftest plus static contract gate, evidence self-test, Release x64 build, full regression, and release smoke. The static gate must reject draft RC step drift by checking the ordered `[RC-1]` through `[RC-7]` markers in `run_rc_gate.bat`, and `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py` to prove missing or out-of-order markers are rejected.
 
-Within `[RC-9]`, `run_rc_gate.bat` must run `verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json` before `verify_rc_candidate.py`, so real-game validation failures are visible as their own `BLOCKER`.
+The draft `run_rc_gate.bat` must write step logs under `artifacts/rc/<timestamp>/`.
+
+30m dry-run soak, 60m soft-apply soak, `verify-rc`, real-game validation, RC candidate verification, and final evidence bundle creation remain TODO outside the draft gate and must pass before tagging `v3.0-rc1`.
 
 `create_rc_evidence_bundle.py` must also call the real-game matrix validator before creating the bundle directory. Direct bundle creation is a release decision path and cannot bypass real-game validation.
 

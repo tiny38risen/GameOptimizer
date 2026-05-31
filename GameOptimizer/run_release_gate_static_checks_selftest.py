@@ -9,9 +9,13 @@ import verify_rc_candidate
 
 
 ORDERED_MARKERS = [
-    "echo [RC-1] Python syntax gate",
-    "echo [RC-2] git diff whitespace gate",
+    "echo [RC-1] git diff whitespace gate",
+    "echo [RC-2] Python syntax gate",
     "echo [RC-3] static release gate",
+    "echo [RC-4] evidence self-test",
+    "echo [RC-5] Release x64 MSVC build",
+    "echo [RC-6] full regression",
+    "echo [RC-7] release smoke",
 ]
 
 
@@ -49,7 +53,18 @@ def test_markdown_section_contains_marker_is_section_scoped() -> None:
     assert not static_checks.markdown_section_contains_marker(text, "MISSING", "blocker item")
 
 
-def test_rc9_real_game_validation_runs_before_candidate_verification() -> None:
+def test_rc_gate_draft_excludes_long_soak_and_real_game_validation() -> None:
+    rc_text = static_checks.ROOT.joinpath("run_rc_gate.bat").read_text(
+        encoding="utf-8",
+        errors="replace")
+    assert "draft RC gate excludes 30m dry-run soak, 60m soft-apply soak" in rc_text
+    assert "run_long_soak_presets.bat" not in rc_text
+    assert "verify_real_game_validation.py --matrix docs\\release\\Game_Verification_Matrix.json" not in rc_text
+    assert "verify_rc_candidate.py" not in rc_text
+    assert "create_rc_evidence_bundle.py" not in rc_text
+
+
+def test_real_game_validation_order_for_full_candidate_flow() -> None:
     ordered_markers = [
         "echo [RC-9] verify RC candidate package inputs",
         "verify_real_game_validation.py --matrix docs\\release\\Game_Verification_Matrix.json",
@@ -609,7 +624,8 @@ def main() -> int:
     test_ordered_markers_reject_missing_marker()
     test_ordered_markers_reject_out_of_order_marker()
     test_markdown_section_contains_marker_is_section_scoped()
-    test_rc9_real_game_validation_runs_before_candidate_verification()
+    test_rc_gate_draft_excludes_long_soak_and_real_game_validation()
+    test_real_game_validation_order_for_full_candidate_flow()
     test_bundle_creation_validates_real_game_matrix_before_writing_bundle()
     test_bundle_manifest_preserves_real_game_matrix_artifact()
     test_bundle_creation_validates_manifest_artifact_hashes_before_pass()

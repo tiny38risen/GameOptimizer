@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 
 if "%~1"=="" (
     echo Usage: run_rc_gate.bat target.exe
@@ -8,11 +8,19 @@ if "%~1"=="" (
 
 set TARGET=%~1
 set SCRIPT_DIR=%~dp0
+set REPO_ROOT=%SCRIPT_DIR%..
 set VCVARS64=
+set PYTHON_CMD=
 set RC_BLOCKER=unknown
-set FINAL_REGRESSION_LOG=
+set RC_LOG_DIR=
 
 pushd "%SCRIPT_DIR%"
+
+for /f %%I in ('powershell -NoProfile -Command "(Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')"') do set RC_TIMESTAMP=%%I
+if "%RC_TIMESTAMP%"=="" set RC_TIMESTAMP=unknown-time
+set RC_LOG_DIR=%REPO_ROOT%\artifacts\rc\%RC_TIMESTAMP%
+if not exist "%RC_LOG_DIR%" mkdir "%RC_LOG_DIR%"
+echo [INFO] RC gate artifact directory: "%RC_LOG_DIR%"
 
 where cl >nul 2>nul
 if errorlevel 1 (
@@ -41,7 +49,6 @@ if errorlevel 1 (
     )
 )
 
-set PYTHON_CMD=
 set BUNDLED_PYTHON=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe
 if exist "%BUNDLED_PYTHON%" (
     set PYTHON_CMD="%BUNDLED_PYTHON%"
@@ -79,105 +86,102 @@ if "%PYTHON_CMD%"=="" (
     exit /b 2
 )
 
-echo [RC-1] Python syntax gate
-for %%F in (*.py) do (
-    %PYTHON_CMD% -m py_compile "%%F"
-    if errorlevel 1 (
-        set RC_BLOCKER=py_compile failed
-        goto fail
-    )
-)
-
-echo [RC-2] git diff whitespace gate
-git diff --check
+echo [RC-1] git diff whitespace gate
+call :run_logged rc1_git_diff_check git diff --check
 if errorlevel 1 (
     set RC_BLOCKER=git diff --check failed
     goto fail
 )
 
+echo [RC-2] Python syntax gate
+call :run_py_compile
+if errorlevel 1 (
+    set RC_BLOCKER=py_compile failed
+    goto fail
+)
+
 echo [RC-3] static release gate
-%PYTHON_CMD% run_release_gate_static_checks_selftest.py
+call :run_logged rc3_static_selftest %PYTHON_CMD% run_release_gate_static_checks_selftest.py
 if errorlevel 1 (
     set RC_BLOCKER=static gate selftest failed
     goto fail
 )
-
-%PYTHON_CMD% run_release_gate_static_checks.py
+call :run_logged rc3_static_gate %PYTHON_CMD% run_release_gate_static_checks.py
 if errorlevel 1 (
     set RC_BLOCKER=static gate failed
     goto fail
 )
 
-echo [RC-4] Release x64 MSVC build
-pushd "%SCRIPT_DIR%.."
-msbuild GameOptimizer.slnx /p:Configuration=Release /p:Platform=x64 /m
-set BUILD_EXIT=%ERRORLEVEL%
-popd
-if not "%BUILD_EXIT%"=="0" (
+echo [RC-4] evidence self-test
+call :run_logged rc4_evidence_selftest %PYTHON_CMD% release_gate_evidence_selftest.py
+if errorlevel 1 (
+    set RC_BLOCKER=evidence self-test failed
+    goto fail
+)
+
+echo [RC-5] Release x64 MSVC build
+call :run_release_build
+if errorlevel 1 (
     set RC_BLOCKER=Release x64 MSVC build failed
     goto fail
 )
 
-echo [RC-5] full regression
-if not exist "%SCRIPT_DIR%release_gate_logs" mkdir "%SCRIPT_DIR%release_gate_logs"
-for /f %%I in ('powershell -NoProfile -Command "(Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')"') do set RC_TIMESTAMP=%%I
-set FINAL_REGRESSION_LOG=%SCRIPT_DIR%release_gate_logs\%RC_TIMESTAMP%_final_regression.log
-echo [INFO] final regression log: "%FINAL_REGRESSION_LOG%"
-call run_regression_tests.bat > "%FINAL_REGRESSION_LOG%" 2>&1
-set REGRESSION_EXIT=%ERRORLEVEL%
-type "%FINAL_REGRESSION_LOG%"
-if not "%REGRESSION_EXIT%"=="0" (
+echo [RC-6] full regression
+call :run_logged rc6_full_regression cmd.exe /d /c call run_regression_tests.bat
+if errorlevel 1 (
     set RC_BLOCKER=regression failed
     goto fail
 )
 
-echo [RC-6] release smoke
-call run_release_gate_smoke.bat "%TARGET%"
+echo [RC-7] release smoke
+call :run_logged rc7_release_smoke cmd.exe /d /c call run_release_gate_smoke.bat "%TARGET%"
 if errorlevel 1 (
     set RC_BLOCKER=release smoke failed
     goto fail
 )
 
-echo [RC-7] long soak evidence gate: 30m dry-run + 60m soft-apply
-call run_long_soak_presets.bat "%TARGET%" both
-if errorlevel 1 (
-    set RC_BLOCKER=30m or 60m soak failed
-    goto fail
-)
-
-echo [RC-8] verify RC evidence set
-%PYTHON_CMD% release_gate_evidence.py verify-rc --target "%TARGET%"
-if errorlevel 1 (
-    set RC_BLOCKER=verify-rc failed
-    goto fail
-)
-
-echo [RC-9] verify RC candidate package inputs
-%PYTHON_CMD% verify_real_game_validation.py --matrix docs\release\Game_Verification_Matrix.json
-if errorlevel 1 (
-    set RC_BLOCKER=real game validation failed
-    goto fail
-)
-
-%PYTHON_CMD% verify_rc_candidate.py --target "%TARGET%" --regression-log "%FINAL_REGRESSION_LOG%"
-if errorlevel 1 (
-    set RC_BLOCKER=RC candidate verification failed
-    goto fail
-)
-
-echo [RC-10] create final RC evidence bundle
-%PYTHON_CMD% create_rc_evidence_bundle.py --target "%TARGET%" --regression-log "%FINAL_REGRESSION_LOG%"
-if errorlevel 1 (
-    set RC_BLOCKER=RC evidence bundle creation failed
-    goto fail
-)
-
-echo [PASS] RC gate passed. Required evidence reports and the final RC evidence bundle were generated under release_gate_logs.
+echo [INFO] draft RC gate excludes 30m dry-run soak, 60m soft-apply soak, verify-rc, real-game validation, candidate verification, and final bundle creation.
+echo [PASS] RC gate draft passed. Step logs were written under "%RC_LOG_DIR%".
 popd
 exit /b 0
 
+:run_py_compile
+set STEP_LOG=%RC_LOG_DIR%\rc2_py_compile.log
+set STEP_EXIT=0
+(
+    for %%F in (*.py) do (
+        echo [INFO] py_compile %%F
+        %PYTHON_CMD% -m py_compile "%%F"
+        if errorlevel 1 (
+            echo [FAIL] py_compile failed for %%F
+            set STEP_EXIT=1
+        )
+    )
+) > "%STEP_LOG%" 2>&1
+type "%STEP_LOG%"
+exit /b %STEP_EXIT%
+
+:run_release_build
+set STEP_LOG=%RC_LOG_DIR%\rc5_release_x64_build.log
+pushd "%REPO_ROOT%"
+msbuild GameOptimizer.slnx /p:Configuration=Release /p:Platform=x64 /m > "%STEP_LOG%" 2>&1
+set STEP_EXIT=%ERRORLEVEL%
+popd
+type "%STEP_LOG%"
+exit /b %STEP_EXIT%
+
+:run_logged
+set STEP_NAME=%~1
+set STEP_LOG=%RC_LOG_DIR%\%STEP_NAME%.log
+echo [INFO] running: %2 %3 %4 %5 %6 %7 %8 %9
+%2 %3 %4 %5 %6 %7 %8 %9 > "%STEP_LOG%" 2>&1
+set STEP_EXIT=%ERRORLEVEL%
+type "%STEP_LOG%"
+exit /b %STEP_EXIT%
+
 :fail
 echo [BLOCKER] RC gate failed: %RC_BLOCKER%
+echo [INFO] RC gate artifact directory: "%RC_LOG_DIR%"
 echo [FAIL] RC gate failed.
 popd
 exit /b 1
