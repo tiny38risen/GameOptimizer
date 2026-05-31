@@ -245,7 +245,7 @@ namespace
             .processorGroup = mainThreadPolicy.processorGroup};
     }
 
-    [[nodiscard]] std::expected<void, ErrorCode> buildRuntimeComponents(RuntimeContext& context)
+    [[nodiscard]] std::expected<void, ErrorCode> buildCoreRuntimeComponents(RuntimeContext& context)
     {
         context.threadTracker = std::make_unique<ThreadTracker>(
             context.startupPlan.targetProcessId,
@@ -257,6 +257,32 @@ namespace
         context.timerResolutionController = std::make_unique<TimerResolutionController>(
             context.options.schedulerMode);
         context.inputLatencyController = std::make_unique<InputLatencyController>(context.options.schedulerMode);
+
+        return {};
+    }
+
+    [[nodiscard]] std::expected<void, ErrorCode> applyStartupMutations(RuntimeContext& context) noexcept
+    {
+        const auto timerResolutionResult = context.timerResolutionController->apply();
+        if (!timerResolutionResult)
+        {
+            Logger::error("startup failed: timer resolution apply failed: {}", toString(timerResolutionResult.error()));
+            return std::unexpected(timerResolutionResult.error());
+        }
+
+        const auto inputLatencyResult = context.inputLatencyController->detectAndApply(
+            context.startupPlan.targetProcessId,
+            context.startupPlan.mainThreadPolicy);
+        if (!inputLatencyResult)
+        {
+            Logger::warn("input latency controller unavailable: {}", toString(inputLatencyResult.error()));
+        }
+
+        return {};
+    }
+
+    [[nodiscard]] std::expected<void, ErrorCode> buildRuntimeServices(RuntimeContext& context)
+    {
         context.backgroundController = std::make_unique<BackgroundController>(
             *context.rollbackManager,
             context.options.schedulerMode,
@@ -279,26 +305,6 @@ namespace
             .rttWindowSize = 10,
             .interruptAffinitySupported = false,
             .networkInterruptController = context.networkInterruptController.get()});
-
-        return {};
-    }
-
-    [[nodiscard]] std::expected<void, ErrorCode> applyStartupMutations(RuntimeContext& context) noexcept
-    {
-        const auto timerResolutionResult = context.timerResolutionController->apply();
-        if (!timerResolutionResult)
-        {
-            Logger::error("startup failed: timer resolution apply failed: {}", toString(timerResolutionResult.error()));
-            return std::unexpected(timerResolutionResult.error());
-        }
-
-        const auto inputLatencyResult = context.inputLatencyController->detectAndApply(
-            context.startupPlan.targetProcessId,
-            context.startupPlan.mainThreadPolicy);
-        if (!inputLatencyResult)
-        {
-            Logger::warn("input latency controller unavailable: {}", toString(inputLatencyResult.error()));
-        }
 
         return {};
     }
@@ -340,10 +346,16 @@ std::expected<RuntimeContext, ErrorCode> StartupPipeline::run(int argc, wchar_t*
         const auto& startupPlan = *startupPlanResult;
         context.startupPlan = startupPlan;
 
-        const auto componentsResult = buildRuntimeComponents(context);
-        if (!componentsResult)
+        const auto coreComponentsResult = buildCoreRuntimeComponents(context);
+        if (!coreComponentsResult)
         {
-            return std::unexpected(componentsResult.error());
+            return std::unexpected(coreComponentsResult.error());
+        }
+
+        const auto runtimeServicesResult = buildRuntimeServices(context);
+        if (!runtimeServicesResult)
+        {
+            return std::unexpected(runtimeServicesResult.error());
         }
 
         const auto startupMutationResult = applyStartupMutations(context);

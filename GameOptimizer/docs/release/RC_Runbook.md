@@ -60,7 +60,7 @@ Within `[RC-9]`, `verify_real_game_validation.py --matrix docs\release\Game_Veri
 - each development commit preserves the atomic governance change unit: document contract 1 -> static gate 1 -> validator/evidence coupling 1 -> selftest or regression 1 -> document/blocker/runbook sync -> verification -> commit 1.
 - verification notes identify the static gate and validator/selftest or regression evidence used for the committed contract chain.
 - `SchedulerController` affinity failure handling remains split into explicit audit, result, and rollback-log helpers.
-- `StartupPipeline::run()` remains split into runtime component assembly, startup mutation, and runtime sensor activation helpers.
+- `StartupPipeline::run()` remains split into core runtime component assembly, startup mutation, runtime service assembly, and runtime sensor activation helpers.
 - `StartupPipeline::prepare()` remains split into startup policy log, main-thread policy, background filter, and background policy helpers.
 - `release_gate_evidence_selftest.py` covers ApplyGuard explicit rollback failure with and without shutdown-transfer evidence, plus destructor rollback failure classification.
 - `release_gate_evidence_selftest.py` proves SchedulerController affinity rollback context logging does not duplicate ApplyGuard rollback BLOCKER evidence.

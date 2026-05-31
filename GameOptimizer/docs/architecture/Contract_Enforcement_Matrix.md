@@ -85,8 +85,9 @@ Inlining these responsibilities back into `applyMainThreadPolicy()` is a `BLOCKE
 
 `StartupPipeline::run()` must keep runtime startup responsibilities helper-split:
 
-- `buildRuntimeComponents`
+- `buildCoreRuntimeComponents`
 - `applyStartupMutations`
+- `buildRuntimeServices`
 - `startRuntimeSensors`
 
 Inlining these responsibilities back into `run()` is a `BLOCKER` because it hides the boundary between component construction, startup-time mutation, and runtime sensor activation.
