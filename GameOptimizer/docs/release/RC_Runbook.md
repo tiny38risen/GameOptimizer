@@ -33,6 +33,15 @@ Draft exclusions:
 
 The excluded steps remain required before tagging `v3.0-rc1`; they are intentionally outside the repeatable draft entry point.
 
+Run the standalone soak gates before final candidate verification:
+
+```bat
+run_dry_run_soak_30m.bat <target.exe>
+run_soft_apply_soak_60m.bat <target.exe>
+```
+
+Both wrappers use the shared soak evidence path and must prove shutdown reason, runtime validation status, rollback preserved-state count, zero BLOCKER findings, timeline monotonicity, and heartbeat progression.
+
 ## Completion criteria
 
 - `BLOCKER` count is `0`.
@@ -49,6 +58,7 @@ The excluded steps remain required before tagging `v3.0-rc1`; they are intention
 - full regression runs `run_release_gate_static_checks_selftest.py`.
 - final regression log contains PASS markers for `run_release_gate_static_checks_selftest.py` and `release_gate_evidence_selftest.py`.
 - step logs are saved under `artifacts/rc/<timestamp>/`.
+- standalone 30m dry-run soak and 60m soft-apply soak pass before final RC candidate verification.
 - text bundle manifest includes the regression selftest summary and both selftest keys.
 - every real-game validation run links to an existing `evidence_report` artifact.
 - `docs/architecture/Architecture_Decision_Record.md` exists and matches the accepted runtime mutation, fallback, input pinning, limited apply, and evidence contracts.

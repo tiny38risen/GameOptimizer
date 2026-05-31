@@ -189,6 +189,8 @@ Compatibility summaries used by validators must remain available:
 
 The draft `run_rc_gate.bat` must write step logs under `artifacts/rc/<timestamp>/`.
 
+Long-running soak validation remains outside the draft RC gate but must be repeatable through `run_dry_run_soak_30m.bat <target.exe>` and `run_soft_apply_soak_60m.bat <target.exe>`. The static gate must reject drift if either wrapper stops delegating to the shared soak evidence path or stops naming the required shutdown reason, runtime validation status, rollback preserved-state count, BLOCKER count, timeline monotonicity, and heartbeat progression checks.
+
 30m dry-run soak, 60m soft-apply soak, `verify-rc`, real-game validation, RC candidate verification, and final evidence bundle creation remain TODO outside the draft gate and must pass before tagging `v3.0-rc1`.
 
 `create_rc_evidence_bundle.py` must also call the real-game matrix validator before creating the bundle directory. Direct bundle creation is a release decision path and cannot bypass real-game validation.

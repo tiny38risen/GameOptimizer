@@ -75,6 +75,8 @@ Owns latency metrics, policy decisions, DPC/IRQ observation, timer resolution re
 - `run_release_gate_log_assertions.py`
 - `run_release_gate_smoke.bat`
 - `run_long_soak_presets.bat`
+- `run_dry_run_soak_30m.bat`
+- `run_soft_apply_soak_60m.bat`
 - `run_soak_with_hang_detection.py`
 - `run_rc_gate.bat`
 - `run_regression_tests.bat`

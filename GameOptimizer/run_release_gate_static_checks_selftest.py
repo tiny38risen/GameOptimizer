@@ -64,6 +64,21 @@ def test_rc_gate_draft_excludes_long_soak_and_real_game_validation() -> None:
     assert "create_rc_evidence_bundle.py" not in rc_text
 
 
+def test_standalone_soak_entrypoints_are_contract_checked() -> None:
+    failures = static_checks.check_long_soak_automation_contract()
+    assert failures == []
+    dry_run_text = static_checks.DRY_RUN_SOAK_30M_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    soft_apply_text = static_checks.SOFT_APPLY_SOAK_60M_FILE.read_text(
+        encoding="utf-8",
+        errors="replace")
+    assert "run_long_soak_presets.bat \"%TARGET%\" 30m" in dry_run_text
+    assert "run_long_soak_presets.bat \"%TARGET%\" 60m" in soft_apply_text
+    assert "heartbeat progression" in dry_run_text
+    assert "heartbeat progression" in soft_apply_text
+
+
 def test_real_game_validation_order_for_full_candidate_flow() -> None:
     ordered_markers = [
         "echo [RC-9] verify RC candidate package inputs",
@@ -625,6 +640,7 @@ def main() -> int:
     test_ordered_markers_reject_out_of_order_marker()
     test_markdown_section_contains_marker_is_section_scoped()
     test_rc_gate_draft_excludes_long_soak_and_real_game_validation()
+    test_standalone_soak_entrypoints_are_contract_checked()
     test_real_game_validation_order_for_full_candidate_flow()
     test_bundle_creation_validates_real_game_matrix_before_writing_bundle()
     test_bundle_manifest_preserves_real_game_matrix_artifact()

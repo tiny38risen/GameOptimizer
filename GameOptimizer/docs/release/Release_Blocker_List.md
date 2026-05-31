@@ -22,7 +22,9 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - Release smoke fails.
 - `run_rc_gate.bat` does not write step logs under `artifacts/rc/`.
 - 30m dry-run soak fails.
+- `run_dry_run_soak_30m.bat <target.exe>` fails or does not validate shutdown reason, runtime validation status, rollback preserved-state count, BLOCKER count, timeline monotonicity, and heartbeat progression.
 - 60m soft-apply soak fails.
+- `run_soft_apply_soak_60m.bat <target.exe>` fails or does not validate shutdown reason, runtime validation status, rollback preserved-state count, BLOCKER count, timeline monotonicity, and heartbeat progression.
 - `verify-rc` fails.
 - Final evidence bundle generation fails.
 - Final evidence bundle generation does not repeat real-game validation before writing the bundle.

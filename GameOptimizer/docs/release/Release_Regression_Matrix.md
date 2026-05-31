@@ -31,6 +31,13 @@ The authoritative governance, architecture, schema, and blocker contracts are `d
 | SOAK-30 | dry-run | 30m | `--dry-run --max-runtime-seconds 1800 --thread-detail-log --thread-log-interval 20` | clean shutdown, runtime validation summary, monotonic runtime sample cycles, no runtime validation failure |
 | SOAK-60 | soft-apply | 60m | `--max-runtime-seconds 3600 --thread-detail-log --thread-log-interval 40` | clean shutdown, runtime validation summary, monotonic runtime sample cycles, no runtime validation failure, no shutdown rollback failure |
 
+Standalone soak entry points:
+
+- `run_dry_run_soak_30m.bat <target.exe>` runs SOAK-30 and records soak evidence.
+- `run_soft_apply_soak_60m.bat <target.exe>` runs SOAK-60 and records soak evidence.
+
+Both standalone runs validate `shutdown_reason`, `runtime_validation_status`, `rollback_preserved_state_count`, BLOCKER count, timeline monotonicity, and heartbeat progression.
+
 ## Merge blockers
 
 1. Any rollback failure for the same PID and same creation time while the process is alive.

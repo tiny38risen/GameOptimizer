@@ -36,6 +36,15 @@ The static release gate must reject `run_rc_gate.bat` if any `[RC-1]` through `[
 
 Draft exclusions are intentional: 30m dry-run soak, 60m soft-apply soak, `verify-rc`, real-game validation, RC candidate verification, and final evidence bundle generation remain outside this initial repeatable entry point.
 
+The excluded soak runs have standalone repeatable entry points:
+
+```bat
+run_dry_run_soak_30m.bat <target.exe>
+run_soft_apply_soak_60m.bat <target.exe>
+```
+
+Each standalone soak entry point must validate shutdown reason, runtime validation status, rollback preserved-state count, BLOCKER count, timeline monotonicity, and heartbeat progression through the existing log assertion and evidence path.
+
 Do not create the `v3.0-rc1` tag until the draft gate plus the excluded final soak, real-game validation, candidate verification, and bundle creation all pass.
 
 ## RC candidate required artifacts

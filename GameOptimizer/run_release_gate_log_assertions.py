@@ -168,6 +168,16 @@ def validate_timeline_monotonicity(log_text: str) -> list[str]:
     return failures
 
 
+def validate_heartbeat_progression(log_text: str) -> list[str]:
+    cycles = [
+        int(match.group(1))
+        for match in re.finditer(r"runtime validation sample:\s*cycle=(\d+)", log_text, re.IGNORECASE)
+    ]
+    if len(cycles) < 2:
+        return ["heartbeat progression missing: fewer than two runtime validation samples"]
+    return []
+
+
 def validate(mode: str, log_text: str) -> list[str]:
     failures: list[str] = []
 
@@ -211,6 +221,7 @@ def validate(mode: str, log_text: str) -> list[str]:
         if not contains(log_text, "runtime validation result: PASSED_OR_INCONCLUSIVE"):
             failures.append("soak mode missing runtime validation pass/inconclusive summary")
         failures.extend(validate_timeline_monotonicity(log_text))
+        failures.extend(validate_heartbeat_progression(log_text))
 
     return failures
 

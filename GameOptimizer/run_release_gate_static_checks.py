@@ -9,6 +9,8 @@ PROJECT_FILE = ROOT / "GameOptimizer.vcxproj"
 BUILD_TESTS_FILE = ROOT / "build_decision_layer_tests.bat"
 REGRESSION_TESTS_FILE = ROOT / "run_regression_tests.bat"
 LONG_SOAK_PRESETS_FILE = ROOT / "run_long_soak_presets.bat"
+DRY_RUN_SOAK_30M_FILE = ROOT / "run_dry_run_soak_30m.bat"
+SOFT_APPLY_SOAK_60M_FILE = ROOT / "run_soft_apply_soak_60m.bat"
 SOAK_HANG_DETECTION_FILE = ROOT / "run_soak_with_hang_detection.py"
 RELEASE_GATE_EVIDENCE_FILE = ROOT / "release_gate_evidence.py"
 RELEASE_GATE_EVIDENCE_SELFTEST_FILE = ROOT / "release_gate_evidence_selftest.py"
@@ -1080,6 +1082,8 @@ def check_long_soak_automation_contract() -> list[str]:
     failures: list[str] = []
     required_files = [
         LONG_SOAK_PRESETS_FILE,
+        DRY_RUN_SOAK_30M_FILE,
+        SOFT_APPLY_SOAK_60M_FILE,
         SOAK_HANG_DETECTION_FILE,
     ]
     for path in required_files:
@@ -1116,9 +1120,48 @@ def check_long_soak_automation_contract() -> list[str]:
             if marker not in hang_text:
                 failures.append(f"[FAIL] Long soak gate: hang detection missing marker: {marker}")
 
+    standalone_soak_requirements = [
+        (
+            DRY_RUN_SOAK_30M_FILE,
+            [
+                "run_long_soak_presets.bat \"%TARGET%\" 30m",
+                "[BLOCKER] 30m dry-run soak failed",
+                "[PASS] 30m dry-run soak passed",
+                "shutdown_reason",
+                "runtime_validation_status",
+                "rollback_preserved_state_count",
+                "BLOCKER count",
+                "timeline monotonicity",
+                "heartbeat progression",
+            ],
+        ),
+        (
+            SOFT_APPLY_SOAK_60M_FILE,
+            [
+                "run_long_soak_presets.bat \"%TARGET%\" 60m",
+                "[BLOCKER] 60m soft-apply soak failed",
+                "[PASS] 60m soft-apply soak passed",
+                "shutdown_reason",
+                "runtime_validation_status",
+                "rollback_preserved_state_count",
+                "BLOCKER count",
+                "timeline monotonicity",
+                "heartbeat progression",
+            ],
+        ),
+    ]
+    for script_path, markers in standalone_soak_requirements:
+        if not script_path.exists():
+            continue
+        script_text = script_path.read_text(encoding="utf-8", errors="replace")
+        for marker in markers:
+            if marker not in script_text:
+                failures.append(f"[FAIL] Long soak gate: {script_path.name} missing marker: {marker}")
+
     assertions_text = (ROOT / "run_release_gate_log_assertions.py").read_text(encoding="utf-8", errors="replace")
     required_assertion_markers = [
         "validate_timeline_monotonicity",
+        "validate_heartbeat_progression",
         "\"soak\"",
         "runtime validation sample:",
         "runtime validation summary:",
