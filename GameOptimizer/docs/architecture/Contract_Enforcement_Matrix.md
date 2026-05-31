@@ -82,6 +82,14 @@ Runtime validation must surface these as `BLOCKER` evidence:
 
 Inlining these responsibilities back into `applyMainThreadPolicy()` is a `BLOCKER` because it obscures the audit -> rollback/discard -> evidence contract.
 
+`StartupPipeline::run()` must keep runtime startup responsibilities helper-split:
+
+- `buildRuntimeComponents`
+- `applyStartupMutations`
+- `startRuntimeSensors`
+
+Inlining these responsibilities back into `run()` is a `BLOCKER` because it hides the boundary between component construction, startup-time mutation, and runtime sensor activation.
+
 `StartupPipeline::prepare()` must keep startup responsibilities helper-split:
 
 - `logStartupPolicySummary`

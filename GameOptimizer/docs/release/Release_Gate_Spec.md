@@ -158,6 +158,8 @@ Run `python run_release_gate_static_checks.py` before every merge. The gate veri
 
 `SchedulerController` `SetThreadGroupAffinity` failure handling must remain split into disposition, audit, result-mapping, and rollback-failure log helpers. The static gate rejects loss of those helper markers because the failure path is release-critical.
 
+`StartupPipeline::run()` must keep runtime component assembly, startup mutation, and runtime sensor activation in named helpers. The static gate rejects loss of those helper markers because startup execution is the boundary where constructed services begin mutating or observing runtime state.
+
 `StartupPipeline::prepare()` must keep startup policy logging, main-thread policy construction, background filter preparation, and background policy assembly in named helpers. The static gate rejects loss of those helper markers because startup preparation is the boundary before runtime mutation.
 
 ApplyGuard rollback failure evidence is already connected through `release_gate_evidence.py`; release selftests must cover missing shutdown-transfer evidence, must prove transfer-present cases do not add the transfer-missing BLOCKER, and must prove destructor rollback failure is exactly one rollback failure BLOCKER without explicit transfer-missing evidence.

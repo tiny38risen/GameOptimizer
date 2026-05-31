@@ -244,6 +244,76 @@ namespace
             .gameAffinityMask = mainThreadPolicy.affinityMask,
             .processorGroup = mainThreadPolicy.processorGroup};
     }
+
+    [[nodiscard]] std::expected<void, ErrorCode> buildRuntimeComponents(RuntimeContext& context)
+    {
+        context.threadTracker = std::make_unique<ThreadTracker>(
+            context.startupPlan.targetProcessId,
+            context.startupPlan.trackerConfig);
+        context.rollbackManager = std::make_unique<RollbackManager>();
+        context.schedulerController = std::make_unique<SchedulerController>(
+            *context.rollbackManager,
+            context.options.schedulerMode);
+        context.timerResolutionController = std::make_unique<TimerResolutionController>(
+            context.options.schedulerMode);
+        context.inputLatencyController = std::make_unique<InputLatencyController>(context.options.schedulerMode);
+        context.backgroundController = std::make_unique<BackgroundController>(
+            *context.rollbackManager,
+            context.options.schedulerMode,
+            context.startupPlan.backgroundFilterConfig);
+        context.networkInterruptController = std::make_unique<NetworkInterruptController>();
+        (void)context.networkInterruptController->initialize();
+        context.policyDispatcher = std::make_unique<PolicyDispatcher>(
+            *context.schedulerController,
+            *context.threadTracker,
+            *context.backgroundController,
+            context.startupPlan.backgroundPolicy,
+            context.networkInterruptController.get());
+        context.latencyDecisionLayer = std::make_unique<LatencyDecisionLayer>();
+        context.appliedPolicyTracker = std::make_unique<AppliedPolicyTracker>();
+        context.runtimeValidationMonitor = std::make_unique<RuntimeValidationMonitor>();
+        context.latencyMetricsCollector = std::make_unique<LatencyMetricsCollector>(LatencyMetricsCollectorConfig{
+            .icmpTargetIpv4 = context.options.latencyPingTarget,
+            .icmpTimeout = std::chrono::milliseconds(50),
+            .icmpSampleInterval = std::chrono::milliseconds(1000),
+            .rttWindowSize = 10,
+            .interruptAffinitySupported = false,
+            .networkInterruptController = context.networkInterruptController.get()});
+
+        return {};
+    }
+
+    [[nodiscard]] std::expected<void, ErrorCode> applyStartupMutations(RuntimeContext& context) noexcept
+    {
+        const auto timerResolutionResult = context.timerResolutionController->apply();
+        if (!timerResolutionResult)
+        {
+            Logger::error("startup failed: timer resolution apply failed: {}", toString(timerResolutionResult.error()));
+            return std::unexpected(timerResolutionResult.error());
+        }
+
+        const auto inputLatencyResult = context.inputLatencyController->detectAndApply(
+            context.startupPlan.targetProcessId,
+            context.startupPlan.mainThreadPolicy);
+        if (!inputLatencyResult)
+        {
+            Logger::warn("input latency controller unavailable: {}", toString(inputLatencyResult.error()));
+        }
+
+        return {};
+    }
+
+    [[nodiscard]] std::expected<void, ErrorCode> startRuntimeSensors(RuntimeContext& context) noexcept
+    {
+        if (!context.latencyMetricsCollector->start())
+        {
+            Logger::error("startup failed: latency metrics sensor start failed");
+            (void)context.timerResolutionController->rollback();
+            return std::unexpected(ErrorCode::InternalError);
+        }
+
+        return {};
+    }
 }
 
 std::expected<RuntimeContext, ErrorCode> StartupPipeline::run(int argc, wchar_t* argv[]) noexcept
@@ -270,60 +340,22 @@ std::expected<RuntimeContext, ErrorCode> StartupPipeline::run(int argc, wchar_t*
         const auto& startupPlan = *startupPlanResult;
         context.startupPlan = startupPlan;
 
-        context.threadTracker = std::make_unique<ThreadTracker>(
-            context.startupPlan.targetProcessId,
-            context.startupPlan.trackerConfig);
-        context.rollbackManager = std::make_unique<RollbackManager>();
-        context.schedulerController = std::make_unique<SchedulerController>(
-            *context.rollbackManager,
-            context.options.schedulerMode);
-        context.timerResolutionController = std::make_unique<TimerResolutionController>(
-            context.options.schedulerMode);
-
-        const auto timerResolutionResult = context.timerResolutionController->apply();
-        if (!timerResolutionResult)
+        const auto componentsResult = buildRuntimeComponents(context);
+        if (!componentsResult)
         {
-            Logger::error("startup failed: timer resolution apply failed: {}", toString(timerResolutionResult.error()));
-            return std::unexpected(timerResolutionResult.error());
+            return std::unexpected(componentsResult.error());
         }
 
-        context.inputLatencyController = std::make_unique<InputLatencyController>(context.options.schedulerMode);
-        const auto inputLatencyResult = context.inputLatencyController->detectAndApply(
-            context.startupPlan.targetProcessId,
-            context.startupPlan.mainThreadPolicy);
-        if (!inputLatencyResult)
+        const auto startupMutationResult = applyStartupMutations(context);
+        if (!startupMutationResult)
         {
-            Logger::warn("input latency controller unavailable: {}", toString(inputLatencyResult.error()));
+            return std::unexpected(startupMutationResult.error());
         }
 
-        context.backgroundController = std::make_unique<BackgroundController>(
-            *context.rollbackManager,
-            context.options.schedulerMode,
-            context.startupPlan.backgroundFilterConfig);
-        context.networkInterruptController = std::make_unique<NetworkInterruptController>();
-        (void)context.networkInterruptController->initialize();
-        context.policyDispatcher = std::make_unique<PolicyDispatcher>(
-            *context.schedulerController,
-            *context.threadTracker,
-            *context.backgroundController,
-            context.startupPlan.backgroundPolicy,
-            context.networkInterruptController.get());
-        context.latencyDecisionLayer = std::make_unique<LatencyDecisionLayer>();
-        context.appliedPolicyTracker = std::make_unique<AppliedPolicyTracker>();
-        context.runtimeValidationMonitor = std::make_unique<RuntimeValidationMonitor>();
-        context.latencyMetricsCollector = std::make_unique<LatencyMetricsCollector>(LatencyMetricsCollectorConfig{
-            .icmpTargetIpv4 = context.options.latencyPingTarget,
-            .icmpTimeout = std::chrono::milliseconds(50),
-            .icmpSampleInterval = std::chrono::milliseconds(1000),
-            .rttWindowSize = 10,
-            .interruptAffinitySupported = false,
-            .networkInterruptController = context.networkInterruptController.get()});
-
-        if (!context.latencyMetricsCollector->start())
+        const auto sensorStartResult = startRuntimeSensors(context);
+        if (!sensorStartResult)
         {
-            Logger::error("startup failed: latency metrics sensor start failed");
-            (void)context.timerResolutionController->rollback();
-            return std::unexpected(ErrorCode::InternalError);
+            return std::unexpected(sensorStartResult.error());
         }
 
         return context;
