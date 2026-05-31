@@ -526,6 +526,20 @@ def make_complete_pair(target: str, prefix: str, exe_path: pathlib.Path, **overr
     )
 
 
+def assert_partial_soak_report_is_not_selected_for_verify_rc(prefix: str, target: str, exe_path: pathlib.Path) -> bool:
+    make_report(
+        "soak",
+        f"{prefix}_partial_soak",
+        target,
+        [make_step("soak_30m_dry_run", "soak")],
+        exe_path,
+    )
+    if evidence.find_latest_report("soak", target) is not None:
+        print("[FAIL] RC evidence self-test: partial standalone soak report was selected for verify-rc")
+        return False
+    return True
+
+
 def main() -> int:
     evidence.LOG_ROOT.mkdir(parents=True, exist_ok=True)
     unique_id = int(time.time())
@@ -536,6 +550,7 @@ def main() -> int:
     commit_prefix = f"synthetic_selftest_commit_{unique_id}"
     hash_prefix = f"synthetic_selftest_hash_{unique_id}"
     missing_binary_sha_prefix = f"synthetic_selftest_missing_binary_sha_{unique_id}"
+    partial_soak_prefix = f"synthetic_selftest_partial_soak_{unique_id}"
     reason_run_id = f"synthetic_selftest_reason_{unique_id}"
     apply_guard_failure_run_id = f"synthetic_selftest_apply_guard_failure_{unique_id}"
     apply_guard_missing_transfer_run_id = f"synthetic_selftest_apply_guard_missing_transfer_{unique_id}"
@@ -568,6 +583,7 @@ def main() -> int:
         evidence.LOG_ROOT / f"{hash_prefix}_soak",
         evidence.LOG_ROOT / f"{missing_binary_sha_prefix}_smoke",
         evidence.LOG_ROOT / f"{missing_binary_sha_prefix}_soak",
+        evidence.LOG_ROOT / f"{partial_soak_prefix}_partial_soak",
         evidence.LOG_ROOT / reason_run_id,
         evidence.LOG_ROOT / apply_guard_failure_run_id,
         evidence.LOG_ROOT / apply_guard_missing_transfer_run_id,
@@ -631,6 +647,13 @@ def main() -> int:
         )
         if run_verify(missing_binary_sha_target) == 0:
             print("[FAIL] RC evidence self-test: missing binary SHA-256 unexpectedly passed")
+            return 1
+
+        partial_soak_target = f"{TARGET}.partial_soak"
+        if not assert_partial_soak_report_is_not_selected_for_verify_rc(
+                partial_soak_prefix,
+                partial_soak_target,
+                synthetic_exe):
             return 1
 
         if not assert_warn_only_report_is_not_blocked(warn_run_id, synthetic_exe):

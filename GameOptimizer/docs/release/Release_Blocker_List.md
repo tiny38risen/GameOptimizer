@@ -25,6 +25,7 @@ This file is the authoritative `v3.0-rc1` release blocker list. If any `BLOCKER`
 - `run_dry_run_soak_30m.bat <target.exe>` fails or does not validate shutdown reason, runtime validation status, rollback preserved-state count, BLOCKER count, timeline monotonicity, and heartbeat progression.
 - 60m soft-apply soak fails.
 - `run_soft_apply_soak_60m.bat <target.exe>` fails or does not validate shutdown reason, runtime validation status, rollback preserved-state count, BLOCKER count, timeline monotonicity, and heartbeat progression.
+- Final `verify-rc` accepts a 30m-only or 60m-only standalone soak report as the complete RC soak evidence.
 - `verify-rc` fails.
 - Final evidence bundle generation fails.
 - Final evidence bundle generation does not repeat real-game validation before writing the bundle.

@@ -45,6 +45,8 @@ run_soft_apply_soak_60m.bat <target.exe>
 
 Each standalone soak entry point must validate shutdown reason, runtime validation status, rollback preserved-state count, BLOCKER count, timeline monotonicity, and heartbeat progression through the existing log assertion and evidence path.
 
+Standalone 30m-only or 60m-only soak reports are operational evidence only. They must not satisfy final `verify-rc`; final RC verification still requires a combined soak evidence report containing both `soak_30m_dry_run` and `soak_60m_soft_apply`.
+
 Do not create the `v3.0-rc1` tag until the draft gate plus the excluded final soak, real-game validation, candidate verification, and bundle creation all pass.
 
 ## RC candidate required artifacts

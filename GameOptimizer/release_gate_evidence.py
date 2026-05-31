@@ -42,6 +42,11 @@ SEVERITY_POLICY = {
     ],
 }
 
+REQUIRED_SOAK_STEPS = {
+    "soak_30m_dry_run",
+    "soak_60m_soft_apply",
+}
+
 
 def utc_now() -> str:
     return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -798,11 +803,7 @@ def validate_required_soak_steps(state: dict[str, Any]) -> list[str]:
         return []
 
     completed_steps = {step["step"] for step in state["steps"]}
-    required_steps = {
-        "soak_30m_dry_run",
-        "soak_60m_soft_apply",
-    }
-    missing_steps = sorted(required_steps - completed_steps)
+    missing_steps = sorted(REQUIRED_SOAK_STEPS - completed_steps)
     return [f"required RC soak step missing: {step}" for step in missing_steps]
 
 
@@ -842,6 +843,13 @@ def report_matches_target(state: dict[str, Any], target: str) -> bool:
     return state.get("target") == target
 
 
+def soak_report_has_required_steps(state: dict[str, Any]) -> bool:
+    if state.get("kind") != "soak":
+        return False
+    completed_steps = {step.get("step") for step in state.get("steps", [])}
+    return REQUIRED_SOAK_STEPS.issubset(completed_steps)
+
+
 def load_evidence_reports() -> list[tuple[pathlib.Path, dict[str, Any]]]:
     reports: list[tuple[pathlib.Path, dict[str, Any]]] = []
     if not LOG_ROOT.exists():
@@ -861,6 +869,12 @@ def find_latest_report(kind: str, target: str) -> tuple[pathlib.Path, dict[str, 
         for path, state in load_evidence_reports()
         if state.get("kind") == kind and report_matches_target(state, target)
     ]
+    if kind == "soak":
+        matches = [
+            (path, state)
+            for path, state in matches
+            if soak_report_has_required_steps(state)
+        ]
     if not matches:
         return None
     return max(matches, key=lambda item: item[1].get("finished_utc") or item[1].get("started_utc") or "")

@@ -42,6 +42,8 @@ run_soft_apply_soak_60m.bat <target.exe>
 
 Both wrappers use the shared soak evidence path and must prove shutdown reason, runtime validation status, rollback preserved-state count, zero BLOCKER findings, timeline monotonicity, and heartbeat progression.
 
+Standalone soak reports do not satisfy final `verify-rc` by themselves. Before tagging, run the combined soak preset or otherwise produce one current-commit soak report containing both `soak_30m_dry_run` and `soak_60m_soft_apply`.
+
 ## Completion criteria
 
 - `BLOCKER` count is `0`.
