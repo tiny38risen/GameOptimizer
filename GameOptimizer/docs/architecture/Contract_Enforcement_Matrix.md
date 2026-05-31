@@ -107,6 +107,7 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 - explicit rollback failure with shutdown-transfer evidence, which must not duplicate the transfer-missing BLOCKER,
 - destructor rollback failure must add one rollback failure BLOCKER and must not add the explicit transfer-missing BLOCKER.
 - SchedulerController affinity rollback context logging must not create a second ApplyGuard rollback BLOCKER.
+- `run_release_gate_static_checks.py` must require the ApplyGuard rollback fixture function names so the fixture coverage cannot be silently removed.
 
 `release_gate_evidence_selftest.py` must prove audited affinity no-side-effect discard is not a BLOCKER:
 
@@ -114,6 +115,7 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 - `rollback_preserved_state_count` must remain `0`,
 - `thread_group_affinity_audit_query_failure`, `thread_group_affinity_audit_mismatch`, and `unsafe_rollback_state_discard` must remain `false`,
 - the report must not contain any `SetThreadGroupAffinity failure` BLOCKER.
+- `run_release_gate_static_checks.py` must require the audited affinity no-side-effect discard fixture name and failure message.
 
 `release_gate_evidence_selftest.py` must prove SoftApply baseline evidence stays separate from rollback preserved-state evidence:
 
@@ -121,6 +123,7 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 - `rollback_preserved_state_count` must remain `0`,
 - the step `rollback_preserved_state_summary.has_preserved_state` must remain `false`,
 - the report must remain `PASS` when only SoftApply baseline audit evidence is present.
+- `run_release_gate_static_checks.py` must require the SoftApply baseline fixture function name and summary markers.
 
 `Release_Blocker_List.md` must classify SoftApply baseline evidence that increases `rollback_preserved_state_count` or creates BLOCKER/WARN findings by itself under `BLOCKER`, not `WARN`.
 
