@@ -107,6 +107,7 @@ Inlining these responsibilities back into `prepare()` is a `BLOCKER` because it 
 - explicit rollback failure with shutdown-transfer evidence, which must not duplicate the transfer-missing BLOCKER,
 - destructor rollback failure must add one rollback failure BLOCKER and must not add the explicit transfer-missing BLOCKER.
 - SchedulerController affinity rollback context logging must not create a second ApplyGuard rollback BLOCKER.
+- SchedulerController rollback context logging must use the marker `affinity apply rollback failure context` and state that `ApplyGuard owns BLOCKER event and shutdown-transfer evidence`.
 - `run_release_gate_static_checks.py` must require the ApplyGuard rollback fixture function names so the fixture coverage cannot be silently removed.
 
 `release_gate_evidence_selftest.py` must prove audited affinity no-side-effect discard is not a BLOCKER:

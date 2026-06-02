@@ -337,6 +337,8 @@ def check_apply_guard_transaction_patterns() -> list[str]:
         (scheduler_text, r"auditFailedAffinityApply\s*\(", "SchedulerController affinity failure audit must be isolated in a helper"),
         (scheduler_text, r"logAndReturnAffinityApplyFailure\s*\(", "SchedulerController affinity failure return mapping must be isolated in a helper"),
         (scheduler_text, r"logRollbackFailureAfterAffinityApply\s*\(", "SchedulerController affinity rollback failure log must be isolated in a helper"),
+        (scheduler_text, r"affinity apply rollback failure context", "SchedulerController rollback failure context log must be context-only"),
+        (scheduler_text, r"ApplyGuard owns BLOCKER event and shutdown-transfer evidence", "SchedulerController context log must not own rollback BLOCKER evidence"),
         (background_text, r"saveProcessState\s*\(", "BackgroundController must save rollback state before process apply"),
         (background_text, r"ApplyGuard::forProcess", "BackgroundController must create process ApplyGuard"),
         (background_text, r"applyGuard\.arm\s*\(\s*\)", "BackgroundController ApplyGuard must be armed"),

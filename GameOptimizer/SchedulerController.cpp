@@ -112,8 +112,8 @@ namespace
 
     void logRollbackFailureAfterAffinityApply(DWORD threadId, ErrorCode rollbackError) noexcept
     {
-        Logger::error(
-            "affinity apply failed and rollback also failed for TID {}: {}; rollback state is preserved for shutdown recovery",
+        Logger::info(
+            "affinity apply rollback failure context: TID {}, rollbackError={}; ApplyGuard owns BLOCKER event and shutdown-transfer evidence",
             threadId,
             toString(rollbackError));
     }

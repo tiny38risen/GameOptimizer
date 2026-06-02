@@ -285,6 +285,7 @@ def assert_apply_guard_rollback_failure_without_transfer_is_blocked(
         mode="apply",
     )
     blockers = report.get("blockers", [])
+    step = report["steps"][0]
     return (
         finalize_result == 1
         and report.get("status") == "FAIL"
@@ -307,19 +308,21 @@ def assert_apply_guard_rollback_failure_does_not_duplicate_transfer_blocker(
         exe_path,
         [
             "[ERROR] apply guard explicit rollback failed for target 42; rollback responsibility transferred to ShutdownPipeline/RollbackManager; rollback state remains preserved: rollback failed",
-            "[ERROR] affinity apply failed and rollback also failed for TID 42: rollback failed; rollback state is preserved for shutdown recovery",
+            "[INFO] affinity apply rollback failure context: TID 42, rollbackError=rollback failed; ApplyGuard owns BLOCKER event and shutdown-transfer evidence",
             "[INFO] shutdown result: reason=PolicyRollbackRequest, timerRollbackFailed=false, schedulerRollbackFailed=false, runtimeValidationFailed=false, rollbackStatePreserved=false",
         ],
         step_name="apply_guard_transfer_present",
         mode="apply",
     )
     blockers = report.get("blockers", [])
+    step = report["steps"][0]
     return (
         finalize_result == 1
         and report.get("status") == "FAIL"
         and report.get("apply_guard_rollback_failure_count") == 1
         and report.get("rollback_failure_transferred_to_shutdown_count") == 1
         and report.get("blocker_count") == 1
+        and step.get("info_count") == 2
         and sum("ApplyGuard rollback failure" in blocker for blocker in blockers) == 1
         and not any("ApplyGuard explicit rollback failure was not fully transferred" in blocker for blocker in blockers)
         and "ApplyGuard rollback failure count: 1" in _text_report
