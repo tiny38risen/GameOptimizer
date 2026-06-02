@@ -39,6 +39,7 @@ The governance system controls code decisions, safety contracts, runtime validat
 - `release/Release_Regression_Matrix.md`: regression scenarios and merge blockers.
 - `release/Release_Performance_Checklist.md`: release performance checks.
 - `release/Real_Game_Validation_Runbook.md`: real-game validation requirements.
+- `release/Game_Verification_Matrix.md`: fixed real-game evidence worksheet.
 - `release/Game_Verification_Matrix.example.json`: real-game validation template.
 
 ## Design Notes

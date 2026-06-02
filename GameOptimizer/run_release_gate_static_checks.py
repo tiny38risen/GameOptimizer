@@ -31,6 +31,7 @@ ARCHITECTURE_DECISION_RECORD_FILE = ARCHITECTURE_DOCS / "Architecture_Decision_R
 CONTRACT_ENFORCEMENT_MATRIX_FILE = ARCHITECTURE_DOCS / "Contract_Enforcement_Matrix.md"
 MODULE_OWNERSHIP_MATRIX_FILE = ARCHITECTURE_DOCS / "Module_Ownership_Matrix.md"
 CONTRACT_ENFORCEMENT_STATUS_FILE = ARCHITECTURE_DOCS / "Contract_Enforcement_Status.md"
+GAME_VERIFICATION_MATRIX_MD_FILE = RELEASE_DOCS / "Game_Verification_Matrix.md"
 
 WARN_ONLY_RELEASE_BLOCKER_MARKERS = [
     "Access Denied or access boundary encountered with fallback evidence.",
@@ -1536,6 +1537,45 @@ def check_rc_candidate_contract() -> list[str]:
     return failures
 
 
+def check_game_verification_matrix_document_contract() -> list[str]:
+    if not GAME_VERIFICATION_MATRIX_MD_FILE.exists():
+        return ["[FAIL] real game matrix document gate: Game_Verification_Matrix.md is missing"]
+
+    failures: list[str] = []
+    matrix_text = GAME_VERIFICATION_MATRIX_MD_FILE.read_text(encoding="utf-8", errors="replace")
+    required_markers = [
+        "# Game Verification Matrix",
+        "game/process",
+        "mode",
+        "duration",
+        "Access Denied",
+        "fallback",
+        "Raw Input",
+        "IRQ support",
+        "DPC/RTT telemetry",
+        "shutdown reason",
+        "rollback result",
+        "BLOCKER/WARN/INFO",
+        "Game A",
+        "Game B",
+        "Game C",
+        "dry-run",
+        "soft-apply",
+        "apply-limited",
+        "verify_real_game_validation.py --matrix docs\\release\\Game_Verification_Matrix.json",
+    ]
+    for marker in required_markers:
+        if marker not in matrix_text:
+            failures.append(f"[FAIL] real game matrix document gate: missing marker: {marker}")
+
+    runbook_text = (RELEASE_DOCS / "Real_Game_Validation_Runbook.md").read_text(
+        encoding="utf-8",
+        errors="replace")
+    if "Game_Verification_Matrix.md" not in runbook_text:
+        failures.append("[FAIL] real game matrix document gate: runbook does not reference Game_Verification_Matrix.md")
+    return failures
+
+
 def check_apply_mode_policy_contract() -> list[str]:
     failures: list[str] = []
     cli_text = (ROOT / "CliOptions.cpp").read_text(encoding="utf-8", errors="replace")
@@ -2000,6 +2040,7 @@ def main() -> int:
     failures.extend(check_apply_mode_policy_contract())
     failures.extend(check_known_limitations_contract())
     failures.extend(check_rc_candidate_contract())
+    failures.extend(check_game_verification_matrix_document_contract())
     failures.extend(check_runtime_validation_failure_exit_code_contract())
     failures.extend(check_architecture_decision_record_contract())
     failures.extend(check_contract_enforcement_matrix())

@@ -90,6 +90,11 @@ def test_real_game_validation_order_for_full_candidate_flow() -> None:
     assert failures == []
 
 
+def test_game_verification_matrix_document_contract() -> None:
+    failures = static_checks.check_game_verification_matrix_document_contract()
+    assert failures == []
+
+
 def test_bundle_creation_validates_real_game_matrix_before_writing_bundle() -> None:
     bundle_text = static_checks.CREATE_RC_EVIDENCE_BUNDLE_FILE.read_text(
         encoding="utf-8",
@@ -642,6 +647,7 @@ def main() -> int:
     test_rc_gate_draft_excludes_long_soak_and_real_game_validation()
     test_standalone_soak_entrypoints_are_contract_checked()
     test_real_game_validation_order_for_full_candidate_flow()
+    test_game_verification_matrix_document_contract()
     test_bundle_creation_validates_real_game_matrix_before_writing_bundle()
     test_bundle_manifest_preserves_real_game_matrix_artifact()
     test_bundle_creation_validates_manifest_artifact_hashes_before_pass()

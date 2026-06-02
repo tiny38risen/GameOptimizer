@@ -36,6 +36,9 @@ Apply mode must be explicitly requested with `--apply`. The default mode is `sof
 
 ## Required JSON record
 
+Use `docs/release/Game_Verification_Matrix.md` as the fixed worksheet while collecting real-game evidence.
+It records `game/process`, `mode`, `duration`, Access Denied, fallback, Raw Input, IRQ support, DPC/RTT telemetry, shutdown reason, rollback result, and BLOCKER/WARN/INFO counts before the final JSON is produced.
+
 Copy `docs/release/Game_Verification_Matrix.example.json` to:
 
 ```text
