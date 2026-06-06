@@ -105,6 +105,28 @@ namespace
                 "unsupported processor group policy must not restrict processes");
         }
     }
+
+    void testInvalidMainThreadPolicyDisablesBackgroundRestriction()
+    {
+        RollbackManager rollbackManager;
+        BackgroundController controller(rollbackManager, SchedulerMode::Apply);
+
+        const auto result = controller.applyRestriction(BackgroundRestrictionPolicy{
+            .targetProcessId = 1,
+            .gameAffinityMask = 0,
+            .processorGroup = 0});
+
+        REQUIRE(result.has_value(),
+            "invalid main-thread policy mask should disable background restriction without a dispatch failure");
+
+        if (result)
+        {
+            REQUIRE(result->blockedByInvalidMainThreadPolicy,
+                "invalid main-thread policy summary must record the disabled background restriction state");
+            REQUIRE(result->restrictedProcessCount == 0,
+                "invalid main-thread policy must not restrict background processes");
+        }
+    }
 }
 
 int main()
@@ -112,6 +134,7 @@ int main()
     testEmptyConfigRequiresExplicitTargetsByDefault();
     testFilterFileLoadsDenyAndProtectEntries();
     testProcessorGroupPolicyBlocksProcessWideRestriction();
+    testInvalidMainThreadPolicyDisablesBackgroundRestriction();
 
     if (g_failureCount == 0)
     {

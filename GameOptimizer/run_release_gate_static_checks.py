@@ -348,6 +348,8 @@ def check_apply_guard_transaction_patterns() -> list[str]:
         (background_text, r"post-failure audit", "BackgroundController apply failure must audit current state before discarding rollback state"),
         (background_text, r"const\s+auto&\s+auditedAffinityState\s*=\s*\*stateAfterFailedAffinityApply\s*;", "BackgroundController affinity failure audit must bind expected state before use"),
         (background_text, r"matchesOriginalAffinity\s*\(\s*auditedAffinityState\s*,\s*processMask\s*\)", "BackgroundController affinity failure must compare bound post-failure state to original before discard"),
+        (background_text, r"blockedByInvalidMainThreadPolicy", "BackgroundController must expose invalid main-thread policy as a non-fatal disabled state"),
+        (background_text, r"monitoring_only_due_to_invalid_main_thread_policy", "BackgroundController invalid main-thread policy must be evidence-visible monitoring-only"),
         (apply_guard_text, r"enum class RollbackStateOwnership", "ApplyGuard must own rollback-state disposition internally"),
     ]
     for text, pattern, message in required_patterns:

@@ -71,6 +71,7 @@ struct BackgroundRestrictionSummary
     std::size_t notInDenylistSkipCount = 0;
     bool blockedByMissingDenylist = false;
     bool blockedByUnsupportedProcessorGroup = false;
+    bool blockedByInvalidMainThreadPolicy = false;
     WORD blockedProcessorGroup = 0;
 };
 

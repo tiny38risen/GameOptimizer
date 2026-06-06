@@ -365,9 +365,20 @@ bool BackgroundController::isRecoverableAccessLimitation(ErrorCode errorCode) no
 std::expected<BackgroundRestrictionSummary, ErrorCode> BackgroundController::applyRestriction(
     const BackgroundRestrictionPolicy& policy) noexcept
 {
-    if (policy.targetProcessId == 0 || policy.gameAffinityMask == 0)
+    if (policy.targetProcessId == 0)
     {
         return std::unexpected(ErrorCode::InvalidArgument);
+    }
+
+    if (policy.gameAffinityMask == 0)
+    {
+        BackgroundRestrictionSummary summary{};
+        summary.blockedByInvalidMainThreadPolicy = true;
+        Logger::warn(
+            "background restriction disabled: main-thread policy has no valid affinity mask; monitoring-only fallback remains active until topology or process-affinity fallback succeeds");
+        Logger::warn(
+            "background restriction evidence: background_restriction_mode=monitoring_only_due_to_invalid_main_thread_policy, process_wide_affinity_supported=false");
+        return summary;
     }
 
     if (!supportsProcessWideRestrictionForGroup(policy.processorGroup))
