@@ -13,12 +13,14 @@ set VCVARS64=
 set PYTHON_CMD=
 set RC_BLOCKER=unknown
 set RC_LOG_DIR=
+set RC_REGRESSION_LOG=
 
 pushd "%SCRIPT_DIR%"
 
 for /f %%I in ('powershell -NoProfile -Command "(Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')"') do set RC_TIMESTAMP=%%I
 if "%RC_TIMESTAMP%"=="" set RC_TIMESTAMP=unknown-time
 set RC_LOG_DIR=%REPO_ROOT%\artifacts\rc\%RC_TIMESTAMP%
+set RC_REGRESSION_LOG=%RC_LOG_DIR%\rc6_full_regression.log
 if not exist "%RC_LOG_DIR%" mkdir "%RC_LOG_DIR%"
 echo [INFO] RC gate artifact directory: "%RC_LOG_DIR%"
 
@@ -140,8 +142,21 @@ if errorlevel 1 (
     goto fail
 )
 
-echo [INFO] draft RC gate excludes 30m dry-run soak, 60m soft-apply soak, verify-rc, real-game validation, candidate verification, and final bundle creation.
-echo [PASS] RC gate draft passed. Step logs were written under "%RC_LOG_DIR%".
+echo [RC-8] evidence bundle generation
+call :run_logged rc8_evidence_bundle %PYTHON_CMD% create_rc_evidence_bundle.py --target "%TARGET%" --regression-log "%RC_REGRESSION_LOG%"
+if errorlevel 1 (
+    set RC_BLOCKER=evidence bundle generation failed
+    goto fail
+)
+
+echo [RC-9] verify-rc
+call :run_logged rc9_verify_rc %PYTHON_CMD% release_gate_evidence.py verify-rc --target "%TARGET%"
+if errorlevel 1 (
+    set RC_BLOCKER=verify-rc failed
+    goto fail
+)
+
+echo [PASS] RC gate passed. Step logs were written under "%RC_LOG_DIR%".
 popd
 exit /b 0
 

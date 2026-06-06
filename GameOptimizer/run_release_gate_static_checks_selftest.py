@@ -53,15 +53,19 @@ def test_markdown_section_contains_marker_is_section_scoped() -> None:
     assert not static_checks.markdown_section_contains_marker(text, "MISSING", "blocker item")
 
 
-def test_rc_gate_draft_excludes_long_soak_and_real_game_validation() -> None:
+def test_rc_gate_single_entrypoint_runs_evidence_bundle_and_verify_rc() -> None:
     rc_text = static_checks.ROOT.joinpath("run_rc_gate.bat").read_text(
         encoding="utf-8",
         errors="replace")
-    assert "draft RC gate excludes 30m dry-run soak, 60m soft-apply soak" in rc_text
+    assert "create_rc_evidence_bundle.py" in rc_text
+    assert "--regression-log" in rc_text
+    assert "release_gate_evidence.py verify-rc" in rc_text
+    assert "evidence bundle generation failed" in rc_text
+    assert "verify-rc failed" in rc_text
+    assert "[PASS] RC gate passed" in rc_text
+    assert "draft RC gate" not in rc_text
     assert "run_long_soak_presets.bat" not in rc_text
     assert "verify_real_game_validation.py --matrix docs\\release\\Game_Verification_Matrix.json" not in rc_text
-    assert "verify_rc_candidate.py" not in rc_text
-    assert "create_rc_evidence_bundle.py" not in rc_text
 
 
 def test_standalone_soak_entrypoints_are_contract_checked() -> None:
@@ -644,7 +648,7 @@ def main() -> int:
     test_ordered_markers_reject_missing_marker()
     test_ordered_markers_reject_out_of_order_marker()
     test_markdown_section_contains_marker_is_section_scoped()
-    test_rc_gate_draft_excludes_long_soak_and_real_game_validation()
+    test_rc_gate_single_entrypoint_runs_evidence_bundle_and_verify_rc()
     test_standalone_soak_entrypoints_are_contract_checked()
     test_real_game_validation_order_for_full_candidate_flow()
     test_game_verification_matrix_document_contract()
