@@ -32,7 +32,25 @@ public sealed partial class MainForm : Form
     private readonly RichTextBox logBox = new();
 
     private Process? runningProcess;
-    private bool detailsExpanded = true;
+    private bool detailsExpanded;
+
+    private sealed class CardPanel : Panel
+    {
+        public CardPanel()
+        {
+            DoubleBuffered = true;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            using var pen = new Pen(DesignSystem.BorderColor);
+            var rectangle = ClientRectangle;
+            rectangle.Width -= 1;
+            rectangle.Height -= 1;
+            e.Graphics.DrawRectangle(pen, rectangle);
+        }
+    }
 
     private sealed class ProcessListItem
     {
@@ -53,23 +71,25 @@ public sealed partial class MainForm : Form
         InitializeComponent();
         RefreshProcessList();
         UpdateEnginePathLabel();
-        UpdateSummaryState("대기 중", Color.DimGray, "최적화 대기 중");
+        UpdateSummaryState("대기 중", DesignSystem.TextMuted, "최적화 대기 중");
         UpdateControlState(false);
     }
 
     private void BuildLayout()
     {
-        BackColor = Color.FromArgb(245, 246, 248);
+        BackColor = DesignSystem.BgColor;
 
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
             RowCount = 1,
-            Padding = new Padding(18),
+            AutoScroll = true,
+            Padding = DesignSystem.CardPadding,
+            BackColor = DesignSystem.BgColor,
         };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 420));
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
         Controls.Add(root);
 
         var left = new TableLayoutPanel
@@ -78,6 +98,7 @@ public sealed partial class MainForm : Form
             ColumnCount = 1,
             RowCount = 4,
             AutoScroll = true,
+            BackColor = DesignSystem.BgColor,
         };
         left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -86,19 +107,21 @@ public sealed partial class MainForm : Form
         root.Controls.Add(left, 0, 0);
 
         left.Controls.Add(CreateSummaryPanel());
+        left.Controls.Add(CreateEngineOptionsPanel());
         left.Controls.Add(CreateDetailsToggle());
 
         detailsPanel.Dock = DockStyle.Top;
         detailsPanel.AutoSize = true;
         detailsPanel.ColumnCount = 1;
         detailsPanel.RowCount = 4;
+        detailsPanel.Visible = false;
         detailsPanel.Controls.Add(CreateDetailSection(
             "CPU",
-            new[] { "사용 코어 : 4", "보조 코어 : 6", "CPU 상태 : 정상" },
+            new[] { "사용 코어 : 4 / 보조 코어 : 6", "CPU 상태 : 정상" },
             new[] { "Processor Group : 0", "Primary Core : 4", "Fallback Core : 6", "SMT 분리 : 적용됨", "CCX 최적화 : 적용됨" }));
         detailsPanel.Controls.Add(CreateDetailSection(
             "스레드",
-            new[] { "게임 메인 스레드 감지됨", "상태 : 안정적", "불필요한 이동 없음" },
+            new[] { "게임 메인 스레드 감지됨 / 상태 : 안정적", "불필요한 이동 없음" },
             new[] { "메인 스레드 ID : 1234", "EMA 점수 : 91", "Stickiness : 4초", "Migration : 0회" }));
         detailsPanel.Controls.Add(CreateDetailSection(
             "네트워크",
@@ -109,7 +132,6 @@ public sealed partial class MainForm : Form
             new[] { "복구 정보 저장 완료", "자동 복구 가능", "마지막 검사 : 정상" },
             new[] { "Affinity 백업 : 완료", "Priority 백업 : 완료", "ApplyGuard : 정상", "Rollback 준비 : 완료" }));
         left.Controls.Add(detailsPanel);
-        left.Controls.Add(CreateEngineOptionsPanel());
 
         var right = new TableLayoutPanel
         {
@@ -117,6 +139,7 @@ public sealed partial class MainForm : Form
             ColumnCount = 1,
             RowCount = 2,
             Margin = new Padding(18, 0, 0, 0),
+            BackColor = DesignSystem.BgColor,
         };
         right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -126,16 +149,17 @@ public sealed partial class MainForm : Form
         {
             Text = "실행 로그",
             Dock = DockStyle.Top,
-            Font = new Font(Font.FontFamily, 12F, FontStyle.Bold),
+            Font = DesignSystem.FontHeading,
             AutoSize = true,
+            ForeColor = DesignSystem.TextTitle,
             Margin = new Padding(0, 0, 0, 8),
         };
         right.Controls.Add(logHeader);
 
         logBox.Dock = DockStyle.Fill;
         logBox.ReadOnly = true;
-        logBox.BackColor = Color.FromArgb(18, 20, 24);
-        logBox.ForeColor = Color.Gainsboro;
+        logBox.BackColor = DesignSystem.SurfaceColor;
+        logBox.ForeColor = DesignSystem.TextBody;
         logBox.BorderStyle = BorderStyle.None;
         logBox.Font = new Font("Consolas", 10F);
         right.Controls.Add(logBox);
@@ -144,48 +168,53 @@ public sealed partial class MainForm : Form
     private Control CreateSummaryPanel()
     {
         var panel = CreateCard();
-        panel.Padding = new Padding(18);
+        panel.Padding = DesignSystem.CardPadding;
 
-        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, AutoSize = true };
+        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
         panel.Controls.Add(table);
 
         table.Controls.Add(new Label
         {
-            Text = "GameOptimizer",
+            Text = "Game Optimizer",
             AutoSize = true,
-            Font = new Font(Font.FontFamily, 20F, FontStyle.Bold),
-            Margin = new Padding(0, 0, 0, 14),
+            Font = DesignSystem.FontTitle,
+            ForeColor = DesignSystem.TextTitle,
+            Margin = new Padding(0, 0, 0, 16),
         });
 
         gameStateValue.Text = "마비노기 실행 중";
         gameStateValue.AutoSize = true;
-        gameStateValue.Font = new Font(Font.FontFamily, 12F, FontStyle.Bold);
-        gameStateValue.Margin = new Padding(0, 0, 0, 18);
+        gameStateValue.Font = DesignSystem.FontHeading;
+        gameStateValue.ForeColor = DesignSystem.PrimaryColor;
+        gameStateValue.Margin = new Padding(0, 0, 0, 14);
         table.Controls.Add(gameStateValue);
 
         statusValue.Text = "상태 : 안정적";
         statusValue.AutoSize = true;
-        statusValue.Font = new Font(Font.FontFamily, 11.5F, FontStyle.Bold);
+        statusValue.Font = DesignSystem.FontBody;
+        statusValue.ForeColor = DesignSystem.TextBody;
         table.Controls.Add(statusValue);
 
         optimizeStateValue.Text = "최적화 적용 중";
         optimizeStateValue.AutoSize = true;
+        optimizeStateValue.Font = DesignSystem.FontBody;
+        optimizeStateValue.ForeColor = DesignSystem.TextBody;
         optimizeStateValue.Margin = new Padding(0, 8, 0, 0);
         table.Controls.Add(optimizeStateValue);
 
         recoveryStateValue.Text = "자동 복구 가능";
         recoveryStateValue.AutoSize = true;
+        recoveryStateValue.Font = DesignSystem.FontSmall;
+        recoveryStateValue.ForeColor = DesignSystem.TextMuted;
         recoveryStateValue.Margin = new Padding(0, 8, 0, 18);
         table.Controls.Add(recoveryStateValue);
 
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Margin = new Padding(0) };
+        var actions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0) };
         startButton.Text = "최적화 시작";
-        startButton.Width = 118;
-        startButton.Height = 36;
+        StyleButton(startButton, primary: true, width: 138);
         startButton.Click += async (_, _) => await StartEngineAsync();
         restoreButton.Text = "원상복구";
-        restoreButton.Width = 100;
-        restoreButton.Height = 36;
+        StyleButton(restoreButton, primary: false, width: 118);
         restoreButton.Click += (_, _) => StopEngine();
         actions.Controls.AddRange(new Control[] { startButton, restoreButton });
         table.Controls.Add(actions);
@@ -196,13 +225,17 @@ public sealed partial class MainForm : Form
     private Control CreateDetailsToggle()
     {
         var panel = CreateCard();
-        panel.Padding = new Padding(14, 10, 14, 10);
+        panel.Padding = new Padding(16, 10, 16, 10);
         detailsToggleButton.Dock = DockStyle.Fill;
         detailsToggleButton.FlatStyle = FlatStyle.Flat;
         detailsToggleButton.FlatAppearance.BorderSize = 0;
-        detailsToggleButton.TextAlign = ContentAlignment.MiddleLeft;
-        detailsToggleButton.Text = "▼ 상세 정보";
-        detailsToggleButton.Height = 36;
+        detailsToggleButton.Cursor = Cursors.Hand;
+        detailsToggleButton.BackColor = DesignSystem.SurfaceColor;
+        detailsToggleButton.ForeColor = DesignSystem.PrimaryColor;
+        detailsToggleButton.Font = DesignSystem.FontHeading;
+        detailsToggleButton.TextAlign = ContentAlignment.MiddleCenter;
+        detailsToggleButton.Text = "▼ 모니터링 상세 정보 열기";
+        detailsToggleButton.Height = 40;
         detailsToggleButton.Click += (_, _) => ToggleDetails();
         panel.Controls.Add(detailsToggleButton);
         return panel;
@@ -211,9 +244,9 @@ public sealed partial class MainForm : Form
     private Control CreateDetailSection(string title, string[] summaryLines, string[] advancedLines)
     {
         var panel = CreateCard();
-        panel.Padding = new Padding(14);
+        panel.Padding = DesignSystem.CardPadding;
 
-        var table = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 3, AutoSize = true };
+        var table = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 3, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         panel.Controls.Add(table);
@@ -222,7 +255,8 @@ public sealed partial class MainForm : Form
         {
             Text = $"▼ {title}",
             AutoSize = true,
-            Font = new Font(Font.FontFamily, 11.5F, FontStyle.Bold),
+            Font = DesignSystem.FontHeading,
+            ForeColor = DesignSystem.TextTitle,
             Anchor = AnchorStyles.Left,
         };
         table.Controls.Add(header, 0, 0);
@@ -230,10 +264,9 @@ public sealed partial class MainForm : Form
         var advancedButton = new Button
         {
             Text = "고급",
-            Width = 64,
-            Height = 30,
             Anchor = AnchorStyles.Right,
         };
+        StyleButton(advancedButton, primary: false, width: 64, height: 30);
         table.Controls.Add(advancedButton, 1, 0);
 
         var summary = CreateTextStack(summaryLines, false);
@@ -254,10 +287,15 @@ public sealed partial class MainForm : Form
 
     private Control CreateTextStack(IEnumerable<string> lines, bool developerInfo)
     {
-        var stack = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 1, AutoSize = true };
+        var stack = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            ColumnCount = 1,
+            AutoSize = true,
+            BackColor = developerInfo ? DesignSystem.BgColor : DesignSystem.SurfaceColor,
+        };
         if (developerInfo)
         {
-            stack.BackColor = Color.FromArgb(32, 36, 43);
             stack.Padding = new Padding(12);
         }
 
@@ -267,8 +305,8 @@ public sealed partial class MainForm : Form
             {
                 Text = line,
                 AutoSize = true,
-                ForeColor = developerInfo ? Color.Gainsboro : Color.FromArgb(36, 39, 45),
-                Font = developerInfo ? new Font("Consolas", 9.5F) : Font,
+                ForeColor = developerInfo ? DesignSystem.PrimaryColor : DesignSystem.TextBody,
+                Font = developerInfo ? new Font("Consolas", 9.5F) : DesignSystem.FontBody,
                 Margin = new Padding(0, 2, 0, 4),
             });
         }
@@ -279,9 +317,9 @@ public sealed partial class MainForm : Form
     private Control CreateEngineOptionsPanel()
     {
         var panel = CreateCard();
-        panel.Padding = new Padding(14);
+        panel.Padding = DesignSystem.CardPadding;
 
-        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 9, AutoSize = true };
+        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 9, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -291,17 +329,22 @@ public sealed partial class MainForm : Form
         {
             Text = "엔진 설정",
             AutoSize = true,
-            Font = new Font(Font.FontFamily, 11.5F, FontStyle.Bold),
+            Font = DesignSystem.FontHeading,
+            ForeColor = DesignSystem.TextTitle,
             Margin = new Padding(0, 0, 0, 10),
         };
         table.SetColumnSpan(heading, 3);
         table.Controls.Add(heading, 0, 0);
 
         var targetLabel = new Label { Text = "대상", AutoSize = true, Anchor = AnchorStyles.Left };
+        targetLabel.Font = DesignSystem.FontBody;
+        targetLabel.ForeColor = DesignSystem.TextBody;
         targetCombo.Dock = DockStyle.Fill;
         targetCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+        targetCombo.FlatStyle = FlatStyle.Flat;
+        StyleInput(targetCombo);
         refreshButton.Text = "새로고침";
-        refreshButton.AutoSize = true;
+        StyleButton(refreshButton, primary: false, width: 92, height: 30);
         refreshButton.Click += (_, _) => RefreshProcessList();
         table.Controls.Add(targetLabel, 0, 1);
         table.Controls.Add(targetCombo, 1, 1);
@@ -309,60 +352,76 @@ public sealed partial class MainForm : Form
 
         enginePathValue.Text = "엔진: 확인 중";
         enginePathValue.AutoSize = true;
-        enginePathValue.ForeColor = Color.DimGray;
+        enginePathValue.Font = DesignSystem.FontSmall;
+        enginePathValue.ForeColor = DesignSystem.TextMuted;
         enginePathValue.Margin = new Padding(0, 8, 0, 10);
         table.SetColumnSpan(enginePathValue, 3);
         table.Controls.Add(enginePathValue, 0, 2);
 
-        var modeFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true };
+        var modeFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
         dryRunRadio.Text = "드라이런";
         softApplyRadio.Text = "소프트 적용";
         applyRadio.Text = "실제 적용";
+        StyleOption(dryRunRadio);
+        StyleOption(softApplyRadio);
+        StyleOption(applyRadio);
         dryRunRadio.Checked = true;
         applyRadio.CheckedChanged += (_, _) => UpdateApplyWarning();
         modeFlow.Controls.AddRange(new Control[] { dryRunRadio, softApplyRadio, applyRadio });
         table.SetColumnSpan(modeFlow, 3);
         table.Controls.Add(modeFlow, 0, 3);
 
-        threadDetailCheck.Text = "스레드 상세 로그";
+        threadDetailCheck.Text = "스레드 상세 로깅";
+        StyleOption(threadDetailCheck);
         table.SetColumnSpan(threadDetailCheck, 3);
         table.Controls.Add(threadDetailCheck, 0, 4);
 
-        backgroundDetailCheck.Text = "백그라운드 상세 로그";
+        backgroundDetailCheck.Text = "백그라운드 상세 로깅";
+        StyleOption(backgroundDetailCheck);
         table.SetColumnSpan(backgroundDetailCheck, 3);
         table.Controls.Add(backgroundDetailCheck, 0, 5);
 
         latencyPingCheck.Text = "지연시간 Ping";
+        StyleOption(latencyPingCheck);
         latencyPingText.Text = "8.8.8.8";
         latencyPingText.Dock = DockStyle.Fill;
+        latencyPingText.BorderStyle = BorderStyle.FixedSingle;
+        StyleInput(latencyPingText);
         table.Controls.Add(latencyPingCheck, 0, 6);
         table.Controls.Add(latencyPingText, 1, 6);
 
         backgroundFilterCheck.Text = "백그라운드 필터";
+        StyleOption(backgroundFilterCheck);
         backgroundFilterText.Dock = DockStyle.Fill;
+        backgroundFilterText.BorderStyle = BorderStyle.FixedSingle;
         backgroundFilterText.Text = FindDefaultBackgroundFilter();
+        StyleInput(backgroundFilterText);
         browseFilterButton.Text = "...";
-        browseFilterButton.Width = 36;
+        StyleButton(browseFilterButton, primary: false, width: 36, height: 28);
         browseFilterButton.Click += (_, _) => BrowseBackgroundFilter();
         table.Controls.Add(backgroundFilterCheck, 0, 7);
         table.Controls.Add(backgroundFilterText, 1, 7);
         table.Controls.Add(browseFilterButton, 2, 7);
 
         var runtimeLabel = new Label { Text = "최대 실행 시간(초)", AutoSize = true, Anchor = AnchorStyles.Left };
+        runtimeLabel.Font = DesignSystem.FontBody;
+        runtimeLabel.ForeColor = DesignSystem.TextBody;
         runtimeSecondsBox.Minimum = 5;
         runtimeSecondsBox.Maximum = 3600;
         runtimeSecondsBox.Value = 60;
         runtimeSecondsBox.Increment = 5;
         runtimeSecondsBox.Dock = DockStyle.Left;
+        runtimeSecondsBox.BackColor = DesignSystem.BgColor;
+        runtimeSecondsBox.ForeColor = DesignSystem.TextBody;
         table.Controls.Add(runtimeLabel, 0, 8);
         table.Controls.Add(runtimeSecondsBox, 1, 8);
 
-        var utilityFlow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Margin = new Padding(0, 12, 0, 0) };
-        evidenceFolderButton.Text = "증거 폴더";
-        evidenceFolderButton.Width = 100;
+        var utilityFlow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0, 12, 0, 0) };
+        evidenceFolderButton.Text = "로그 폴더";
+        StyleButton(evidenceFolderButton, primary: false, width: 104);
         evidenceFolderButton.Click += (_, _) => OpenEvidenceFolder();
         latestReportButton.Text = "최근 리포트";
-        latestReportButton.Width = 105;
+        StyleButton(latestReportButton, primary: false, width: 116);
         latestReportButton.Click += (_, _) => OpenLatestReport();
         utilityFlow.Controls.AddRange(new Control[] { evidenceFolderButton, latestReportButton });
         table.SetColumnSpan(utilityFlow, 3);
@@ -373,20 +432,64 @@ public sealed partial class MainForm : Form
 
     private static Panel CreateCard()
     {
-        return new Panel
+        return new CardPanel
         {
             Dock = DockStyle.Top,
             AutoSize = true,
-            BackColor = Color.White,
-            Margin = new Padding(0, 0, 0, 12),
+            BackColor = DesignSystem.SurfaceColor,
+            Margin = new Padding(0, 0, 0, DesignSystem.ControlMargin),
         };
+    }
+
+    private static void StyleButton(Button button, bool primary, int width, int height = 36)
+    {
+        button.Width = width;
+        button.Height = height;
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = primary ? 0 : 1;
+        button.FlatAppearance.BorderColor = primary ? DesignSystem.PrimaryColor : DesignSystem.BorderColor;
+        button.BackColor = primary ? DesignSystem.PrimaryColor : DesignSystem.SurfaceColor;
+        button.ForeColor = primary ? DesignSystem.BgColor : DesignSystem.TextBody;
+        button.Font = DesignSystem.FontBody;
+        button.Cursor = Cursors.Hand;
+        button.Margin = new Padding(0, 0, 8, 8);
+        button.UseVisualStyleBackColor = false;
+        button.MouseEnter += (_, _) =>
+        {
+            button.BackColor = primary ? DesignSystem.PrimaryHoverColor : DesignSystem.BorderColor;
+            button.ForeColor = primary ? DesignSystem.BgColor : DesignSystem.TextTitle;
+        };
+        button.MouseLeave += (_, _) =>
+        {
+            button.BackColor = primary ? DesignSystem.PrimaryColor : DesignSystem.SurfaceColor;
+            button.ForeColor = primary ? DesignSystem.BgColor : DesignSystem.TextBody;
+        };
+    }
+
+    private static void StyleInput(Control control)
+    {
+        control.BackColor = DesignSystem.BgColor;
+        control.ForeColor = DesignSystem.TextBody;
+        control.Font = DesignSystem.FontBody;
+        control.Margin = new Padding(0, 0, 8, 8);
+    }
+
+    private static void StyleOption(ButtonBase control)
+    {
+        control.BackColor = DesignSystem.SurfaceColor;
+        control.ForeColor = DesignSystem.TextBody;
+        control.Font = DesignSystem.FontBody;
+        control.FlatStyle = FlatStyle.Flat;
+        control.FlatAppearance.BorderSize = 0;
+        control.Margin = new Padding(0, 0, 14, 8);
+        control.UseVisualStyleBackColor = false;
     }
 
     private void ToggleDetails()
     {
         detailsExpanded = !detailsExpanded;
         detailsPanel.Visible = detailsExpanded;
-        detailsToggleButton.Text = detailsExpanded ? "▼ 상세 정보" : "▶ 상세 정보";
+        detailsToggleButton.Text = detailsExpanded ? "▲ 모니터링 상세 정보 닫기" : "▼ 모니터링 상세 정보 열기";
     }
 
     private void RefreshProcessList()
@@ -490,7 +593,7 @@ public sealed partial class MainForm : Form
         }
 
         ClearLog();
-        UpdateSummaryState("실행 중", Color.RoyalBlue, "최적화 적용 중");
+        UpdateSummaryState("실행 중", DesignSystem.PrimaryColor, "최적화 적용 중");
         UpdateControlState(true);
 
         var psi = new ProcessStartInfo
@@ -515,7 +618,7 @@ public sealed partial class MainForm : Form
             process.Dispose();
             runningProcess = null;
             UpdateControlState(false);
-            UpdateSummaryState(exitCode == 0 ? "안정적" : "점검 필요", exitCode == 0 ? Color.SeaGreen : Color.Firebrick, exitCode == 0 ? "최적화 완료" : "최적화 중단");
+            UpdateSummaryState(exitCode == 0 ? "안정적" : "점검 필요", exitCode == 0 ? DesignSystem.Success : DesignSystem.Danger, exitCode == 0 ? "최적화 완료" : "최적화 중단");
             AppendLogLine(exitCode == 0
                 ? "[PASS] UI: 엔진 실행이 정상 종료되었습니다."
                 : $"[BLOCKER] UI: 엔진 종료 코드 {exitCode}");
@@ -536,7 +639,7 @@ public sealed partial class MainForm : Form
             runningProcess = null;
             process.Dispose();
             UpdateControlState(false);
-            UpdateSummaryState("점검 필요", Color.Firebrick, "최적화 실패");
+            UpdateSummaryState("점검 필요", DesignSystem.Danger, "최적화 실패");
             AppendLogLine($"[BLOCKER] UI: 실행 실패 - {ex.Message}");
         }
     }
@@ -593,7 +696,7 @@ public sealed partial class MainForm : Form
     {
         if (runningProcess is null)
         {
-            UpdateSummaryState("안정적", Color.SeaGreen, "원상복구 완료");
+            UpdateSummaryState("안정적", DesignSystem.Success, "원상복구 완료");
             AppendLogLine("[INFO] UI: 실행 중인 엔진이 없어 상태만 복구 완료로 표시했습니다.");
             return;
         }
@@ -601,7 +704,7 @@ public sealed partial class MainForm : Form
         try
         {
             runningProcess.Kill(entireProcessTree: true);
-            UpdateSummaryState("복구 중", Color.DarkGoldenrod, "원상복구 실행 중");
+            UpdateSummaryState("복구 중", DesignSystem.Warning, "원상복구 실행 중");
             AppendLogLine("[WARN] UI: 사용자가 원상복구를 요청했습니다.");
         }
         catch (Exception ex)
@@ -623,25 +726,25 @@ public sealed partial class MainForm : Form
             return;
         }
 
-        var color = Color.Gainsboro;
+        var color = DesignSystem.TextBody;
         if (line.Contains("[BLOCKER]", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("[ERROR]", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("[FAIL]", StringComparison.OrdinalIgnoreCase))
         {
-            color = Color.LightCoral;
-            UpdateSummaryState("점검 필요", Color.Firebrick, "최적화 중단");
+            color = DesignSystem.Danger;
+            UpdateSummaryState("점검 필요", DesignSystem.Danger, "최적화 중단");
         }
         else if (line.Contains("[WARN]", StringComparison.OrdinalIgnoreCase))
         {
-            color = Color.Khaki;
+            color = DesignSystem.Warning;
             if (!statusValue.Text.Contains("점검 필요", StringComparison.OrdinalIgnoreCase))
             {
-                UpdateSummaryState("주의", Color.DarkGoldenrod, optimizeStateValue.Text);
+                UpdateSummaryState("주의", DesignSystem.Warning, optimizeStateValue.Text);
             }
         }
         else if (line.Contains("[PASS]", StringComparison.OrdinalIgnoreCase))
         {
-            color = Color.LightGreen;
+            color = DesignSystem.Success;
         }
 
         logBox.SelectionStart = logBox.TextLength;
@@ -680,18 +783,18 @@ public sealed partial class MainForm : Form
     {
         var path = FindEnginePath();
         enginePathValue.Text = path is null ? "엔진: 찾을 수 없음" : $"엔진: {path.FullName}";
-        enginePathValue.ForeColor = path is null ? Color.Firebrick : Color.DimGray;
+        enginePathValue.ForeColor = path is null ? DesignSystem.Danger : DesignSystem.TextMuted;
     }
 
     private void UpdateApplyWarning()
     {
         if (applyRadio.Checked)
         {
-            UpdateSummaryState("주의: 실제 적용", Color.DarkGoldenrod, "실제 적용 준비");
+            UpdateSummaryState("주의: 실제 적용", DesignSystem.Warning, "실제 적용 준비");
         }
         else if (runningProcess is null)
         {
-            UpdateSummaryState("대기 중", Color.DimGray, "최적화 대기 중");
+            UpdateSummaryState("대기 중", DesignSystem.TextMuted, "최적화 대기 중");
         }
     }
 
