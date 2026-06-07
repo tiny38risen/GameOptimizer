@@ -22,16 +22,22 @@ public sealed partial class MainForm : Form
     private readonly Button restoreButton = new();
     private readonly Button evidenceFolderButton = new();
     private readonly Button latestReportButton = new();
+    private readonly Button settingsToggleButton = new();
     private readonly Button detailsToggleButton = new();
+    private readonly CheckBox runtimeLimitCheck = new();
     private readonly Label gameStateValue = new();
     private readonly Label statusValue = new();
     private readonly Label optimizeStateValue = new();
     private readonly Label recoveryStateValue = new();
     private readonly Label enginePathValue = new();
+    private readonly Label modeDescriptionValue = new();
+    private readonly Label runtimeDescriptionValue = new();
+    private readonly TableLayoutPanel settingsPanel = new();
     private readonly TableLayoutPanel detailsPanel = new();
     private readonly List<string> hiddenLogLines = new();
 
     private Process? runningProcess;
+    private bool settingsExpanded;
     private bool detailsExpanded;
 
     private sealed class CardPanel : Panel
@@ -72,6 +78,8 @@ public sealed partial class MainForm : Form
         RefreshProcessList();
         UpdateEnginePathLabel();
         UpdateSummaryState("대기 중", DesignSystem.TextMuted, "최적화 대기 중");
+        UpdateModeDescription();
+        UpdateRuntimeLimitState();
         UpdateControlState(false);
     }
 
@@ -93,19 +101,25 @@ public sealed partial class MainForm : Form
             Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 1,
-            RowCount = 4,
+            RowCount = 2,
             BackColor = DesignSystem.BgColor,
         };
         content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         scrollHost.Controls.Add(content);
 
         content.Controls.Add(CreateSummaryPanel(), 0, 0);
-        content.Controls.Add(CreateEngineOptionsPanel(), 0, 1);
-        content.Controls.Add(CreateDetailsToggle(), 0, 2);
+
+        settingsPanel.Dock = DockStyle.Top;
+        settingsPanel.AutoSize = true;
+        settingsPanel.ColumnCount = 1;
+        settingsPanel.RowCount = 4;
+        settingsPanel.BackColor = DesignSystem.BgColor;
+        settingsPanel.Visible = false;
+        settingsPanel.Controls.Add(CreateStatusPanel(), 0, 0);
+        settingsPanel.Controls.Add(CreateEngineOptionsPanel(), 0, 1);
+        settingsPanel.Controls.Add(CreateDetailsToggle(), 0, 2);
 
         detailsPanel.Dock = DockStyle.Top;
         detailsPanel.AutoSize = true;
@@ -128,7 +142,8 @@ public sealed partial class MainForm : Form
             "안전 복구",
             new[] { "복구 정보 저장 완료", "자동 복구 가능", "마지막 검사 : 정상" },
             new[] { "Affinity 백업 : 완료", "Priority 백업 : 완료", "ApplyGuard : 정상", "Rollback 준비 : 완료" }));
-        content.Controls.Add(detailsPanel, 0, 3);
+        settingsPanel.Controls.Add(detailsPanel, 0, 3);
+        content.Controls.Add(settingsPanel, 0, 1);
     }
 
     private Control CreateSummaryPanel()
@@ -136,7 +151,7 @@ public sealed partial class MainForm : Form
         var panel = CreateCard();
         panel.Padding = DesignSystem.CardPadding;
 
-        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
+        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
         panel.Controls.Add(table);
 
         table.Controls.Add(new Label
@@ -147,6 +162,27 @@ public sealed partial class MainForm : Form
             ForeColor = DesignSystem.TextTitle,
             Margin = new Padding(0, 0, 0, 16),
         });
+
+        var actions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0) };
+        startButton.Text = "최적화 시작";
+        StyleButton(startButton, primary: true, width: 168);
+        startButton.Click += async (_, _) => await StartEngineAsync();
+        settingsToggleButton.Text = "설정 열기";
+        StyleButton(settingsToggleButton, primary: false, width: 104);
+        settingsToggleButton.Click += (_, _) => ToggleSettings();
+        actions.Controls.AddRange(new Control[] { startButton, settingsToggleButton });
+        table.Controls.Add(actions);
+
+        return panel;
+    }
+
+    private Control CreateStatusPanel()
+    {
+        var panel = CreateCard();
+        panel.Padding = DesignSystem.CardPadding;
+
+        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
+        panel.Controls.Add(table);
 
         gameStateValue.Text = "마비노기 실행 중";
         gameStateValue.AutoSize = true;
@@ -175,14 +211,19 @@ public sealed partial class MainForm : Form
         recoveryStateValue.Margin = new Padding(0, 8, 0, 18);
         table.Controls.Add(recoveryStateValue);
 
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0) };
-        startButton.Text = "최적화 시작";
-        StyleButton(startButton, primary: true, width: 138);
-        startButton.Click += async (_, _) => await StartEngineAsync();
+        modeDescriptionValue.Text = "현재 모드는 게임 상태를 관찰하고 로그만 남깁니다. 시스템 설정은 바꾸지 않습니다.";
+        modeDescriptionValue.AutoSize = true;
+        modeDescriptionValue.MaximumSize = new Size(360, 0);
+        modeDescriptionValue.Font = DesignSystem.FontSmall;
+        modeDescriptionValue.ForeColor = DesignSystem.TextMuted;
+        modeDescriptionValue.Margin = new Padding(0, 0, 0, 18);
+        table.Controls.Add(modeDescriptionValue);
+
         restoreButton.Text = "원상복구";
         StyleButton(restoreButton, primary: false, width: 118);
         restoreButton.Click += (_, _) => StopEngine();
-        actions.Controls.AddRange(new Control[] { startButton, restoreButton });
+        var actions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0) };
+        actions.Controls.Add(restoreButton);
         table.Controls.Add(actions);
 
         return panel;
@@ -285,7 +326,7 @@ public sealed partial class MainForm : Form
         var panel = CreateCard();
         panel.Padding = DesignSystem.CardPadding;
 
-        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 10, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
+        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 16, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -331,21 +372,27 @@ public sealed partial class MainForm : Form
         StyleOption(dryRunRadio);
         StyleOption(softApplyRadio);
         StyleOption(applyRadio);
-        dryRunRadio.Checked = true;
+        softApplyRadio.Checked = true;
+        dryRunRadio.CheckedChanged += (_, _) => UpdateModeDescription();
+        softApplyRadio.CheckedChanged += (_, _) => UpdateModeDescription();
         applyRadio.CheckedChanged += (_, _) => UpdateApplyWarning();
         modeFlow.Controls.AddRange(new Control[] { dryRunRadio, softApplyRadio, applyRadio });
         table.SetColumnSpan(modeFlow, 3);
         table.Controls.Add(modeFlow, 0, 3);
 
+        AddHelpText(table, "기본값은 시간 제한 없이 유지되는 소프트 적용입니다. 드라이런은 관찰만 하고, 실제 적용은 확인창을 거칩니다.", 4);
+
         threadDetailCheck.Text = "스레드 상세 로깅";
         StyleOption(threadDetailCheck);
         table.SetColumnSpan(threadDetailCheck, 3);
-        table.Controls.Add(threadDetailCheck, 0, 4);
+        table.Controls.Add(threadDetailCheck, 0, 5);
+        AddHelpText(table, "게임 메인 스레드 감지, 이동 여부, 안정성 판단 근거를 로그에 더 자세히 남깁니다.", 6);
 
         backgroundDetailCheck.Text = "백그라운드 상세 로깅";
         StyleOption(backgroundDetailCheck);
         table.SetColumnSpan(backgroundDetailCheck, 3);
-        table.Controls.Add(backgroundDetailCheck, 0, 5);
+        table.Controls.Add(backgroundDetailCheck, 0, 7);
+        AddHelpText(table, "게임 외 프로세스가 최적화 판단에 영향을 주는지 확인하기 위한 진단 로그입니다.", 8);
 
         latencyPingCheck.Text = "지연시간 Ping";
         StyleOption(latencyPingCheck);
@@ -353,8 +400,9 @@ public sealed partial class MainForm : Form
         latencyPingText.Dock = DockStyle.Fill;
         latencyPingText.BorderStyle = BorderStyle.FixedSingle;
         StyleInput(latencyPingText);
-        table.Controls.Add(latencyPingCheck, 0, 6);
-        table.Controls.Add(latencyPingText, 1, 6);
+        table.Controls.Add(latencyPingCheck, 0, 9);
+        table.Controls.Add(latencyPingText, 1, 9);
+        AddHelpText(table, "입력한 주소로 RTT 변동을 관찰합니다. 네트워크 설정을 직접 변경하지 않습니다.", 10);
 
         backgroundFilterCheck.Text = "백그라운드 필터";
         StyleOption(backgroundFilterCheck);
@@ -365,13 +413,14 @@ public sealed partial class MainForm : Form
         browseFilterButton.Text = "...";
         StyleButton(browseFilterButton, primary: false, width: 36, height: 28);
         browseFilterButton.Click += (_, _) => BrowseBackgroundFilter();
-        table.Controls.Add(backgroundFilterCheck, 0, 7);
-        table.Controls.Add(backgroundFilterText, 1, 7);
-        table.Controls.Add(browseFilterButton, 2, 7);
+        table.Controls.Add(backgroundFilterCheck, 0, 11);
+        table.Controls.Add(backgroundFilterText, 1, 11);
+        table.Controls.Add(browseFilterButton, 2, 11);
+        AddHelpText(table, "무시하거나 별도 판단할 백그라운드 프로세스 목록 파일입니다.", 12);
 
-        var runtimeLabel = new Label { Text = "최대 실행 시간(초)", AutoSize = true, Anchor = AnchorStyles.Left };
-        runtimeLabel.Font = DesignSystem.FontBody;
-        runtimeLabel.ForeColor = DesignSystem.TextBody;
+        runtimeLimitCheck.Text = "실행 시간 제한";
+        StyleOption(runtimeLimitCheck);
+        runtimeLimitCheck.CheckedChanged += (_, _) => UpdateRuntimeLimitState();
         runtimeSecondsBox.Minimum = 5;
         runtimeSecondsBox.Maximum = 3600;
         runtimeSecondsBox.Value = 60;
@@ -379,8 +428,16 @@ public sealed partial class MainForm : Form
         runtimeSecondsBox.Dock = DockStyle.Left;
         runtimeSecondsBox.BackColor = DesignSystem.BgColor;
         runtimeSecondsBox.ForeColor = DesignSystem.TextBody;
-        table.Controls.Add(runtimeLabel, 0, 8);
-        table.Controls.Add(runtimeSecondsBox, 1, 8);
+        table.Controls.Add(runtimeLimitCheck, 0, 13);
+        table.Controls.Add(runtimeSecondsBox, 1, 13);
+        runtimeDescriptionValue.Text = "꺼두면 사용자가 원상복구를 누르거나 엔진이 종료될 때까지 계속 유지됩니다. 켜면 지정한 시간 뒤 종료됩니다.";
+        runtimeDescriptionValue.AutoSize = true;
+        runtimeDescriptionValue.MaximumSize = new Size(360, 0);
+        runtimeDescriptionValue.Font = DesignSystem.FontSmall;
+        runtimeDescriptionValue.ForeColor = DesignSystem.TextMuted;
+        runtimeDescriptionValue.Margin = new Padding(0, 2, 0, 8);
+        table.SetColumnSpan(runtimeDescriptionValue, 3);
+        table.Controls.Add(runtimeDescriptionValue, 0, 14);
 
         var utilityFlow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0, 12, 0, 0) };
         evidenceFolderButton.Text = "로그 폴더";
@@ -391,7 +448,7 @@ public sealed partial class MainForm : Form
         latestReportButton.Click += (_, _) => OpenLatestReport();
         utilityFlow.Controls.AddRange(new Control[] { evidenceFolderButton, latestReportButton });
         table.SetColumnSpan(utilityFlow, 3);
-        table.Controls.Add(utilityFlow, 0, 9);
+        table.Controls.Add(utilityFlow, 0, 15);
 
         return panel;
     }
@@ -404,6 +461,26 @@ public sealed partial class MainForm : Form
             AutoSize = true,
             BackColor = DesignSystem.SurfaceColor,
             Margin = new Padding(0, 0, 0, DesignSystem.ControlMargin),
+        };
+    }
+
+    private static void AddHelpText(TableLayoutPanel table, string text, int row)
+    {
+        var helpText = CreateHelpText(text);
+        table.SetColumnSpan(helpText, 3);
+        table.Controls.Add(helpText, 0, row);
+    }
+
+    private static Label CreateHelpText(string text)
+    {
+        return new Label
+        {
+            Text = text,
+            AutoSize = true,
+            MaximumSize = new Size(360, 0),
+            Font = DesignSystem.FontSmall,
+            ForeColor = DesignSystem.TextMuted,
+            Margin = new Padding(0, 0, 0, 8),
         };
     }
 
@@ -456,6 +533,53 @@ public sealed partial class MainForm : Form
         detailsExpanded = !detailsExpanded;
         detailsPanel.Visible = detailsExpanded;
         detailsToggleButton.Text = detailsExpanded ? "▲ 모니터링 상세 정보 닫기" : "▼ 모니터링 상세 정보 열기";
+    }
+
+    private void ToggleSettings()
+    {
+        settingsExpanded = !settingsExpanded;
+        settingsPanel.Visible = settingsExpanded;
+        settingsToggleButton.Text = settingsExpanded ? "설정 닫기" : "설정 열기";
+    }
+
+    private void UpdateModeDescription()
+    {
+        if (dryRunRadio.Checked)
+        {
+            startButton.Text = "상태 점검 시작";
+            modeDescriptionValue.Text = "현재 모드는 관찰 전용입니다. 게임/윈도우 설정은 바꾸지 않고 적용 가능 여부와 위험 신호만 확인합니다.";
+            if (runningProcess is null)
+            {
+                optimizeStateValue.Text = "상태 점검 대기 중";
+            }
+            return;
+        }
+
+        if (softApplyRadio.Checked)
+        {
+            startButton.Text = "최적화 시작";
+            modeDescriptionValue.Text = "기본 최적화 모드입니다. 시간 제한 없이 유지되며, 위험 신호가 있으면 적용하지 않거나 되돌릴 수 있게 동작합니다.";
+            if (runningProcess is null)
+            {
+                optimizeStateValue.Text = "최적화 대기 중";
+            }
+            return;
+        }
+
+        startButton.Text = "최적화 적용 시작";
+        modeDescriptionValue.Text = "현재 모드는 실제 적용입니다. 스레드 우선순위와 affinity 같은 실행 설정을 변경할 수 있습니다.";
+        if (runningProcess is null)
+        {
+            optimizeStateValue.Text = "실제 적용 준비";
+        }
+    }
+
+    private void UpdateRuntimeLimitState()
+    {
+        runtimeSecondsBox.Enabled = runtimeLimitCheck.Checked;
+        runtimeDescriptionValue.Text = runtimeLimitCheck.Checked
+            ? "지정한 시간이 지나면 엔진이 종료되고 원상복구 절차가 진행됩니다."
+            : "시간 제한 없이 유지됩니다. 사용자가 원상복구를 누르거나 엔진이 종료될 때까지 계속 동작합니다.";
     }
 
     private void RefreshProcessList()
@@ -639,8 +763,11 @@ public sealed partial class MainForm : Form
             args.Add("--background-filter");
             args.Add(Quote(backgroundFilterText.Text.Trim()));
         }
-        args.Add("--max-runtime-seconds");
-        args.Add(((int)runtimeSecondsBox.Value).ToString());
+        if (runtimeLimitCheck.Checked)
+        {
+            args.Add("--max-runtime-seconds");
+            args.Add(((int)runtimeSecondsBox.Value).ToString());
+        }
         return string.Join(" ", args);
     }
 
@@ -742,13 +869,16 @@ public sealed partial class MainForm : Form
 
     private void UpdateApplyWarning()
     {
+        UpdateModeDescription();
         if (applyRadio.Checked)
         {
             UpdateSummaryState("주의: 실제 적용", DesignSystem.Warning, "실제 적용 준비");
         }
         else if (runningProcess is null)
         {
-            UpdateSummaryState("대기 중", DesignSystem.TextMuted, "최적화 대기 중");
+            statusValue.Text = "상태 : 대기 중";
+            statusValue.ForeColor = DesignSystem.TextMuted;
+            recoveryStateValue.Text = "자동 복구 가능";
         }
     }
 
