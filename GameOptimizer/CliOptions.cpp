@@ -15,9 +15,9 @@ namespace
 {
     [[nodiscard]] SchedulerMode parseSchedulerMode(int argc, wchar_t* argv[]) noexcept
     {
-        if (argc >= 3)
+        for (int index = 2; index < argc; ++index)
         {
-            const std::wstring_view modeArgument = argv[2];
+            const std::wstring_view modeArgument = argv[index];
             if (modeArgument == L"--dry-run")
             {
                 return SchedulerMode::DryRun;
@@ -153,6 +153,44 @@ namespace
 
         return std::nullopt;
     }
+
+    [[nodiscard]] std::uint32_t parseProcessIdArgument(int argc, wchar_t* argv[]) noexcept
+    {
+        for (int index = 2; index + 1 < argc; ++index)
+        {
+            const std::wstring_view argument = argv[index];
+            if (argument != L"--pid")
+            {
+                continue;
+            }
+
+            const wchar_t* valueText = argv[index + 1];
+            if (valueText[0] == L'-' || valueText[0] == L'+')
+            {
+                Logger::warn("invalid --pid value; falling back to process name lookup");
+                return 0;
+            }
+
+            wchar_t* parseEnd = nullptr;
+            const unsigned long parsedValue = std::wcstoul(valueText, &parseEnd, 10);
+            if (parseEnd == valueText || *parseEnd != L'\0' || parsedValue == 0UL)
+            {
+                Logger::warn("invalid --pid value; falling back to process name lookup");
+                return 0;
+            }
+
+            constexpr unsigned long kMaxDword = 0xFFFFFFFFUL;
+            if (parsedValue > kMaxDword)
+            {
+                Logger::warn("--pid value is too large; falling back to process name lookup");
+                return 0;
+            }
+
+            return static_cast<std::uint32_t>(parsedValue);
+        }
+
+        return 0;
+    }
 }
 
 std::expected<CliOptions, ErrorCode> parseCliOptions(int argc, wchar_t* argv[]) noexcept
@@ -165,6 +203,7 @@ std::expected<CliOptions, ErrorCode> parseCliOptions(int argc, wchar_t* argv[]) 
 
     return CliOptions{
         .processName = argv[1],
+        .processId = parseProcessIdArgument(argc, argv),
         .schedulerMode = parseSchedulerMode(argc, argv),
         .backgroundFilterConfigPath = parseStringArgument(argc, argv, L"--background-filter"),
         .latencyPingTarget = parseStringArgument(argc, argv, L"--latency-ping"),

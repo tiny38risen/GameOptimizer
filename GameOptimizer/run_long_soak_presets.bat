@@ -122,7 +122,7 @@ echo [SOAK-30M] dry-run smoke preset with hang detection
 set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode soak "%RUN_DIR%\logs\soak_30m_dry_run.log"
 set ASSERT_EXIT=%ERRORLEVEL%
-%PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step soak_30m_dry_run --mode soak --log-file "%RUN_DIR%\logs\soak_30m_dry_run.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe target --dry-run --max-runtime-seconds 1800 --thread-detail-log --thread-log-interval 20"
+%PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step soak_30m_dry_run --mode soak --log-file "%RUN_DIR%\logs\soak_30m_dry_run.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe %TARGET% --dry-run --max-runtime-seconds 1800 --thread-detail-log --thread-log-interval 20"
 if not "%STEP_EXIT%"=="0" (
     echo [BLOCKER] SOAK-30M command failed with exit code %STEP_EXIT%
     exit /b 1
@@ -139,7 +139,7 @@ echo [SOAK-60M] soft-apply smoke preset with hang detection
 set STEP_EXIT=%ERRORLEVEL%
 %PYTHON_CMD% run_release_gate_log_assertions.py --mode soak "%RUN_DIR%\logs\soak_60m_soft_apply.log"
 set ASSERT_EXIT=%ERRORLEVEL%
-%PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step soak_60m_soft_apply --mode soak --log-file "%RUN_DIR%\logs\soak_60m_soft_apply.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe target --max-runtime-seconds 3600 --thread-detail-log --thread-log-interval 40"
+%PYTHON_CMD% release_gate_evidence.py record --run-dir "%RUN_DIR%" --step soak_60m_soft_apply --mode soak --log-file "%RUN_DIR%\logs\soak_60m_soft_apply.log" --exit-code %STEP_EXIT% --assertion-exit-code %ASSERT_EXIT% --command "GameOptimizer.exe %TARGET% --max-runtime-seconds 3600 --thread-detail-log --thread-log-interval 40"
 if not "%STEP_EXIT%"=="0" (
     echo [BLOCKER] SOAK-60M command failed with exit code %STEP_EXIT%
     exit /b 1

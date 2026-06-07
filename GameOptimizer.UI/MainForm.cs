@@ -76,6 +76,12 @@ public sealed partial class MainForm : Form
         }
     }
 
+    private sealed class TargetSelection
+    {
+        public required string ExeName { get; init; }
+        public int? ProcessId { get; init; }
+    }
+
     public MainForm()
     {
         InitializeComponent();
@@ -349,7 +355,7 @@ public sealed partial class MainForm : Form
         targetLabel.Font = DesignSystem.FontBody;
         targetLabel.ForeColor = DesignSystem.TextBody;
         targetCombo.Dock = DockStyle.Fill;
-        targetCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+        targetCombo.DropDownStyle = ComboBoxStyle.DropDown;
         targetCombo.FlatStyle = FlatStyle.Flat;
         StyleInput(targetCombo);
         refreshButton.Text = "새로고침";
@@ -637,9 +643,10 @@ public sealed partial class MainForm : Form
         {
             targetCombo.SelectedIndex = mabinogiMatch;
         }
-        else if (targetCombo.Items.Count > 0)
+        else
         {
-            targetCombo.SelectedIndex = 0;
+            targetCombo.SelectedIndex = -1;
+            targetCombo.Text = string.Empty;
         }
 
         gameStateValue.Text = mabinogiMatch >= 0 ? "마비노기 실행 중" : "게임 대기 중";
@@ -682,8 +689,8 @@ public sealed partial class MainForm : Form
             return;
         }
 
-        var target = GetSelectedTargetName();
-        if (string.IsNullOrWhiteSpace(target))
+        var target = GetSelectedTarget();
+        if (string.IsNullOrWhiteSpace(target.ExeName))
         {
             MessageBox.Show("대상 프로세스를 선택하거나 입력하세요.", "대상 필요", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
@@ -716,7 +723,6 @@ public sealed partial class MainForm : Form
         var psi = new ProcessStartInfo
         {
             FileName = enginePath.FullName,
-            Arguments = BuildArguments(target),
             WorkingDirectory = enginePath.DirectoryName ?? AppContext.BaseDirectory,
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -725,6 +731,11 @@ public sealed partial class MainForm : Form
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
+        var arguments = BuildArgumentList(target);
+        foreach (var argument in arguments)
+        {
+            psi.ArgumentList.Add(argument);
+        }
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         process.OutputDataReceived += (_, e) => AppendLogLine(e.Data);
@@ -748,7 +759,7 @@ public sealed partial class MainForm : Form
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             AppendLogLine($"[INFO] UI: {enginePath.FullName}");
-            AppendLogLine($"[INFO] UI: GameOptimizer.exe {psi.Arguments}");
+            AppendLogLine($"[INFO] UI: GameOptimizer.exe {FormatArgumentsForLog(arguments)}");
             await Task.CompletedTask;
         }
         catch (Exception ex)
@@ -761,9 +772,14 @@ public sealed partial class MainForm : Form
         }
     }
 
-    private string BuildArguments(string target)
+    private List<string> BuildArgumentList(TargetSelection target)
     {
-        var args = new List<string> { Quote(target) };
+        var args = new List<string> { target.ExeName };
+        if (target.ProcessId is { } processId)
+        {
+            args.Add("--pid");
+            args.Add(processId.ToString());
+        }
         if (dryRunRadio.Checked)
         {
             args.Add("--dry-run");
@@ -783,19 +799,19 @@ public sealed partial class MainForm : Form
         if (latencyPingCheck.Checked && !string.IsNullOrWhiteSpace(latencyPingText.Text))
         {
             args.Add("--latency-ping");
-            args.Add(Quote(latencyPingText.Text.Trim()));
+            args.Add(latencyPingText.Text.Trim());
         }
         if (backgroundFilterCheck.Checked && !string.IsNullOrWhiteSpace(backgroundFilterText.Text))
         {
             args.Add("--background-filter");
-            args.Add(Quote(backgroundFilterText.Text.Trim()));
+            args.Add(backgroundFilterText.Text.Trim());
         }
         if (runtimeLimitCheck.Checked)
         {
             args.Add("--max-runtime-seconds");
             args.Add(((int)runtimeSecondsBox.Value).ToString());
         }
-        return string.Join(" ", args);
+        return args;
     }
 
     private string GetSelectedTargetName()
@@ -805,6 +821,21 @@ public sealed partial class MainForm : Form
             return item.ExeName;
         }
         return targetCombo.Text.Trim();
+    }
+
+    private TargetSelection GetSelectedTarget()
+    {
+        if (targetCombo.SelectedItem is ProcessListItem item)
+        {
+            return new TargetSelection { ExeName = item.ExeName, ProcessId = item.ProcessId };
+        }
+
+        return new TargetSelection { ExeName = targetCombo.Text.Trim() };
+    }
+
+    private static string FormatArgumentsForLog(IEnumerable<string> arguments)
+    {
+        return string.Join(" ", arguments.Select(Quote));
     }
 
     private static string Quote(string value)
@@ -942,12 +973,16 @@ public sealed partial class MainForm : Form
             return;
         }
 
-        var report = evidence.GetFiles("rc_evidence_report.txt", SearchOption.AllDirectories)
+        var selectedTarget = GetSelectedTargetName();
+        var reports = evidence.GetFiles("rc_evidence_report.txt", SearchOption.AllDirectories)
             .OrderByDescending(file => file.LastWriteTimeUtc)
-            .FirstOrDefault();
+            .ToList();
+        var report = string.IsNullOrWhiteSpace(selectedTarget)
+            ? reports.FirstOrDefault()
+            : reports.FirstOrDefault(file => ReportMatchesTarget(file, selectedTarget));
         if (report is null)
         {
-            MessageBox.Show("아직 rc_evidence_report.txt가 없습니다.", "리포트 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("선택한 대상의 rc_evidence_report.txt가 없습니다.", "리포트 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         Process.Start(new ProcessStartInfo { FileName = report.FullName, UseShellExecute = true });
@@ -973,6 +1008,27 @@ public sealed partial class MainForm : Form
             }
         }
         return null;
+    }
+
+    private static bool ReportMatchesTarget(FileInfo report, string target)
+    {
+        try
+        {
+            foreach (var line in File.ReadLines(report.FullName).Take(32))
+            {
+                if (line.StartsWith("Target:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var reportTarget = line["Target:".Length..].Trim();
+                    return string.Equals(reportTarget, target, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
     }
 
     private static DirectoryInfo? FindRepoScriptDirectory()

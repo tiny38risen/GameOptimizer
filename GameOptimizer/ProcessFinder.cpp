@@ -73,3 +73,56 @@ ProcessFinder::findProcessIdByName(std::wstring_view processName) noexcept
 
     return std::unexpected(ErrorCode::ProcessNotFound);
 }
+
+std::expected<DWORD, ErrorCode>
+ProcessFinder::validateProcessId(DWORD processId, std::wstring_view expectedProcessName) noexcept
+{
+    if (processId == 0)
+    {
+        return std::unexpected(ErrorCode::InvalidArgument);
+    }
+
+    WinHandle snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0));
+    if (!snapshot)
+    {
+        return std::unexpected(ErrorCode::SnapshotCreationFailed);
+    }
+
+    PROCESSENTRY32W entry{};
+    entry.dwSize = sizeof(entry);
+
+    if (!Process32FirstW(snapshot.get(), &entry))
+    {
+        const DWORD lastError = GetLastError();
+        if (lastError == ERROR_NO_MORE_FILES)
+        {
+            return std::unexpected(ErrorCode::ProcessNotFound);
+        }
+
+        return std::unexpected(ErrorCode::EnumerationFailed);
+    }
+
+    do
+    {
+        if (entry.th32ProcessID != processId)
+        {
+            continue;
+        }
+
+        if (!expectedProcessName.empty() && !equalsProcessNameIgnoreCase(expectedProcessName, entry.szExeFile))
+        {
+            return std::unexpected(ErrorCode::ProcessNotFound);
+        }
+
+        return processId;
+    }
+    while (Process32NextW(snapshot.get(), &entry));
+
+    const DWORD lastError = GetLastError();
+    if (lastError != ERROR_NO_MORE_FILES)
+    {
+        return std::unexpected(ErrorCode::EnumerationFailed);
+    }
+
+    return std::unexpected(ErrorCode::ProcessNotFound);
+}

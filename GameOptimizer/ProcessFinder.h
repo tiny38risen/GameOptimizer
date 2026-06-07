@@ -24,4 +24,7 @@ class ProcessFinder
 public:
     [[nodiscard]] static std::expected<DWORD, ErrorCode>
     findProcessIdByName(std::wstring_view processName) noexcept;
+
+    [[nodiscard]] static std::expected<DWORD, ErrorCode>
+    validateProcessId(DWORD processId, std::wstring_view expectedProcessName) noexcept;
 };

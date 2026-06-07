@@ -24,6 +24,7 @@ struct RuntimeLogConfig
 struct CliOptions
 {
     std::wstring processName;
+    std::uint32_t processId = 0;
     SchedulerMode schedulerMode = SchedulerMode::SoftApply;
     std::wstring backgroundFilterConfigPath;
     std::wstring latencyPingTarget;

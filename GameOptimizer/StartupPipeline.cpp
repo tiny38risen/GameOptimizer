@@ -329,7 +329,7 @@ std::expected<RuntimeContext, ErrorCode> StartupPipeline::run(int argc, wchar_t*
         const auto optionsResult = parseCliOptions(argc, argv);
         if (!optionsResult)
         {
-            Logger::error("usage: GameOptimizer.exe <process-name.exe> [--dry-run|--apply] [--background-filter <path>] [--latency-ping <ipv4>] [--background-detail-log] [--thread-detail-log] [--thread-log-interval <cycles>] [--max-runtime-seconds <seconds>]");
+            Logger::error("usage: GameOptimizer.exe <process-name.exe> [--pid <process-id>] [--dry-run|--apply] [--background-filter <path>] [--latency-ping <ipv4>] [--background-detail-log] [--thread-detail-log] [--thread-log-interval <cycles>] [--max-runtime-seconds <seconds>]");
             return std::unexpected(optionsResult.error());
         }
 
@@ -386,7 +386,9 @@ std::expected<RuntimeContext, ErrorCode> StartupPipeline::run(int argc, wchar_t*
 
 std::expected<StartupPlan, ErrorCode> StartupPipeline::prepare(const CliOptions& options) noexcept
 {
-    const auto processId = ProcessFinder::findProcessIdByName(options.processName);
+    const auto processId = options.processId != 0
+        ? ProcessFinder::validateProcessId(static_cast<DWORD>(options.processId), options.processName)
+        : ProcessFinder::findProcessIdByName(options.processName);
     if (!processId)
     {
         Logger::error("failed to find process: {}", toString(processId.error()));
@@ -394,6 +396,15 @@ std::expected<StartupPlan, ErrorCode> StartupPipeline::prepare(const CliOptions&
     }
 
     const DWORD targetProcessId = *processId;
+    Logger::info("target process: {}", narrowForLog(options.processName));
+    if (options.processId != 0)
+    {
+        Logger::info("target PID source: explicit UI/CLI selection");
+    }
+    else
+    {
+        Logger::info("target PID source: process name lookup");
+    }
     Logger::info("target PID: {}", targetProcessId);
     logStartupPolicySummary(options);
 
