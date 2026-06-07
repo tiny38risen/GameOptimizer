@@ -5,7 +5,6 @@ namespace GameOptimizer.UI;
 
 public sealed partial class MainForm : Form
 {
-    private const int CollapsedFormHeight = 190;
     private const int FormWidth = 520;
 
     private readonly ComboBox targetCombo = new();
@@ -86,7 +85,7 @@ public sealed partial class MainForm : Form
         InitializeComponent();
         RefreshProcessList();
         UpdateEnginePathLabel();
-        UpdateSummaryState("대기 중", DesignSystem.TextMuted, "최적화 대기 중");
+        UpdateSummaryState("대기", DesignSystem.TextMuted, "최적화 대기 중");
         UpdateModeDescription();
         UpdateRuntimeLimitState();
         UpdateControlState(false);
@@ -109,24 +108,25 @@ public sealed partial class MainForm : Form
         contentPanel.Dock = DockStyle.Top;
         contentPanel.AutoSize = true;
         contentPanel.ColumnCount = 1;
-        contentPanel.RowCount = 2;
+        contentPanel.RowCount = 3;
         contentPanel.BackColor = DesignSystem.BgColor;
         contentPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        contentPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         contentPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         contentPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         scrollHost.Controls.Add(contentPanel);
 
         contentPanel.Controls.Add(CreateSummaryPanel(), 0, 0);
+        contentPanel.Controls.Add(CreateStatusPanel(), 0, 1);
 
         settingsPanel.Dock = DockStyle.Top;
         settingsPanel.AutoSize = true;
         settingsPanel.ColumnCount = 1;
-        settingsPanel.RowCount = 4;
+        settingsPanel.RowCount = 3;
         settingsPanel.BackColor = DesignSystem.BgColor;
         settingsPanel.Visible = false;
-        settingsPanel.Controls.Add(CreateStatusPanel(), 0, 0);
-        settingsPanel.Controls.Add(CreateEngineOptionsPanel(), 0, 1);
-        settingsPanel.Controls.Add(CreateDetailsToggle(), 0, 2);
+        settingsPanel.Controls.Add(CreateEngineOptionsPanel(), 0, 0);
+        settingsPanel.Controls.Add(CreateDetailsToggle(), 0, 1);
 
         detailsPanel.Dock = DockStyle.Top;
         detailsPanel.AutoSize = true;
@@ -149,8 +149,8 @@ public sealed partial class MainForm : Form
             "안전 복구",
             new[] { "복구 정보 저장 완료", "자동 복구 가능", "마지막 검사 : 정상" },
             new[] { "Affinity 백업 : 완료", "Priority 백업 : 완료", "ApplyGuard : 정상", "Rollback 준비 : 완료" }));
-        settingsPanel.Controls.Add(detailsPanel, 0, 3);
-        contentPanel.Controls.Add(settingsPanel, 0, 1);
+        settingsPanel.Controls.Add(detailsPanel, 0, 2);
+        contentPanel.Controls.Add(settingsPanel, 0, 2);
     }
 
     private Control CreateSummaryPanel()
@@ -198,10 +198,10 @@ public sealed partial class MainForm : Form
         gameStateValue.Margin = new Padding(0, 0, 0, 14);
         table.Controls.Add(gameStateValue);
 
-        statusValue.Text = "상태 : 안정적";
+        statusValue.Text = "현재 상태 : 대기";
         statusValue.AutoSize = true;
-        statusValue.Font = DesignSystem.FontBody;
-        statusValue.ForeColor = DesignSystem.TextBody;
+        statusValue.Font = DesignSystem.FontHeading;
+        statusValue.ForeColor = DesignSystem.TextMuted;
         table.Controls.Add(statusValue);
 
         optimizeStateValue.Text = "최적화 적용 중";
@@ -551,12 +551,6 @@ public sealed partial class MainForm : Form
 
     private void AdjustFormHeight()
     {
-        if (!settingsExpanded)
-        {
-            Height = CollapsedFormHeight;
-            return;
-        }
-
         var workingArea = Screen.FromControl(this).WorkingArea;
         contentPanel.PerformLayout();
         var desiredFormHeight = contentPanel.PreferredSize.Height + (Height - ClientSize.Height) + (DesignSystem.CardPadding.Vertical * 2);
@@ -707,7 +701,7 @@ public sealed partial class MainForm : Form
         }
 
         ClearLog();
-        UpdateSummaryState("실행 중", DesignSystem.PrimaryColor, "최적화 적용 중");
+        UpdateSummaryState("세팅중", DesignSystem.PrimaryColor, "최적화 준비 중");
         UpdateControlState(true);
 
         var psi = new ProcessStartInfo
@@ -736,7 +730,7 @@ public sealed partial class MainForm : Form
             process.Dispose();
             runningProcess = null;
             UpdateControlState(false);
-            UpdateSummaryState(exitCode == 0 ? "안정적" : "점검 필요", exitCode == 0 ? DesignSystem.Success : DesignSystem.Danger, exitCode == 0 ? "최적화 완료" : "최적화 중단");
+            UpdateSummaryState("대기", exitCode == 0 ? DesignSystem.Success : DesignSystem.Danger, exitCode == 0 ? "최적화 완료" : "최적화 중단");
             AppendLogLine(exitCode == 0
                 ? "[PASS] UI: 엔진 실행이 정상 종료되었습니다."
                 : $"[BLOCKER] UI: 엔진 종료 코드 {exitCode}");
@@ -748,6 +742,7 @@ public sealed partial class MainForm : Form
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
+            UpdateSummaryState("적용중", DesignSystem.Success, "최적화 적용 중");
             AppendLogLine($"[INFO] UI: {enginePath.FullName}");
             AppendLogLine($"[INFO] UI: GameOptimizer.exe {FormatArgumentsForLog(arguments)}");
             await Task.CompletedTask;
@@ -757,7 +752,7 @@ public sealed partial class MainForm : Form
             runningProcess = null;
             process.Dispose();
             UpdateControlState(false);
-            UpdateSummaryState("점검 필요", DesignSystem.Danger, "최적화 실패");
+            UpdateSummaryState("대기", DesignSystem.Danger, "최적화 실패");
             AppendLogLine($"[BLOCKER] UI: 실행 실패 - {ex.Message}");
         }
     }
@@ -837,7 +832,7 @@ public sealed partial class MainForm : Form
     {
         if (runningProcess is null)
         {
-            UpdateSummaryState("안정적", DesignSystem.Success, "종료 완료");
+            UpdateSummaryState("대기", DesignSystem.Success, "종료 완료");
             AppendLogLine("[INFO] UI: 실행 중인 엔진이 없어 상태만 복구 완료로 표시했습니다.");
             return;
         }
@@ -845,7 +840,7 @@ public sealed partial class MainForm : Form
         try
         {
             runningProcess.Kill(entireProcessTree: true);
-            UpdateSummaryState("종료 중", DesignSystem.Warning, "종료 실행 중");
+            UpdateSummaryState("종료중", DesignSystem.Warning, "종료 실행 중");
             AppendLogLine("[WARN] UI: 사용자가 종료를 요청했습니다.");
         }
         catch (Exception ex)
@@ -871,13 +866,14 @@ public sealed partial class MainForm : Form
             line.Contains("[ERROR]", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("[FAIL]", StringComparison.OrdinalIgnoreCase))
         {
-            UpdateSummaryState("점검 필요", DesignSystem.Danger, "최적화 중단");
+            statusValue.ForeColor = DesignSystem.Danger;
+            optimizeStateValue.Text = "최적화 중단";
         }
         else if (line.Contains("[WARN]", StringComparison.OrdinalIgnoreCase))
         {
-            if (!statusValue.Text.Contains("점검 필요", StringComparison.OrdinalIgnoreCase))
+            if (statusValue.ForeColor != DesignSystem.Danger)
             {
-                UpdateSummaryState("주의", DesignSystem.Warning, optimizeStateValue.Text);
+                statusValue.ForeColor = DesignSystem.Warning;
             }
         }
 
@@ -891,7 +887,8 @@ public sealed partial class MainForm : Form
 
     private void UpdateSummaryState(string state, Color color, string optimizeText)
     {
-        statusValue.Text = $"상태 : {state}";
+        statusValue.Text = $"현재 상태 : {state}";
+        statusValue.Font = DesignSystem.FontHeading;
         statusValue.ForeColor = color;
         optimizeStateValue.Text = optimizeText;
         recoveryStateValue.Text = "자동 복구 가능";
@@ -900,7 +897,7 @@ public sealed partial class MainForm : Form
     private void UpdateControlState(bool running)
     {
         startButton.Enabled = true;
-        UpdatePrimaryButtonText();
+        UpdatePrimaryButtonText(running);
         targetCombo.Enabled = !running;
         refreshButton.Enabled = !running;
         dryRunRadio.Enabled = !running;
@@ -908,9 +905,10 @@ public sealed partial class MainForm : Form
         applyRadio.Enabled = !running;
     }
 
-    private void UpdatePrimaryButtonText()
+    private void UpdatePrimaryButtonText(bool? runningOverride = null)
     {
-        startButton.Text = runningProcess is null ? "[최적화]" : "[종료]";
+        var running = runningOverride ?? runningProcess is not null;
+        startButton.Text = running ? "[종료]" : "[최적화]";
     }
 
     private void UpdateEnginePathLabel()
@@ -925,11 +923,11 @@ public sealed partial class MainForm : Form
         UpdateModeDescription();
         if (applyRadio.Checked)
         {
-            UpdateSummaryState("주의: 실제 적용", DesignSystem.Warning, "실제 적용 준비");
+            UpdateSummaryState("대기", DesignSystem.Warning, "실제 적용 준비");
         }
         else if (runningProcess is null)
         {
-            statusValue.Text = "상태 : 대기 중";
+            statusValue.Text = "현재 상태 : 대기";
             statusValue.ForeColor = DesignSystem.TextMuted;
             recoveryStateValue.Text = "자동 복구 가능";
         }
