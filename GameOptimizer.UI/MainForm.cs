@@ -5,6 +5,9 @@ namespace GameOptimizer.UI;
 
 public sealed partial class MainForm : Form
 {
+    private const int CollapsedFormHeight = 190;
+    private const int FormWidth = 520;
+
     private readonly ComboBox targetCombo = new();
     private readonly Button refreshButton = new();
     private readonly RadioButton dryRunRadio = new();
@@ -32,6 +35,7 @@ public sealed partial class MainForm : Form
     private readonly Label enginePathValue = new();
     private readonly Label modeDescriptionValue = new();
     private readonly Label runtimeDescriptionValue = new();
+    private readonly TableLayoutPanel contentPanel = new();
     private readonly TableLayoutPanel settingsPanel = new();
     private readonly TableLayoutPanel detailsPanel = new();
     private readonly List<string> hiddenLogLines = new();
@@ -81,6 +85,7 @@ public sealed partial class MainForm : Form
         UpdateModeDescription();
         UpdateRuntimeLimitState();
         UpdateControlState(false);
+        AdjustFormHeight();
     }
 
     private void BuildLayout()
@@ -96,20 +101,17 @@ public sealed partial class MainForm : Form
         };
         Controls.Add(scrollHost);
 
-        var content = new TableLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            AutoSize = true,
-            ColumnCount = 1,
-            RowCount = 2,
-            BackColor = DesignSystem.BgColor,
-        };
-        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        scrollHost.Controls.Add(content);
+        contentPanel.Dock = DockStyle.Top;
+        contentPanel.AutoSize = true;
+        contentPanel.ColumnCount = 1;
+        contentPanel.RowCount = 2;
+        contentPanel.BackColor = DesignSystem.BgColor;
+        contentPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        contentPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        contentPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        scrollHost.Controls.Add(contentPanel);
 
-        content.Controls.Add(CreateSummaryPanel(), 0, 0);
+        contentPanel.Controls.Add(CreateSummaryPanel(), 0, 0);
 
         settingsPanel.Dock = DockStyle.Top;
         settingsPanel.AutoSize = true;
@@ -143,7 +145,7 @@ public sealed partial class MainForm : Form
             new[] { "복구 정보 저장 완료", "자동 복구 가능", "마지막 검사 : 정상" },
             new[] { "Affinity 백업 : 완료", "Priority 백업 : 완료", "ApplyGuard : 정상", "Rollback 준비 : 완료" }));
         settingsPanel.Controls.Add(detailsPanel, 0, 3);
-        content.Controls.Add(settingsPanel, 0, 1);
+        contentPanel.Controls.Add(settingsPanel, 0, 1);
     }
 
     private Control CreateSummaryPanel()
@@ -165,10 +167,10 @@ public sealed partial class MainForm : Form
 
         var actions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0) };
         startButton.Text = "최적화 시작";
-        StyleButton(startButton, primary: true, width: 168);
+        StyleButton(startButton, primary: true, width: 180);
         startButton.Click += async (_, _) => await StartEngineAsync();
         settingsToggleButton.Text = "설정 열기";
-        StyleButton(settingsToggleButton, primary: false, width: 104);
+        StyleButton(settingsToggleButton, primary: false, width: 116);
         settingsToggleButton.Click += (_, _) => ToggleSettings();
         actions.Controls.AddRange(new Control[] { startButton, settingsToggleButton });
         table.Controls.Add(actions);
@@ -213,7 +215,7 @@ public sealed partial class MainForm : Form
 
         modeDescriptionValue.Text = "현재 모드는 게임 상태를 관찰하고 로그만 남깁니다. 시스템 설정은 바꾸지 않습니다.";
         modeDescriptionValue.AutoSize = true;
-        modeDescriptionValue.MaximumSize = new Size(360, 0);
+        modeDescriptionValue.MaximumSize = new Size(GetTextWrapWidth(), 0);
         modeDescriptionValue.Font = DesignSystem.FontSmall;
         modeDescriptionValue.ForeColor = DesignSystem.TextMuted;
         modeDescriptionValue.Margin = new Padding(0, 0, 0, 18);
@@ -351,7 +353,7 @@ public sealed partial class MainForm : Form
         targetCombo.FlatStyle = FlatStyle.Flat;
         StyleInput(targetCombo);
         refreshButton.Text = "새로고침";
-        StyleButton(refreshButton, primary: false, width: 92, height: 30);
+        StyleButton(refreshButton, primary: false, width: 104, height: 30);
         refreshButton.Click += (_, _) => RefreshProcessList();
         table.Controls.Add(targetLabel, 0, 1);
         table.Controls.Add(targetCombo, 1, 1);
@@ -432,7 +434,7 @@ public sealed partial class MainForm : Form
         table.Controls.Add(runtimeSecondsBox, 1, 13);
         runtimeDescriptionValue.Text = "꺼두면 사용자가 원상복구를 누르거나 엔진이 종료될 때까지 계속 유지됩니다. 켜면 지정한 시간 뒤 종료됩니다.";
         runtimeDescriptionValue.AutoSize = true;
-        runtimeDescriptionValue.MaximumSize = new Size(360, 0);
+        runtimeDescriptionValue.MaximumSize = new Size(GetTextWrapWidth(), 0);
         runtimeDescriptionValue.Font = DesignSystem.FontSmall;
         runtimeDescriptionValue.ForeColor = DesignSystem.TextMuted;
         runtimeDescriptionValue.Margin = new Padding(0, 2, 0, 8);
@@ -477,11 +479,16 @@ public sealed partial class MainForm : Form
         {
             Text = text,
             AutoSize = true,
-            MaximumSize = new Size(360, 0),
+            MaximumSize = new Size(GetTextWrapWidth(), 0),
             Font = DesignSystem.FontSmall,
             ForeColor = DesignSystem.TextMuted,
             Margin = new Padding(0, 0, 0, 8),
         };
+    }
+
+    private static int GetTextWrapWidth()
+    {
+        return FormWidth - (DesignSystem.CardPadding.Horizontal * 3);
     }
 
     private static void StyleButton(Button button, bool primary, int width, int height = 36)
@@ -533,6 +540,7 @@ public sealed partial class MainForm : Form
         detailsExpanded = !detailsExpanded;
         detailsPanel.Visible = detailsExpanded;
         detailsToggleButton.Text = detailsExpanded ? "▲ 모니터링 상세 정보 닫기" : "▼ 모니터링 상세 정보 열기";
+        AdjustFormHeight();
     }
 
     private void ToggleSettings()
@@ -540,6 +548,25 @@ public sealed partial class MainForm : Form
         settingsExpanded = !settingsExpanded;
         settingsPanel.Visible = settingsExpanded;
         settingsToggleButton.Text = settingsExpanded ? "설정 닫기" : "설정 열기";
+        AdjustFormHeight();
+    }
+
+    private void AdjustFormHeight()
+    {
+        if (!settingsExpanded)
+        {
+            Height = CollapsedFormHeight;
+            return;
+        }
+
+        var workingArea = Screen.FromControl(this).WorkingArea;
+        contentPanel.PerformLayout();
+        var desiredFormHeight = contentPanel.PreferredSize.Height + (Height - ClientSize.Height) + (DesignSystem.CardPadding.Vertical * 2);
+        if (detailsExpanded)
+        {
+            desiredFormHeight += DesignSystem.ControlMargin;
+        }
+        Height = Math.Min(desiredFormHeight, workingArea.Height - 40);
     }
 
     private void UpdateModeDescription()
