@@ -79,39 +79,33 @@ public sealed partial class MainForm : Form
     {
         BackColor = DesignSystem.BgColor;
 
-        var root = new TableLayoutPanel
+        var scrollHost = new Panel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 4,
             AutoScroll = true,
             Padding = DesignSystem.CardPadding,
             BackColor = DesignSystem.BgColor,
         };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        Controls.Add(root);
+        Controls.Add(scrollHost);
 
         var content = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
+            AutoSize = true,
             ColumnCount = 1,
             RowCount = 4,
-            AutoScroll = true,
             BackColor = DesignSystem.BgColor,
         };
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.Controls.Add(content, 0, 0);
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        scrollHost.Controls.Add(content);
 
-        content.Controls.Add(CreateSummaryPanel());
-        content.Controls.Add(CreateEngineOptionsPanel());
-        content.Controls.Add(CreateDetailsToggle());
+        content.Controls.Add(CreateSummaryPanel(), 0, 0);
+        content.Controls.Add(CreateEngineOptionsPanel(), 0, 1);
+        content.Controls.Add(CreateDetailsToggle(), 0, 2);
 
         detailsPanel.Dock = DockStyle.Top;
         detailsPanel.AutoSize = true;
@@ -134,7 +128,7 @@ public sealed partial class MainForm : Form
             "안전 복구",
             new[] { "복구 정보 저장 완료", "자동 복구 가능", "마지막 검사 : 정상" },
             new[] { "Affinity 백업 : 완료", "Priority 백업 : 완료", "ApplyGuard : 정상", "Rollback 준비 : 완료" }));
-        content.Controls.Add(detailsPanel);
+        content.Controls.Add(detailsPanel, 0, 3);
     }
 
     private Control CreateSummaryPanel()
