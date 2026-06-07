@@ -29,7 +29,7 @@ public sealed partial class MainForm : Form
     private readonly Label recoveryStateValue = new();
     private readonly Label enginePathValue = new();
     private readonly TableLayoutPanel detailsPanel = new();
-    private readonly RichTextBox logBox = new();
+    private readonly List<string> hiddenLogLines = new();
 
     private Process? runningProcess;
     private bool detailsExpanded;
@@ -82,17 +82,20 @@ public sealed partial class MainForm : Form
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1,
+            ColumnCount = 1,
+            RowCount = 4,
             AutoScroll = true,
             Padding = DesignSystem.CardPadding,
             BackColor = DesignSystem.BgColor,
         };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         Controls.Add(root);
 
-        var left = new TableLayoutPanel
+        var content = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
@@ -100,15 +103,15 @@ public sealed partial class MainForm : Form
             AutoScroll = true,
             BackColor = DesignSystem.BgColor,
         };
-        left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        left.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.Controls.Add(left, 0, 0);
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        root.Controls.Add(content, 0, 0);
 
-        left.Controls.Add(CreateSummaryPanel());
-        left.Controls.Add(CreateEngineOptionsPanel());
-        left.Controls.Add(CreateDetailsToggle());
+        content.Controls.Add(CreateSummaryPanel());
+        content.Controls.Add(CreateEngineOptionsPanel());
+        content.Controls.Add(CreateDetailsToggle());
 
         detailsPanel.Dock = DockStyle.Top;
         detailsPanel.AutoSize = true;
@@ -131,38 +134,7 @@ public sealed partial class MainForm : Form
             "안전 복구",
             new[] { "복구 정보 저장 완료", "자동 복구 가능", "마지막 검사 : 정상" },
             new[] { "Affinity 백업 : 완료", "Priority 백업 : 완료", "ApplyGuard : 정상", "Rollback 준비 : 완료" }));
-        left.Controls.Add(detailsPanel);
-
-        var right = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 2,
-            Margin = new Padding(18, 0, 0, 0),
-            BackColor = DesignSystem.BgColor,
-        };
-        right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.Controls.Add(right, 1, 0);
-
-        var logHeader = new Label
-        {
-            Text = "실행 로그",
-            Dock = DockStyle.Top,
-            Font = DesignSystem.FontHeading,
-            AutoSize = true,
-            ForeColor = DesignSystem.TextTitle,
-            Margin = new Padding(0, 0, 0, 8),
-        };
-        right.Controls.Add(logHeader);
-
-        logBox.Dock = DockStyle.Fill;
-        logBox.ReadOnly = true;
-        logBox.BackColor = DesignSystem.SurfaceColor;
-        logBox.ForeColor = DesignSystem.TextBody;
-        logBox.BorderStyle = BorderStyle.None;
-        logBox.Font = new Font("Consolas", 10F);
-        right.Controls.Add(logBox);
+        content.Controls.Add(detailsPanel);
     }
 
     private Control CreateSummaryPanel()
@@ -319,7 +291,7 @@ public sealed partial class MainForm : Form
         var panel = CreateCard();
         panel.Padding = DesignSystem.CardPadding;
 
-        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 9, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
+        var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 10, AutoSize = true, BackColor = DesignSystem.SurfaceColor };
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -448,8 +420,8 @@ public sealed partial class MainForm : Form
         button.FlatStyle = FlatStyle.Flat;
         button.FlatAppearance.BorderSize = primary ? 0 : 1;
         button.FlatAppearance.BorderColor = primary ? DesignSystem.PrimaryColor : DesignSystem.BorderColor;
-        button.BackColor = primary ? DesignSystem.PrimaryColor : DesignSystem.SurfaceColor;
-        button.ForeColor = primary ? DesignSystem.BgColor : DesignSystem.TextBody;
+        button.BackColor = primary ? DesignSystem.PrimaryColor : DesignSystem.SecondaryButtonColor;
+        button.ForeColor = primary ? Color.White : DesignSystem.TextBody;
         button.Font = DesignSystem.FontBody;
         button.Cursor = Cursors.Hand;
         button.Margin = new Padding(0, 0, 8, 8);
@@ -457,18 +429,18 @@ public sealed partial class MainForm : Form
         button.MouseEnter += (_, _) =>
         {
             button.BackColor = primary ? DesignSystem.PrimaryHoverColor : DesignSystem.BorderColor;
-            button.ForeColor = primary ? DesignSystem.BgColor : DesignSystem.TextTitle;
+            button.ForeColor = primary ? Color.White : DesignSystem.TextTitle;
         };
         button.MouseLeave += (_, _) =>
         {
-            button.BackColor = primary ? DesignSystem.PrimaryColor : DesignSystem.SurfaceColor;
-            button.ForeColor = primary ? DesignSystem.BgColor : DesignSystem.TextBody;
+            button.BackColor = primary ? DesignSystem.PrimaryColor : DesignSystem.SecondaryButtonColor;
+            button.ForeColor = primary ? Color.White : DesignSystem.TextBody;
         };
     }
 
     private static void StyleInput(Control control)
     {
-        control.BackColor = DesignSystem.BgColor;
+        control.BackColor = DesignSystem.SurfaceColor;
         control.ForeColor = DesignSystem.TextBody;
         control.Font = DesignSystem.FontBody;
         control.Margin = new Padding(0, 0, 8, 8);
@@ -726,38 +698,26 @@ public sealed partial class MainForm : Form
             return;
         }
 
-        var color = DesignSystem.TextBody;
         if (line.Contains("[BLOCKER]", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("[ERROR]", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("[FAIL]", StringComparison.OrdinalIgnoreCase))
         {
-            color = DesignSystem.Danger;
             UpdateSummaryState("점검 필요", DesignSystem.Danger, "최적화 중단");
         }
         else if (line.Contains("[WARN]", StringComparison.OrdinalIgnoreCase))
         {
-            color = DesignSystem.Warning;
             if (!statusValue.Text.Contains("점검 필요", StringComparison.OrdinalIgnoreCase))
             {
                 UpdateSummaryState("주의", DesignSystem.Warning, optimizeStateValue.Text);
             }
         }
-        else if (line.Contains("[PASS]", StringComparison.OrdinalIgnoreCase))
-        {
-            color = DesignSystem.Success;
-        }
 
-        logBox.SelectionStart = logBox.TextLength;
-        logBox.SelectionLength = 0;
-        logBox.SelectionColor = color;
-        logBox.AppendText(line + Environment.NewLine);
-        logBox.SelectionColor = logBox.ForeColor;
-        logBox.ScrollToCaret();
+        hiddenLogLines.Add(line);
     }
 
     private void ClearLog()
     {
-        logBox.Clear();
+        hiddenLogLines.Clear();
     }
 
     private void UpdateSummaryState(string state, Color color, string optimizeText)
