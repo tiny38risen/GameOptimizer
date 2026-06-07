@@ -22,7 +22,6 @@ public sealed partial class MainForm : Form
     private readonly Button browseFilterButton = new();
     private readonly NumericUpDown runtimeSecondsBox = new();
     private readonly Button startButton = new();
-    private readonly Button restoreButton = new();
     private readonly Button evidenceFolderButton = new();
     private readonly Button latestReportButton = new();
     private readonly Button settingsToggleButton = new();
@@ -172,9 +171,9 @@ public sealed partial class MainForm : Form
         });
 
         var actions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0) };
-        startButton.Text = "최적화 시작";
+        startButton.Text = "[최적화]";
         StyleButton(startButton, primary: true, width: 180);
-        startButton.Click += async (_, _) => await StartEngineAsync();
+        startButton.Click += async (_, _) => await ToggleEngineAsync();
         settingsToggleButton.Text = "설정 열기";
         StyleButton(settingsToggleButton, primary: false, width: 116);
         settingsToggleButton.Click += (_, _) => ToggleSettings();
@@ -226,13 +225,6 @@ public sealed partial class MainForm : Form
         modeDescriptionValue.ForeColor = DesignSystem.TextMuted;
         modeDescriptionValue.Margin = new Padding(0, 0, 0, 18);
         table.Controls.Add(modeDescriptionValue);
-
-        restoreButton.Text = "원상복구";
-        StyleButton(restoreButton, primary: false, width: 118);
-        restoreButton.Click += (_, _) => StopEngine();
-        var actions = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0) };
-        actions.Controls.Add(restoreButton);
-        table.Controls.Add(actions);
 
         return panel;
     }
@@ -380,7 +372,7 @@ public sealed partial class MainForm : Form
         StyleOption(dryRunRadio);
         StyleOption(softApplyRadio);
         StyleOption(applyRadio);
-        softApplyRadio.Checked = true;
+        applyRadio.Checked = true;
         dryRunRadio.CheckedChanged += (_, _) => UpdateModeDescription();
         softApplyRadio.CheckedChanged += (_, _) => UpdateModeDescription();
         applyRadio.CheckedChanged += (_, _) => UpdateApplyWarning();
@@ -438,7 +430,7 @@ public sealed partial class MainForm : Form
         runtimeSecondsBox.ForeColor = DesignSystem.TextBody;
         table.Controls.Add(runtimeLimitCheck, 0, 13);
         table.Controls.Add(runtimeSecondsBox, 1, 13);
-        runtimeDescriptionValue.Text = "꺼두면 사용자가 원상복구를 누르거나 엔진이 종료될 때까지 계속 유지됩니다. 켜면 지정한 시간 뒤 종료됩니다.";
+        runtimeDescriptionValue.Text = "꺼두면 사용자가 종료를 누르거나 엔진이 종료될 때까지 계속 유지됩니다. 켜면 지정한 시간 뒤 종료됩니다.";
         runtimeDescriptionValue.AutoSize = true;
         runtimeDescriptionValue.MaximumSize = new Size(GetTextWrapWidth(), 0);
         runtimeDescriptionValue.Font = DesignSystem.FontSmall;
@@ -579,7 +571,7 @@ public sealed partial class MainForm : Form
     {
         if (dryRunRadio.Checked)
         {
-            startButton.Text = "상태 점검 시작";
+            UpdatePrimaryButtonText();
             modeDescriptionValue.Text = "현재 모드는 관찰 전용입니다. 게임/윈도우 설정은 바꾸지 않고 적용 가능 여부와 위험 신호만 확인합니다.";
             if (runningProcess is null)
             {
@@ -590,7 +582,7 @@ public sealed partial class MainForm : Form
 
         if (softApplyRadio.Checked)
         {
-            startButton.Text = "최적화 시작";
+            UpdatePrimaryButtonText();
             modeDescriptionValue.Text = "기본 최적화 모드입니다. 시간 제한 없이 유지되며, 위험 신호가 있으면 적용하지 않거나 되돌릴 수 있게 동작합니다.";
             if (runningProcess is null)
             {
@@ -599,7 +591,7 @@ public sealed partial class MainForm : Form
             return;
         }
 
-        startButton.Text = "최적화 적용 시작";
+        UpdatePrimaryButtonText();
         modeDescriptionValue.Text = "현재 모드는 실제 적용입니다. 스레드 우선순위와 affinity 같은 실행 설정을 변경할 수 있습니다.";
         if (runningProcess is null)
         {
@@ -611,8 +603,8 @@ public sealed partial class MainForm : Form
     {
         runtimeSecondsBox.Enabled = runtimeLimitCheck.Checked;
         runtimeDescriptionValue.Text = runtimeLimitCheck.Checked
-            ? "지정한 시간이 지나면 엔진이 종료되고 원상복구 절차가 진행됩니다."
-            : "시간 제한 없이 유지됩니다. 사용자가 원상복구를 누르거나 엔진이 종료될 때까지 계속 동작합니다.";
+            ? "지정한 시간이 지나면 엔진이 종료되고 복구 절차가 진행됩니다."
+            : "시간 제한 없이 유지됩니다. 사용자가 종료를 누르거나 엔진이 종료될 때까지 계속 동작합니다.";
     }
 
     private void RefreshProcessList()
@@ -682,6 +674,17 @@ public sealed partial class MainForm : Form
         }
     }
 
+    private async Task ToggleEngineAsync()
+    {
+        if (runningProcess is not null)
+        {
+            StopEngine();
+            return;
+        }
+
+        await StartEngineAsync();
+    }
+
     private async Task StartEngineAsync()
     {
         if (runningProcess is not null)
@@ -694,19 +697,6 @@ public sealed partial class MainForm : Form
         {
             MessageBox.Show("대상 프로세스를 선택하거나 입력하세요.", "대상 필요", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
-        }
-
-        if (applyRadio.Checked)
-        {
-            var confirm = MessageBox.Show(
-                "실제 적용 모드는 대상 스레드 우선순위와 affinity를 변경할 수 있습니다.\n드라이런이나 소프트 적용 로그가 정상일 때만 진행하세요.",
-                "실제 적용 확인",
-                MessageBoxButtons.OKCancel,
-                MessageBoxIcon.Warning);
-            if (confirm != DialogResult.OK)
-            {
-                return;
-            }
         }
 
         var enginePath = FindEnginePath();
@@ -847,7 +837,7 @@ public sealed partial class MainForm : Form
     {
         if (runningProcess is null)
         {
-            UpdateSummaryState("안정적", DesignSystem.Success, "원상복구 완료");
+            UpdateSummaryState("안정적", DesignSystem.Success, "종료 완료");
             AppendLogLine("[INFO] UI: 실행 중인 엔진이 없어 상태만 복구 완료로 표시했습니다.");
             return;
         }
@@ -855,12 +845,12 @@ public sealed partial class MainForm : Form
         try
         {
             runningProcess.Kill(entireProcessTree: true);
-            UpdateSummaryState("복구 중", DesignSystem.Warning, "원상복구 실행 중");
-            AppendLogLine("[WARN] UI: 사용자가 원상복구를 요청했습니다.");
+            UpdateSummaryState("종료 중", DesignSystem.Warning, "종료 실행 중");
+            AppendLogLine("[WARN] UI: 사용자가 종료를 요청했습니다.");
         }
         catch (Exception ex)
         {
-            AppendLogLine($"[WARN] UI: 원상복구 실패 - {ex.Message}");
+            AppendLogLine($"[WARN] UI: 종료 실패 - {ex.Message}");
         }
     }
 
@@ -909,13 +899,18 @@ public sealed partial class MainForm : Form
 
     private void UpdateControlState(bool running)
     {
-        startButton.Enabled = !running;
-        restoreButton.Enabled = true;
+        startButton.Enabled = true;
+        UpdatePrimaryButtonText();
         targetCombo.Enabled = !running;
         refreshButton.Enabled = !running;
         dryRunRadio.Enabled = !running;
         softApplyRadio.Enabled = !running;
         applyRadio.Enabled = !running;
+    }
+
+    private void UpdatePrimaryButtonText()
+    {
+        startButton.Text = runningProcess is null ? "[최적화]" : "[종료]";
     }
 
     private void UpdateEnginePathLabel()
