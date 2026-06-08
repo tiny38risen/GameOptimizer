@@ -36,14 +36,14 @@ public sealed partial class MainForm : Form
     private readonly TableLayoutPanel contentPanel = new();
     private readonly TableLayoutPanel settingsPanel = new();
     private readonly TableLayoutPanel detailsPanel = new();
-    private readonly LineMetricControl cpuTrend = new() { Title = "CPU" };
-    private readonly LineMetricControl networkTrend = new() { Title = "네트워크" };
-    private readonly DonutMetricControl threadGauge = new() { Title = "스레드", Value = 72 };
-    private readonly DonutMetricControl safetyGauge = new() { Title = "안전 복구", Value = 92 };
-    private readonly ScoreGaugeControl healthGauge = new() { Value = 68, Caption = "최적화 점수" };
-    private readonly ProgressMetricControl cpuMetric = new() { Title = "CPU 안정성", Detail = "메인 스레드 관찰 대기", Percent = 55 };
-    private readonly ProgressMetricControl threadMetric = new() { Title = "스레드", Detail = "게임 스레드 감지 대기", Percent = 72 };
-    private readonly ProgressMetricControl networkMetric = new() { Title = "네트워크", Detail = "RTT 관찰 대기", Percent = 70 };
+    private readonly LineMetricControl cpuTrend = new() { Title = "CPU (연산 속도)" };
+    private readonly LineMetricControl networkTrend = new() { Title = "네트워크 (반응 속도)" };
+    private readonly DonutMetricControl threadGauge = new() { Title = "자원 집중도", Value = 72 };
+    private readonly DonutMetricControl safetyGauge = new() { Title = "시스템 안전성", Value = 92 };
+    private readonly ScoreGaugeControl healthGauge = new() { Value = 68, Caption = "종합 최적화 점수" };
+    private readonly ProgressMetricControl cpuMetric = new() { Title = "CPU 쾌적도", Detail = "상태 확인 대기 중", Percent = 55 };
+    private readonly ProgressMetricControl threadMetric = new() { Title = "자원 집중도", Detail = "게임 실행 상태 확인 대기", Percent = 72 };
+    private readonly ProgressMetricControl networkMetric = new() { Title = "네트워크 반응", Detail = "통신 상태 확인 대기", Percent = 70 };
     private readonly Label visualSummaryValue = new();
     private readonly Label heroTitleValue = new();
     private readonly Label heroDescriptionValue = new();
@@ -264,8 +264,8 @@ public sealed partial class MainForm : Form
         public override string ToString()
         {
             return string.IsNullOrWhiteSpace(WindowTitle)
-                ? $"{ExeName}  (PID {ProcessId})"
-                : $"{ExeName}  (PID {ProcessId}) - {WindowTitle}";
+                ? $"{ExeName}  (실행번호 {ProcessId})"
+                : $"{ExeName}  (실행번호 {ProcessId}) - {WindowTitle}";
         }
     }
 
@@ -359,20 +359,20 @@ public sealed partial class MainForm : Form
         detailsPanel.RowCount = 4;
         detailsPanel.Visible = false;
         detailsPanel.Controls.Add(CreateDetailSection(
-            "CPU",
-            new[] { "사용 코어 : 4 / 보조 코어 : 6", "CPU 상태 : 정상" },
+            "CPU 상태 분석",
+            new[] { "사용된 주요 코어 수 : 4", "현재 처리 속도 : 막힘없이 원활함" },
             new[] { "Processor Group : 0", "Primary Core : 4", "Fallback Core : 6", "SMT 분리 : 적용됨", "CCX 최적화 : 적용됨" }));
         detailsPanel.Controls.Add(CreateDetailSection(
-            "스레드",
-            new[] { "게임 메인 스레드 감지됨 / 상태 : 안정적", "불필요한 이동 없음" },
+            "자원 집중도 분석",
+            new[] { "게임이 PC 자원을 안정적으로 독점 중입니다.", "방해 프로그램의 간섭 없음" },
             new[] { "메인 스레드 ID : 1234", "EMA 점수 : 91", "Stickiness : 4초", "Migration : 0회" }));
         detailsPanel.Controls.Add(CreateDetailSection(
-            "네트워크",
-            new[] { "네트워크 상태 : 좋음", "지연 변동 : 낮음", "간섭 신호 : 없음" },
+            "네트워크 연결 분석",
+            new[] { "서버 통신 상태 : 좋음", "반응 속도(핑) 변화 : 매우 안정적", "네트워크 끊김 현상 : 없음" },
             new[] { "RTT : 5ms", "RTT 변동 : 1.2ms", "DPC 발생 : 0회", "IRQ 재배치 : 없음" }));
         detailsPanel.Controls.Add(CreateDetailSection(
-            "안전 복구",
-            new[] { "복구 정보 저장 완료", "자동 복구 가능", "마지막 검사 : 정상" },
+            "안전 시스템 상태",
+            new[] { "최적화 이전 PC 상태 백업 완료", "문제 발생 시 자동 복원 준비됨", "시스템 진단 결과 : 정상" },
             new[] { "Affinity 백업 : 완료", "Priority 백업 : 완료", "ApplyGuard : 정상", "Rollback 준비 : 완료" }));
         settingsPanel.Controls.Add(detailsPanel, 0, 2);
         contentPanel.Controls.Add(settingsPanel, 0, 4);
@@ -404,11 +404,11 @@ public sealed partial class MainForm : Form
             Margin = new Padding(0, 8, 0, 28),
         };
         sidebar.Controls.Add(brand, 0, 0);
-        sidebar.Controls.Add(CreateNavButton("■  대시보드", active: true), 0, 1);
+        sidebar.Controls.Add(CreateNavButton("■  요약 대시보드", active: true), 0, 1);
         sidebar.Controls.Add(CreateNavButton("~  성능 모니터", active: false), 0, 2);
-        sidebar.Controls.Add(CreateNavButton("+  안전 복구", active: false), 0, 3);
+        sidebar.Controls.Add(CreateNavButton("+  시스템 안전성", active: false), 0, 3);
 
-        settingsToggleButton.Text = "설정";
+        settingsToggleButton.Text = "설정 열기";
         StyleButton(settingsToggleButton, primary: false, width: 190, height: 40);
         settingsToggleButton.Click += (_, _) => ToggleSettings();
         sidebar.Controls.Add(settingsToggleButton, 0, 5);
@@ -450,7 +450,7 @@ public sealed partial class MainForm : Form
 
         header.Controls.Add(new Label
         {
-            Text = "시스템 개요",
+            Text = "시스템 상태 요약",
             AutoSize = true,
             Font = DesignSystem.FontHeading,
             ForeColor = DesignSystem.TextTitle,
@@ -458,7 +458,7 @@ public sealed partial class MainForm : Form
         }, 0, 0);
         header.Controls.Add(new Label
         {
-            Text = "실시간 로그 기반",
+            Text = "현재 PC 상태 실시간 확인 중",
             AutoSize = true,
             Font = DesignSystem.FontSmall,
             ForeColor = DesignSystem.TextMuted,
@@ -497,7 +497,7 @@ public sealed partial class MainForm : Form
         heroTitleValue.ForeColor = DesignSystem.TextTitle;
         heroTitleValue.Margin = new Padding(0, 14, 0, 10);
         statusStack.Controls.Add(heroTitleValue, 0, 0);
-        heroDescriptionValue.Text = "게임 실행 상태와 런타임 로그를 기반으로 CPU, 스레드, 네트워크, 복구 안정성을 실시간으로 평가합니다.";
+        heroDescriptionValue.Text = "게임 실행 상태와 점검 기록을 바탕으로 CPU 쾌적도, 자원 집중도, 네트워크 반응, 시스템 안전성을 실시간으로 평가합니다.";
         heroDescriptionValue.AutoSize = true;
         heroDescriptionValue.MaximumSize = new Size(470, 0);
         heroDescriptionValue.Font = DesignSystem.FontBody;
@@ -522,7 +522,7 @@ public sealed partial class MainForm : Form
             Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 3,
-            RowCount = 1,
+            RowCount = 2,
             BackColor = DesignSystem.BgColor,
             Margin = new Padding(0, 0, 0, 24),
         };
@@ -538,6 +538,9 @@ public sealed partial class MainForm : Form
         panel.Controls.Add(cpuMetric, 0, 0);
         panel.Controls.Add(threadMetric, 1, 0);
         panel.Controls.Add(networkMetric, 2, 0);
+        panel.Controls.Add(CreateMetricHelpText("게임이 PC 두뇌(CPU)를 막힘없이 쾌적하게 사용하고 있는지 점수화한 지표입니다."), 0, 1);
+        panel.Controls.Add(CreateMetricHelpText("다른 프로그램의 방해 없이 게임에 PC 자원이 얼마나 잘 집중되고 있는지 보여줍니다."), 1, 1);
+        panel.Controls.Add(CreateMetricHelpText("서버와의 통신 지연이 없는지 확인합니다. 점수가 낮으면 렉이 발생할 수 있습니다."), 2, 1);
         return panel;
     }
 
@@ -550,14 +553,14 @@ public sealed partial class MainForm : Form
         panel.Controls.Add(table);
         table.Controls.Add(new Label
         {
-            Text = "권장 조치사항",
+            Text = "시스템 권장 조치사항",
             AutoSize = true,
             Font = DesignSystem.FontHeading,
             ForeColor = DesignSystem.TextTitle,
             Margin = new Padding(0, 0, 0, 12),
         }, 0, 0);
-        table.Controls.Add(CreateRecommendationRow("!", "게임 프로세스 확인", "마비노기 실행 여부와 대상 PID를 확인합니다.", DesignSystem.Warning), 0, 1);
-        table.Controls.Add(CreateRecommendationRow("~", "소프트 적용 유지", "시간 제한 없이 안정성을 관찰하며 최적화를 유지합니다.", DesignSystem.PrimaryColor), 0, 2);
+        table.Controls.Add(CreateRecommendationRow("!", "게임 실행 상태 확인", "최적화 대상 게임이 정상적으로 실행 중인지 점검합니다.", DesignSystem.Warning), 0, 1);
+        table.Controls.Add(CreateRecommendationRow("~", "안전 적용 모드 유지 권장", "게임 도중 문제가 발생하지 않도록 가장 안전한 설정으로 최적화를 유지합니다.", DesignSystem.PrimaryColor), 0, 2);
         return panel;
     }
 
@@ -640,7 +643,7 @@ public sealed partial class MainForm : Form
         recoveryStateValue.Margin = new Padding(0, 8, 0, 18);
         table.Controls.Add(recoveryStateValue);
 
-        modeDescriptionValue.Text = "현재 모드는 게임 상태를 관찰하고 로그만 남깁니다. 시스템 설정은 바꾸지 않습니다.";
+        modeDescriptionValue.Text = "현재 모드는 게임 상태를 점검하고 기록만 남깁니다. 시스템 설정은 바꾸지 않습니다.";
         modeDescriptionValue.AutoSize = true;
         modeDescriptionValue.MaximumSize = new Size(GetTextWrapWidth(), 0);
         modeDescriptionValue.Font = DesignSystem.FontSmall;
@@ -661,7 +664,7 @@ public sealed partial class MainForm : Form
             Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 2,
-            RowCount = 4,
+            RowCount = 5,
             BackColor = DesignSystem.SurfaceColor,
         };
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -670,7 +673,7 @@ public sealed partial class MainForm : Form
 
         var heading = new Label
         {
-            Text = "실시간 효율",
+            Text = "성능 모니터링 그래프",
             AutoSize = true,
             Font = DesignSystem.FontHeading,
             ForeColor = DesignSystem.TextTitle,
@@ -679,7 +682,7 @@ public sealed partial class MainForm : Form
         table.SetColumnSpan(heading, 2);
         table.Controls.Add(heading, 0, 0);
 
-        visualSummaryValue.Text = "엔진 로그를 기다리는 중";
+        visualSummaryValue.Text = "점검 기록 대기 중";
         visualSummaryValue.AutoSize = true;
         visualSummaryValue.MaximumSize = new Size(GetTextWrapWidth(), 0);
         visualSummaryValue.Font = DesignSystem.FontSmall;
@@ -701,6 +704,8 @@ public sealed partial class MainForm : Form
         safetyGauge.Margin = new Padding(8, 0, 0, 0);
         table.Controls.Add(threadGauge, 0, 3);
         table.Controls.Add(safetyGauge, 1, 3);
+        table.Controls.Add(CreateHelpText("점수가 100점에 가까울수록 다른 작업의 간섭 없이 게임이 우선 처리되고 있음을 의미합니다."), 0, 4);
+        table.Controls.Add(CreateHelpText("예기치 않은 문제가 발생할 때 원래 설정으로 안전하게 복원될 수 있는 준비 상태입니다."), 1, 4);
 
         ResetVisualMetrics();
         return panel;
@@ -719,7 +724,7 @@ public sealed partial class MainForm : Form
         detailsToggleButton.ForeColor = DesignSystem.PrimaryColor;
         detailsToggleButton.Font = DesignSystem.FontHeading;
         detailsToggleButton.TextAlign = ContentAlignment.MiddleCenter;
-        detailsToggleButton.Text = "▼ 모니터링 상세 정보 열기";
+        detailsToggleButton.Text = "▼ 세부 상태 정보 열기";
         detailsToggleButton.Height = 40;
         detailsToggleButton.Click += (_, _) => ToggleDetails();
         panel.Controls.Add(detailsToggleButton);
@@ -738,7 +743,7 @@ public sealed partial class MainForm : Form
 
         var header = new Label
         {
-            Text = $"▼ {title}",
+            Text = $"▶ {title}",
             AutoSize = true,
             Font = DesignSystem.FontHeading,
             ForeColor = DesignSystem.TextTitle,
@@ -748,10 +753,10 @@ public sealed partial class MainForm : Form
 
         var advancedButton = new Button
         {
-            Text = "고급",
+            Text = "전문가용 정보",
             Anchor = AnchorStyles.Right,
         };
-        StyleButton(advancedButton, primary: false, width: 64, height: 30);
+        StyleButton(advancedButton, primary: false, width: 110, height: 30);
         table.Controls.Add(advancedButton, 1, 0);
 
         var summary = CreateTextStack(summaryLines, false);
@@ -812,7 +817,7 @@ public sealed partial class MainForm : Form
 
         var heading = new Label
         {
-            Text = "엔진 설정",
+            Text = "세부 설정 및 진단",
             AutoSize = true,
             Font = DesignSystem.FontHeading,
             ForeColor = DesignSystem.TextTitle,
@@ -821,21 +826,21 @@ public sealed partial class MainForm : Form
         table.SetColumnSpan(heading, 3);
         table.Controls.Add(heading, 0, 0);
 
-        var targetLabel = new Label { Text = "대상", AutoSize = true, Anchor = AnchorStyles.Left };
+        var targetLabel = new Label { Text = "최적화 대상", AutoSize = true, Anchor = AnchorStyles.Left };
         targetLabel.Font = DesignSystem.FontBody;
         targetLabel.ForeColor = DesignSystem.TextBody;
         targetCombo.Dock = DockStyle.Fill;
         targetCombo.DropDownStyle = ComboBoxStyle.DropDown;
         targetCombo.FlatStyle = FlatStyle.Flat;
         StyleInput(targetCombo);
-        refreshButton.Text = "새로고침";
-        StyleButton(refreshButton, primary: false, width: 104, height: 30);
+        refreshButton.Text = "목록 새로고침";
+        StyleButton(refreshButton, primary: false, width: 120, height: 30);
         refreshButton.Click += (_, _) => RefreshProcessList();
         table.Controls.Add(targetLabel, 0, 1);
         table.Controls.Add(targetCombo, 1, 1);
         table.Controls.Add(refreshButton, 2, 1);
 
-        enginePathValue.Text = "엔진: 확인 중";
+        enginePathValue.Text = "시스템 도구 경로 확인 중...";
         enginePathValue.AutoSize = true;
         enginePathValue.Font = DesignSystem.FontSmall;
         enginePathValue.ForeColor = DesignSystem.TextMuted;
@@ -844,13 +849,13 @@ public sealed partial class MainForm : Form
         table.Controls.Add(enginePathValue, 0, 2);
 
         var modeFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
-        dryRunRadio.Text = "드라이런";
-        softApplyRadio.Text = "소프트 적용";
-        applyRadio.Text = "실제 적용";
+        dryRunRadio.Text = "테스트 모드 (미리보기)";
+        softApplyRadio.Text = "안전 적용 모드 (권장)";
+        applyRadio.Text = "강력 적용 모드";
         StyleOption(dryRunRadio);
         StyleOption(softApplyRadio);
         StyleOption(applyRadio);
-        applyRadio.Checked = true;
+        softApplyRadio.Checked = true;
         dryRunRadio.CheckedChanged += (_, _) => UpdateModeDescription();
         softApplyRadio.CheckedChanged += (_, _) => UpdateModeDescription();
         applyRadio.CheckedChanged += (_, _) => UpdateApplyWarning();
@@ -858,21 +863,21 @@ public sealed partial class MainForm : Form
         table.SetColumnSpan(modeFlow, 3);
         table.Controls.Add(modeFlow, 0, 3);
 
-        AddHelpText(table, "기본값은 시간 제한 없이 유지되는 소프트 적용입니다. 드라이런은 관찰만 하고, 실제 적용은 확인창을 거칩니다.", 4);
+        AddHelpText(table, "권장 설정인 '안전 적용 모드'는 시스템에 무리가 가지 않도록 모니터링하며 최적화를 수행합니다. '테스트 모드'는 실제 설정을 바꾸지 않고 점검만 합니다.", 4);
 
-        threadDetailCheck.Text = "스레드 상세 로깅";
+        threadDetailCheck.Text = "자원 할당 상세 기록 남기기";
         StyleOption(threadDetailCheck);
         table.SetColumnSpan(threadDetailCheck, 3);
         table.Controls.Add(threadDetailCheck, 0, 5);
-        AddHelpText(table, "게임 메인 스레드 감지, 이동 여부, 안정성 판단 근거를 로그에 더 자세히 남깁니다.", 6);
+        AddHelpText(table, "문제 발생 원인을 파악하기 위해 게임이 PC 자원을 어떻게 쓰고 있는지 자세히 기록합니다.", 6);
 
-        backgroundDetailCheck.Text = "백그라운드 상세 로깅";
+        backgroundDetailCheck.Text = "백그라운드 프로그램 상세 기록 남기기";
         StyleOption(backgroundDetailCheck);
         table.SetColumnSpan(backgroundDetailCheck, 3);
         table.Controls.Add(backgroundDetailCheck, 0, 7);
-        AddHelpText(table, "게임 외 프로세스가 최적화 판단에 영향을 주는지 확인하기 위한 진단 로그입니다.", 8);
+        AddHelpText(table, "게임 외에 실행되며 PC를 느리게 만드는 프로그램이 있는지 진단할 때 사용합니다.", 8);
 
-        latencyPingCheck.Text = "지연시간 Ping";
+        latencyPingCheck.Text = "네트워크 상태(핑) 확인";
         StyleOption(latencyPingCheck);
         latencyPingText.Text = "8.8.8.8";
         latencyPingText.Dock = DockStyle.Fill;
@@ -880,23 +885,23 @@ public sealed partial class MainForm : Form
         StyleInput(latencyPingText);
         table.Controls.Add(latencyPingCheck, 0, 9);
         table.Controls.Add(latencyPingText, 1, 9);
-        AddHelpText(table, "입력한 주소로 RTT 변동을 관찰합니다. 네트워크 설정을 직접 변경하지 않습니다.", 10);
+        AddHelpText(table, "네트워크 끊김 현상이 발생할 때, 해당 주소로 연결 상태를 점검합니다. 윈도우 설정은 건드리지 않습니다.", 10);
 
-        backgroundFilterCheck.Text = "백그라운드 필터";
+        backgroundFilterCheck.Text = "예외 프로그램 목록 적용";
         StyleOption(backgroundFilterCheck);
         backgroundFilterText.Dock = DockStyle.Fill;
         backgroundFilterText.BorderStyle = BorderStyle.FixedSingle;
         backgroundFilterText.Text = FindDefaultBackgroundFilter();
         StyleInput(backgroundFilterText);
-        browseFilterButton.Text = "...";
-        StyleButton(browseFilterButton, primary: false, width: 36, height: 28);
+        browseFilterButton.Text = "찾기";
+        StyleButton(browseFilterButton, primary: false, width: 50, height: 28);
         browseFilterButton.Click += (_, _) => BrowseBackgroundFilter();
         table.Controls.Add(backgroundFilterCheck, 0, 11);
         table.Controls.Add(backgroundFilterText, 1, 11);
         table.Controls.Add(browseFilterButton, 2, 11);
-        AddHelpText(table, "무시하거나 별도 판단할 백그라운드 프로세스 목록 파일입니다.", 12);
+        AddHelpText(table, "최적화 도중 강제로 종료하거나 제한하지 않을 프로그램 목록 파일입니다.", 12);
 
-        runtimeLimitCheck.Text = "실행 시간 제한";
+        runtimeLimitCheck.Text = "자동 종료 타이머 켜기";
         StyleOption(runtimeLimitCheck);
         runtimeLimitCheck.CheckedChanged += (_, _) => UpdateRuntimeLimitState();
         runtimeSecondsBox.Minimum = 5;
@@ -908,7 +913,7 @@ public sealed partial class MainForm : Form
         runtimeSecondsBox.ForeColor = DesignSystem.TextBody;
         table.Controls.Add(runtimeLimitCheck, 0, 13);
         table.Controls.Add(runtimeSecondsBox, 1, 13);
-        runtimeDescriptionValue.Text = "꺼두면 사용자가 종료를 누르거나 엔진이 종료될 때까지 계속 유지됩니다. 켜면 지정한 시간 뒤 종료됩니다.";
+        runtimeDescriptionValue.Text = "끄면 직접 종료할 때까지 계속 유지됩니다. 타이머를 켜면 지정한 초 뒤에 최적화가 풀리며 원래대로 돌아옵니다.";
         runtimeDescriptionValue.AutoSize = true;
         runtimeDescriptionValue.MaximumSize = new Size(GetTextWrapWidth(), 0);
         runtimeDescriptionValue.Font = DesignSystem.FontSmall;
@@ -918,11 +923,11 @@ public sealed partial class MainForm : Form
         table.Controls.Add(runtimeDescriptionValue, 0, 14);
 
         var utilityFlow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0, 12, 0, 0) };
-        evidenceFolderButton.Text = "로그 폴더";
-        StyleButton(evidenceFolderButton, primary: false, width: 104);
+        evidenceFolderButton.Text = "기록 폴더 열기";
+        StyleButton(evidenceFolderButton, primary: false, width: 120);
         evidenceFolderButton.Click += (_, _) => OpenEvidenceFolder();
-        latestReportButton.Text = "최근 리포트";
-        StyleButton(latestReportButton, primary: false, width: 116);
+        latestReportButton.Text = "최근 진단 리포트 확인";
+        StyleButton(latestReportButton, primary: false, width: 160);
         latestReportButton.Click += (_, _) => OpenLatestReport();
         utilityFlow.Controls.AddRange(new Control[] { evidenceFolderButton, latestReportButton });
         table.SetColumnSpan(utilityFlow, 3);
@@ -959,6 +964,19 @@ public sealed partial class MainForm : Form
             Font = DesignSystem.FontSmall,
             ForeColor = DesignSystem.TextMuted,
             Margin = new Padding(0, 0, 0, 8),
+        };
+    }
+
+    private static Label CreateMetricHelpText(string text)
+    {
+        return new Label
+        {
+            Text = text,
+            AutoSize = true,
+            MaximumSize = new Size(280, 0),
+            Font = DesignSystem.FontSmall,
+            ForeColor = DesignSystem.TextMuted,
+            Margin = new Padding(0, 8, 12, 0),
         };
     }
 
@@ -1015,7 +1033,7 @@ public sealed partial class MainForm : Form
     {
         detailsExpanded = !detailsExpanded;
         detailsPanel.Visible = detailsExpanded;
-        detailsToggleButton.Text = detailsExpanded ? "▲ 모니터링 상세 정보 닫기" : "▼ 모니터링 상세 정보 열기";
+        detailsToggleButton.Text = detailsExpanded ? "▲ 세부 상태 정보 닫기" : "▼ 세부 상태 정보 열기";
         AdjustFormHeight();
     }
 
@@ -1059,10 +1077,10 @@ public sealed partial class MainForm : Form
         }
 
         UpdatePrimaryButtonText();
-        modeDescriptionValue.Text = "현재 모드는 실제 적용입니다. 스레드 우선순위와 affinity 같은 실행 설정을 변경할 수 있습니다.";
+        modeDescriptionValue.Text = "강력 적용 모드입니다. 성능을 더 적극적으로 끌어올리지만 시스템 실행 설정을 변경할 수 있어 주의가 필요합니다.";
         if (runningProcess is null)
         {
-            optimizeStateValue.Text = "실제 적용 준비";
+            optimizeStateValue.Text = "강력 적용 대기 중";
         }
     }
 
@@ -1162,14 +1180,14 @@ public sealed partial class MainForm : Form
         var target = GetSelectedTarget();
         if (string.IsNullOrWhiteSpace(target.ExeName))
         {
-            MessageBox.Show("대상 프로세스를 선택하거나 입력하세요.", "대상 필요", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("목록에서 최적화할 게임을 선택해주세요.", "게임 선택 필요", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         var enginePath = FindEnginePath();
         if (enginePath is null)
         {
-            MessageBox.Show("GameOptimizer.exe를 찾지 못했습니다. Release 빌드를 먼저 생성하세요.", "엔진 없음", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("최적화 도구 파일을 찾을 수 없습니다. Release 빌드를 먼저 생성하세요.", "시스템 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
 
@@ -1218,7 +1236,7 @@ public sealed partial class MainForm : Form
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             UpdateSummaryState("적용중", DesignSystem.Success, "최적화 적용 중");
-            visualSummaryValue.Text = "실시간 로그 수집 중";
+            visualSummaryValue.Text = "실시간 점검 기록 수집 중";
             AppendLogLine($"[INFO] UI: {enginePath.FullName}");
             AppendLogLine($"[INFO] UI: GameOptimizer.exe {FormatArgumentsForLog(arguments)}");
             await Task.CompletedTask;
@@ -1381,16 +1399,16 @@ public sealed partial class MainForm : Form
         cpuMetric.Percent = cpuScore;
         threadMetric.Percent = threadScore;
         networkMetric.Percent = networkScore;
-        cpuMetric.Detail = "엔진 로그 대기 중";
-        threadMetric.Detail = "메인 스레드 대기 중";
-        networkMetric.Detail = "RTT 관찰 대기 중";
+        cpuMetric.Detail = "측정 대기 중";
+        threadMetric.Detail = "게임 실행 확인 중";
+        networkMetric.Detail = "네트워크 반응 대기 중";
         threadGauge.Invalidate();
         safetyGauge.Invalidate();
         healthGauge.Invalidate();
         cpuMetric.Invalidate();
         threadMetric.Invalidate();
         networkMetric.Invalidate();
-        visualSummaryValue.Text = "엔진 로그를 기다리는 중";
+        visualSummaryValue.Text = "점검 기록 대기 중";
     }
 
     private void UpdateVisualMetrics(string line)
@@ -1472,9 +1490,9 @@ public sealed partial class MainForm : Form
         cpuMetric.Percent = Math.Clamp(cpuScore, 0, 100);
         threadMetric.Percent = Math.Clamp(threadScore, 0, 100);
         networkMetric.Percent = Math.Clamp(networkScore, 0, 100);
-        cpuMetric.Detail = cpuMs.HasValue ? $"EMA CPU {cpuMs.GetValueOrDefault():0.0}ms" : "CPU/스레드 로그 기반";
-        threadMetric.Detail = warningCount > 0 ? "경고 신호 관찰 중" : "메인 스레드 안정";
-        networkMetric.Detail = rtt.HasValue ? $"RTT {rtt.GetValueOrDefault():0.0}ms" : "네트워크 로그 기반";
+        cpuMetric.Detail = cpuMs.HasValue ? $"처리 속도 {cpuMs.GetValueOrDefault():0.0}ms 수준" : "안정적인 속도 유지 중";
+        threadMetric.Detail = warningCount > 0 ? "약간의 자원 간섭 발견됨" : "완벽하게 집중 처리 중";
+        networkMetric.Detail = rtt.HasValue ? $"지연 시간 {rtt.GetValueOrDefault():0.0}ms" : "매우 부드러운 통신 상태";
         threadGauge.Invalidate();
         safetyGauge.Invalidate();
         healthGauge.Invalidate();
@@ -1483,11 +1501,11 @@ public sealed partial class MainForm : Form
         networkMetric.Invalidate();
         heroTitleValue.Text = healthScore >= 85 ? "시스템이 안정적인 상태입니다" : healthScore >= 60 ? "최적화가 적용 중입니다" : "점검이 필요합니다";
         heroDescriptionValue.Text = blockerCount > 0
-            ? "엔진 로그에서 차단 또는 오류 신호가 감지되었습니다. 상세 로그와 복구 상태를 확인하세요."
+            ? "위험 신호가 감지되어 보호를 위해 일부 기능을 제한했습니다. 세부 상태 정보를 확인하세요."
             : warningCount > 0
-                ? "일부 경고가 감지되었습니다. 최적화는 유지되지만 상태를 관찰하는 것이 좋습니다."
-                : "게임 실행 상태와 런타임 로그가 안정적으로 수집되고 있습니다.";
-        visualSummaryValue.Text = $"샘플 {logSampleCount}개 · 경고 {warningCount}개 · 차단 {blockerCount}개";
+                ? "작은 지연이나 간섭이 발견되었습니다. 게임 도중 체감될 수 있으니 성능 그래프를 확인해주세요."
+                : "매우 안정적이고 부드러운 상태입니다. 이대로 게임을 즐기시면 됩니다.";
+        visualSummaryValue.Text = $"현재까지 {logSampleCount}번 검사함 · 경고 {warningCount}건 · 위험 {blockerCount}건";
     }
 
     private static double Smooth(double current, double next)
@@ -1568,7 +1586,7 @@ public sealed partial class MainForm : Form
     private void UpdateEnginePathLabel()
     {
         var path = FindEnginePath();
-        enginePathValue.Text = path is null ? "엔진: 찾을 수 없음" : $"엔진: {path.FullName}";
+        enginePathValue.Text = path is null ? "알림: 최적화 도구를 찾지 못했습니다." : $"경로 확인됨: {path.FullName}";
         enginePathValue.ForeColor = path is null ? DesignSystem.Danger : DesignSystem.TextMuted;
     }
 
@@ -1577,7 +1595,7 @@ public sealed partial class MainForm : Form
         UpdateModeDescription();
         if (applyRadio.Checked)
         {
-            UpdateSummaryState("대기", DesignSystem.Warning, "실제 적용 준비");
+            UpdateSummaryState("주의 필요", DesignSystem.Warning, "강력 적용 모드 대기 중");
         }
         else if (runningProcess is null)
         {
@@ -1591,7 +1609,7 @@ public sealed partial class MainForm : Form
     {
         using var dialog = new OpenFileDialog
         {
-            Title = "백그라운드 필터 파일 선택",
+            Title = "예외 프로그램 목록 파일 선택",
             Filter = "텍스트 파일 (*.txt)|*.txt|모든 파일 (*.*)|*.*",
             FileName = Path.GetFileName(backgroundFilterText.Text),
         };
@@ -1616,7 +1634,7 @@ public sealed partial class MainForm : Form
         var evidence = FindRepoScriptDirectory()?.GetDirectories("release_gate_logs").FirstOrDefault();
         if (evidence is null || !evidence.Exists)
         {
-            MessageBox.Show("아직 evidence report가 없습니다.", "리포트 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("아직 저장된 진단 리포트가 없습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -1629,7 +1647,7 @@ public sealed partial class MainForm : Form
             : reports.FirstOrDefault(file => ReportMatchesTarget(file, selectedTarget));
         if (report is null)
         {
-            MessageBox.Show("선택한 대상의 rc_evidence_report.txt가 없습니다.", "리포트 없음", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("선택한 게임에 대한 리포트를 찾지 못했습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         Process.Start(new ProcessStartInfo { FileName = report.FullName, UseShellExecute = true });

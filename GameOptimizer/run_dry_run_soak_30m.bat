@@ -6,8 +6,9 @@ if "%~1"=="" (
     exit /b 2
 )
 
-rem Validates: shutdown_reason, runtime_validation_status, rollback_preserved_state_count,
-rem BLOCKER count, timeline monotonicity, heartbeat progression.
+rem Validates: 30 minute completion, clean shutdown, shutdown_reason,
+rem runtime_validation_status, rollback_preserved_state_count, BLOCKER count,
+rem timeline monotonicity, heartbeat progression, and dry-run no-mutation markers.
 set TARGET=%~1
 set SCRIPT_DIR=%~dp0
 

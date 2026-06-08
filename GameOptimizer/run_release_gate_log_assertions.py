@@ -178,6 +178,42 @@ def validate_heartbeat_progression(log_text: str) -> list[str]:
     return []
 
 
+def validate_soak_common(log_text: str) -> list[str]:
+    failures: list[str] = []
+    if not contains(log_text, "runtime validation result: PASSED_OR_INCONCLUSIVE"):
+        failures.append("soak mode missing runtime validation pass/inconclusive summary")
+    failures.extend(validate_timeline_monotonicity(log_text))
+    failures.extend(validate_heartbeat_progression(log_text))
+    return failures
+
+
+def validate_dry_run_no_mutation(log_text: str, label: str) -> list[str]:
+    failures: list[str] = []
+    forbidden_mutation_markers = [
+        "background restricted:",
+        "rollback state saved for TID",
+        "background rollback state saved",
+    ]
+    for marker in forbidden_mutation_markers:
+        if contains(log_text, marker):
+            failures.append(f"{label} mutation marker found: {marker}")
+    return failures
+
+
+def validate_soft_apply_contract(log_text: str) -> list[str]:
+    failures: list[str] = []
+    failures.extend(validate_dry_run_no_mutation(log_text, "soft-apply"))
+    required_markers = [
+        "soft-apply: OpenThread scheduling-rights validation is enabled, but SetThread* calls are blocked",
+        "soft-apply validated scheduling baseline captured",
+        "audit-only, not stored as rollback state",
+    ]
+    for marker in required_markers:
+        if not contains(log_text, marker):
+            failures.append(f"soft-apply soak missing marker: {marker}")
+    return failures
+
+
 def validate(mode: str, log_text: str) -> list[str]:
     failures: list[str] = []
 
@@ -200,14 +236,7 @@ def validate(mode: str, log_text: str) -> list[str]:
     failures.extend(validate_access_denied_fallback_evidence(log_text))
 
     if mode == "dry-run":
-        forbidden_mutation_markers = [
-            "background restricted:",
-            "rollback state saved for TID",
-            "background rollback state saved",
-        ]
-        for marker in forbidden_mutation_markers:
-            if contains(log_text, marker):
-                failures.append(f"dry-run mutation marker found: {marker}")
+        failures.extend(validate_dry_run_no_mutation(log_text, "dry-run"))
 
     if mode == "apply":
         if not contains(log_text, "rollback audit passed"):
@@ -218,17 +247,23 @@ def validate(mode: str, log_text: str) -> list[str]:
         failures.extend(validate_timeout_sequence(log_text))
 
     if mode == "soak":
-        if not contains(log_text, "runtime validation result: PASSED_OR_INCONCLUSIVE"):
-            failures.append("soak mode missing runtime validation pass/inconclusive summary")
-        failures.extend(validate_timeline_monotonicity(log_text))
-        failures.extend(validate_heartbeat_progression(log_text))
+        failures.extend(validate_soak_common(log_text))
+    if mode == "soak-dry-run":
+        failures.extend(validate_soak_common(log_text))
+        failures.extend(validate_dry_run_no_mutation(log_text, "dry-run soak"))
+    if mode == "soak-soft-apply":
+        failures.extend(validate_soak_common(log_text))
+        failures.extend(validate_soft_apply_contract(log_text))
 
     return failures
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate GameOptimizer Release Gate logs.")
-    parser.add_argument("--mode", required=True, choices=["dry-run", "soft-apply", "apply", "timeout", "soak"])
+    parser.add_argument(
+        "--mode",
+        required=True,
+        choices=["dry-run", "soft-apply", "apply", "timeout", "soak", "soak-dry-run", "soak-soft-apply"])
     parser.add_argument("log_file", type=pathlib.Path)
     args = parser.parse_args()
 

@@ -1141,6 +1141,7 @@ def check_long_soak_automation_contract() -> list[str]:
                 "BLOCKER count",
                 "timeline monotonicity",
                 "heartbeat progression",
+                "dry-run no-mutation markers",
             ],
         ),
         (
@@ -1155,6 +1156,9 @@ def check_long_soak_automation_contract() -> list[str]:
                 "BLOCKER count",
                 "timeline monotonicity",
                 "heartbeat progression",
+                "SetThread* calls blocked",
+                "OpenThread validation path",
+                "SoftApply baseline INFO evidence",
             ],
         ),
     ]
@@ -1170,6 +1174,14 @@ def check_long_soak_automation_contract() -> list[str]:
     required_assertion_markers = [
         "validate_timeline_monotonicity",
         "validate_heartbeat_progression",
+        "validate_soak_common",
+        "validate_soft_apply_contract",
+        "soak-dry-run",
+        "soak-soft-apply",
+        "SetThread* calls are blocked",
+        "OpenThread scheduling-rights validation",
+        "soft-apply validated scheduling baseline captured",
+        "audit-only, not stored as rollback state",
         "\"soak\"",
         "runtime validation sample:",
         "runtime validation summary:",
