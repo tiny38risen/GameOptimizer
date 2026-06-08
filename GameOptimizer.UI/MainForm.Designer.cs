@@ -8,8 +8,8 @@ public sealed partial class MainForm
         Text = "GameOptimizer v3.0 운영 콘솔";
         StartPosition = FormStartPosition.CenterScreen;
         AutoScroll = true;
-        MinimumSize = new Size(520, 190);
-        Size = new Size(520, 190);
+        MinimumSize = new Size(1100, 720);
+        Size = new Size(1180, 760);
         BackColor = DesignSystem.BgColor;
         ForeColor = DesignSystem.TextBody;
         Font = DesignSystem.FontBody;
