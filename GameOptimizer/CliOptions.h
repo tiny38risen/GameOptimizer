@@ -28,6 +28,7 @@ struct CliOptions
     SchedulerMode schedulerMode = SchedulerMode::SoftApply;
     std::wstring backgroundFilterConfigPath;
     std::wstring latencyPingTarget;
+    std::wstring stopSignalFilePath;
     bool backgroundDetailLogEnabled = false;
     RuntimeLogConfig runtimeLogConfig{};
     std::optional<std::chrono::seconds> maxRuntime;

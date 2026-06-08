@@ -56,6 +56,7 @@ public sealed partial class MainForm : Form
     private Process? runningProcess;
     private bool stopInProgress;
     private bool logFlushScheduled;
+    private string? stopSignalFilePath;
     private bool settingsExpanded;
     private bool detailsExpanded;
     private int warningCount;
@@ -1214,6 +1215,9 @@ public sealed partial class MainForm : Form
             StandardErrorEncoding = Encoding.UTF8,
         };
         var arguments = BuildArgumentList(target);
+        stopSignalFilePath = CreateStopSignalFilePath();
+        arguments.Add("--stop-signal-file");
+        arguments.Add(stopSignalFilePath);
         foreach (var argument in arguments)
         {
             psi.ArgumentList.Add(argument);
@@ -1240,6 +1244,7 @@ public sealed partial class MainForm : Form
         catch (Exception ex)
         {
             runningProcess = null;
+            DeleteStopSignalFile();
             process.Dispose();
             UpdateControlState(false);
             UpdateSummaryState("대기", DesignSystem.Danger, "최적화 실패");
@@ -1287,6 +1292,13 @@ public sealed partial class MainForm : Form
             args.Add(((int)runtimeSecondsBox.Value).ToString());
         }
         return args;
+    }
+
+    private static string CreateStopSignalFilePath()
+    {
+        return Path.Combine(
+            Path.GetTempPath(),
+            $"GameOptimizer.UI.stop.{Environment.ProcessId}.{Guid.NewGuid():N}.signal");
     }
 
     private string GetSelectedTargetName()
@@ -1343,19 +1355,19 @@ public sealed partial class MainForm : Form
         {
             if (!process.HasExited)
             {
-                process.Kill(entireProcessTree: true);
+                RequestEngineCleanShutdown();
             }
 
-            if (await WaitForEngineExitAsync(process, TimeSpan.FromSeconds(5)))
+            if (await WaitForEngineExitAsync(process, TimeSpan.FromSeconds(15)))
             {
                 CompleteEngineExit(process);
                 return;
             }
 
             stopInProgress = false;
-            UpdateSummaryState("종료 지연", DesignSystem.Warning, "종료 확인 대기 중");
+            UpdateSummaryState("종료 지연", DesignSystem.Warning, "엔진 복구 절차 진행 중");
             visualSummaryValue.Text = "엔진 종료 이벤트를 기다리는 중";
-            AppendLogLine("[WARN] UI: 종료 요청 후 5초 안에 엔진 종료가 확인되지 않았습니다. 종료 버튼을 다시 누를 수 있습니다.");
+            AppendLogLine("[WARN] UI: 종료 요청 후 15초 안에 엔진 종료가 확인되지 않았습니다. 강제 종료하지 않고 복구 절차를 계속 기다립니다.");
         }
         catch (Exception ex)
         {
@@ -1371,6 +1383,19 @@ public sealed partial class MainForm : Form
             UpdateControlState(running: true);
             AppendLogLine($"[WARN] UI: 종료 실패 - {ex.Message}");
         }
+    }
+
+    private void RequestEngineCleanShutdown()
+    {
+        if (string.IsNullOrWhiteSpace(stopSignalFilePath))
+        {
+            throw new InvalidOperationException("stop signal file path is not initialized");
+        }
+
+        File.WriteAllText(
+            stopSignalFilePath,
+            $"requested_utc={DateTime.UtcNow:O}{Environment.NewLine}");
+        AppendLogLine($"[INFO] UI: 안전 종료 신호를 보냈습니다. ({stopSignalFilePath})");
     }
 
     private static async Task<bool> WaitForEngineExitAsync(Process process, TimeSpan timeout)
@@ -1415,12 +1440,37 @@ public sealed partial class MainForm : Form
         process.Dispose();
         runningProcess = null;
         stopInProgress = false;
+        DeleteStopSignalFile();
         UpdateControlState(false);
         UpdateSummaryState("대기", exitCode == 0 ? DesignSystem.Success : DesignSystem.Danger, exitCode == 0 ? "최적화 완료" : "최적화 중단");
         visualSummaryValue.Text = exitCode == 0 ? "최종 상태 안정" : "최종 상태 점검 필요";
         AppendLogLine(exitCode == 0
             ? "[PASS] UI: 엔진 실행이 정상 종료되었습니다."
             : $"[BLOCKER] UI: 엔진 종료 코드 {exitCode}");
+    }
+
+    private void DeleteStopSignalFile()
+    {
+        var path = stopSignalFilePath;
+        stopSignalFilePath = null;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private static int TryGetExitCode(Process process)

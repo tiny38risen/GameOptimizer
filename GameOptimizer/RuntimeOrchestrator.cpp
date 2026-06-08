@@ -59,6 +59,18 @@ namespace
         }
     }
 
+    [[nodiscard]] bool stopSignalFileExists(const std::wstring& path) noexcept
+    {
+        if (path.empty())
+        {
+            return false;
+        }
+
+        const DWORD attributes = GetFileAttributesW(path.c_str());
+        return attributes != INVALID_FILE_ATTRIBUTES &&
+               (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+    }
+
     BOOL WINAPI handleConsoleControl(DWORD controlType) noexcept
     {
         switch (controlType)
@@ -168,6 +180,15 @@ int RuntimeOrchestrator::run() noexcept
     while (signalState_.isRunning())
     {
         const auto now = std::chrono::steady_clock::now();
+        if (stopSignalFileExists(context_.options.stopSignalFilePath))
+        {
+            Logger::warn(
+                "UI stop signal file detected; requesting clean shutdown through rollback pipeline");
+            signalState_.requestShutdown(ShutdownReason::ConsoleControl);
+            watchdog.requestStop();
+            break;
+        }
+
         if (context_.options.maxRuntime.has_value())
         {
             const auto elapsed = now - runtimeStart;

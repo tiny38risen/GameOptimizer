@@ -329,7 +329,7 @@ std::expected<RuntimeContext, ErrorCode> StartupPipeline::run(int argc, wchar_t*
         const auto optionsResult = parseCliOptions(argc, argv);
         if (!optionsResult)
         {
-            Logger::error("usage: GameOptimizer.exe <process-name.exe> [--pid <process-id>] [--dry-run|--apply] [--background-filter <path>] [--latency-ping <ipv4>] [--background-detail-log] [--thread-detail-log] [--thread-log-interval <cycles>] [--max-runtime-seconds <seconds>]");
+            Logger::error("usage: GameOptimizer.exe <process-name.exe> [--pid <process-id>] [--dry-run|--apply] [--background-filter <path>] [--latency-ping <ipv4>] [--background-detail-log] [--thread-detail-log] [--thread-log-interval <cycles>] [--max-runtime-seconds <seconds>] [--stop-signal-file <path>]");
             return std::unexpected(optionsResult.error());
         }
 

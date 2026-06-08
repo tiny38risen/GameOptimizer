@@ -207,6 +207,7 @@ std::expected<CliOptions, ErrorCode> parseCliOptions(int argc, wchar_t* argv[]) 
         .schedulerMode = parseSchedulerMode(argc, argv),
         .backgroundFilterConfigPath = parseStringArgument(argc, argv, L"--background-filter"),
         .latencyPingTarget = parseStringArgument(argc, argv, L"--latency-ping"),
+        .stopSignalFilePath = parseStringArgument(argc, argv, L"--stop-signal-file"),
         .backgroundDetailLogEnabled = parseBooleanFlag(argc, argv, L"--background-detail-log"),
         .runtimeLogConfig = parseRuntimeLogConfig(argc, argv),
         .maxRuntime = parseMaxRuntime(argc, argv)};

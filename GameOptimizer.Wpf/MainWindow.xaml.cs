@@ -5,12 +5,18 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace GameOptimizer.Wpf;
 
 public partial class MainWindow : Window
 {
+    private const int MaxHiddenLogLines = 2000;
+    private const int MaxLogLinesPerUiFlush = 32;
+
     private readonly List<string> hiddenLogLines = new();
+    private readonly Queue<string> pendingLogLines = new();
+    private readonly object pendingLogLock = new();
 
     private Process? runningProcess;
     private int warningCount;
@@ -22,6 +28,9 @@ public partial class MainWindow : Window
     private double safetyScore = 92;
     private bool uiReady;
     private Process? stoppingProcess;
+    private bool stopInProgress;
+    private bool logFlushScheduled;
+    private string? stopSignalFilePath;
 
     private sealed class ProcessListItem
     {
@@ -234,7 +243,7 @@ public partial class MainWindow : Window
     {
         if (runningProcess is not null)
         {
-            StopEngine();
+            await StopEngineAsync();
             return;
         }
 
@@ -280,6 +289,9 @@ public partial class MainWindow : Window
         };
 
         var arguments = BuildArgumentList(target);
+        stopSignalFilePath = CreateStopSignalFilePath();
+        arguments.Add("--stop-signal-file");
+        arguments.Add(stopSignalFilePath);
         foreach (var argument in arguments)
         {
             psi.ArgumentList.Add(argument);
@@ -288,35 +300,12 @@ public partial class MainWindow : Window
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         process.OutputDataReceived += (_, e) => AppendLogLine(e.Data);
         process.ErrorDataReceived += (_, e) => AppendLogLine(e.Data);
-        process.Exited += (_, _) => Dispatcher.Invoke(() =>
-        {
-            var wasUserStop = ReferenceEquals(process, stoppingProcess);
-            var exitCode = process.ExitCode;
-            process.Dispose();
-            if (ReferenceEquals(process, runningProcess))
-            {
-                runningProcess = null;
-            }
-            if (wasUserStop)
-            {
-                stoppingProcess = null;
-            }
-            UpdateControlState(false);
-            UpdateSummaryState(
-                "대기",
-                wasUserStop || exitCode == 0 ? Brushes.SeaGreen : Brushes.Firebrick,
-                wasUserStop ? "최적화 종료 및 복구 완료" : exitCode == 0 ? "최적화 정상 종료됨" : "오류로 인해 중단됨");
-            TxtMonitorSummary.Text = wasUserStop || exitCode == 0 ? "PC 상태 매우 안정적" : "시스템 불안정으로 보호 중";
-            AppendLogLine(wasUserStop
-                ? "[PASS] UI: 사용자가 최적화를 종료했고 상태를 복구했습니다."
-                : exitCode == 0
-                ? "[PASS] UI: 최적화 작업이 안전하게 마무리되었습니다."
-                : $"[BLOCKER] UI: 시스템 보호를 위해 비정상 종료되었습니다. (코드 {exitCode})");
-        });
+        process.Exited += (_, _) => RunOnUiThread(() => CompleteEngineExit(process));
 
         try
         {
             stoppingProcess = null;
+            stopInProgress = false;
             runningProcess = process;
             process.Start();
             process.BeginOutputReadLine();
@@ -330,6 +319,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             runningProcess = null;
+            DeleteStopSignalFile();
             process.Dispose();
             UpdateControlState(false);
             UpdateSummaryState("대기", Brushes.Firebrick, "실행에 실패했습니다.");
@@ -399,7 +389,14 @@ public partial class MainWindow : Window
         return TargetCombo.Text.Trim();
     }
 
-    private void StopEngine()
+    private static string CreateStopSignalFilePath()
+    {
+        return Path.Combine(
+            Path.GetTempPath(),
+            $"GameOptimizer.Wpf.stop.{Environment.ProcessId}.{Guid.NewGuid():N}.signal");
+    }
+
+    private async Task StopEngineAsync()
     {
         var process = runningProcess;
         if (process is null)
@@ -408,25 +405,181 @@ public partial class MainWindow : Window
             AppendLogLine("[INFO] UI: 실행 중인 엔진이 없어 상태만 복구 완료로 표시했습니다.");
             return;
         }
+        if (stopInProgress)
+        {
+            AppendLogLine("[INFO] UI: 이미 종료 요청을 처리 중입니다.");
+            return;
+        }
 
+        stopInProgress = true;
         stoppingProcess = process;
-        runningProcess = null;
-        UpdateControlState(false);
-        UpdateSummaryState("대기", Brushes.SeaGreen, "최적화 종료 요청됨");
-        TxtMonitorSummary.Text = "종료 요청 완료 · 복구 상태 확인 중";
+        UpdateControlState(true);
+        UpdateSummaryState("종료중", Brushes.DarkGoldenrod, "최적화 종료 요청됨");
+        TxtMonitorSummary.Text = "종료 요청 완료 · 복구 절차 확인 중";
         AppendLogLine("[WARN] UI: 사용자가 종료를 요청했습니다.");
 
         try
         {
             if (!process.HasExited)
             {
-                process.Kill(entireProcessTree: true);
+                RequestEngineCleanShutdown();
             }
+
+            if (await WaitForEngineExitAsync(process, TimeSpan.FromSeconds(15)))
+            {
+                CompleteEngineExit(process);
+                return;
+            }
+
+            stopInProgress = false;
+            UpdateSummaryState("종료 지연", Brushes.DarkGoldenrod, "엔진 복구 절차 진행 중");
+            TxtMonitorSummary.Text = "엔진 종료 이벤트를 기다리는 중";
+            AppendLogLine("[WARN] UI: 종료 요청 후 15초 안에 엔진 종료가 확인되지 않았습니다. 강제 종료하지 않고 복구 절차를 계속 기다립니다.");
         }
         catch (Exception ex)
         {
-            stoppingProcess = null;
+            stopInProgress = false;
+            if (IsProcessExited(process))
+            {
+                CompleteEngineExit(process);
+                return;
+            }
+
+            UpdateSummaryState("종료 실패", Brushes.Firebrick, "종료 요청 실패");
+            TxtMonitorSummary.Text = "엔진 종료 요청 실패";
+            UpdateControlState(true);
             AppendLogLine($"[WARN] UI: 종료 실패 - {ex.Message}");
+        }
+    }
+
+    private void RequestEngineCleanShutdown()
+    {
+        if (string.IsNullOrWhiteSpace(stopSignalFilePath))
+        {
+            throw new InvalidOperationException("stop signal file path is not initialized");
+        }
+
+        File.WriteAllText(
+            stopSignalFilePath,
+            $"requested_utc={DateTime.UtcNow:O}{Environment.NewLine}");
+        AppendLogLine($"[INFO] UI: 안전 종료 신호를 보냈습니다. ({stopSignalFilePath})");
+    }
+
+    private static async Task<bool> WaitForEngineExitAsync(Process process, TimeSpan timeout)
+    {
+        try
+        {
+            using var timeoutCancellation = new CancellationTokenSource(timeout);
+            await process.WaitForExitAsync(timeoutCancellation.Token);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return process.HasExited;
+        }
+        catch (InvalidOperationException)
+        {
+            return true;
+        }
+    }
+
+    private static bool IsProcessExited(Process process)
+    {
+        try
+        {
+            return process.HasExited;
+        }
+        catch (InvalidOperationException)
+        {
+            return true;
+        }
+    }
+
+    private void CompleteEngineExit(Process process)
+    {
+        var wasUserStop = ReferenceEquals(process, stoppingProcess);
+        if (!ReferenceEquals(process, runningProcess) && !wasUserStop)
+        {
+            process.Dispose();
+            return;
+        }
+
+        var exitCode = TryGetExitCode(process);
+        process.Dispose();
+        if (ReferenceEquals(process, runningProcess))
+        {
+            runningProcess = null;
+        }
+        if (wasUserStop)
+        {
+            stoppingProcess = null;
+        }
+        stopInProgress = false;
+        DeleteStopSignalFile();
+        UpdateControlState(false);
+        UpdateSummaryState(
+            "대기",
+            wasUserStop || exitCode == 0 ? Brushes.SeaGreen : Brushes.Firebrick,
+            wasUserStop ? "최적화 종료 및 복구 완료" : exitCode == 0 ? "최적화 정상 종료됨" : "오류로 인해 중단됨");
+        TxtMonitorSummary.Text = wasUserStop || exitCode == 0 ? "PC 상태 매우 안정적" : "시스템 불안정으로 보호 중";
+        AppendLogLine(wasUserStop
+            ? "[PASS] UI: 사용자가 최적화를 종료했고 상태를 복구했습니다."
+            : exitCode == 0
+            ? "[PASS] UI: 최적화 작업이 안전하게 마무리되었습니다."
+            : $"[BLOCKER] UI: 시스템 보호를 위해 비정상 종료되었습니다. (코드 {exitCode})");
+    }
+
+    private static int TryGetExitCode(Process process)
+    {
+        try
+        {
+            return process.ExitCode;
+        }
+        catch (InvalidOperationException)
+        {
+            return -1;
+        }
+    }
+
+    private void DeleteStopSignalFile()
+    {
+        var path = stopSignalFilePath;
+        stopSignalFilePath = null;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private void RunOnUiThread(Action action)
+    {
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+        {
+            return;
+        }
+
+        try
+        {
+            _ = Dispatcher.BeginInvoke(action, DispatcherPriority.Background);
+        }
+        catch (Exception ex) when (
+            ex is InvalidOperationException ||
+            ex is System.ComponentModel.Win32Exception)
+        {
         }
     }
 
@@ -439,10 +592,50 @@ public partial class MainWindow : Window
 
         if (!Dispatcher.CheckAccess())
         {
-            Dispatcher.Invoke(() => AppendLogLine(line));
+            lock (pendingLogLock)
+            {
+                pendingLogLines.Enqueue(line);
+                if (logFlushScheduled)
+                {
+                    return;
+                }
+
+                logFlushScheduled = true;
+            }
+
+            RunOnUiThread(FlushPendingLogLines);
             return;
         }
 
+        ProcessLogLine(line);
+    }
+
+    private void FlushPendingLogLines()
+    {
+        var processed = 0;
+        while (processed < MaxLogLinesPerUiFlush)
+        {
+            string line;
+            lock (pendingLogLock)
+            {
+                if (pendingLogLines.Count == 0)
+                {
+                    logFlushScheduled = false;
+                    return;
+                }
+
+                line = pendingLogLines.Dequeue();
+            }
+
+            ProcessLogLine(line);
+            ++processed;
+        }
+
+        RunOnUiThread(FlushPendingLogLines);
+    }
+
+    private void ProcessLogLine(string line)
+    {
         UpdateVisualMetrics(line);
         if (line.Contains("[BLOCKER]", StringComparison.OrdinalIgnoreCase) ||
             line.Contains("[ERROR]", StringComparison.OrdinalIgnoreCase) ||
@@ -458,11 +651,20 @@ public partial class MainWindow : Window
         }
 
         hiddenLogLines.Add(line);
+        if (hiddenLogLines.Count > MaxHiddenLogLines)
+        {
+            hiddenLogLines.RemoveRange(0, hiddenLogLines.Count - MaxHiddenLogLines);
+        }
     }
 
     private void ClearLog()
     {
         hiddenLogLines.Clear();
+        lock (pendingLogLock)
+        {
+            pendingLogLines.Clear();
+            logFlushScheduled = false;
+        }
         ResetVisualMetrics();
     }
 
@@ -546,6 +748,21 @@ public partial class MainWindow : Window
             : warningCount > 0
                 ? Smooth(safetyScore, Math.Max(55, 92 - warningCount * 8))
                 : Smooth(safetyScore, 94);
+
+        var shouldRefreshVisuals =
+            logSampleCount <= 3 ||
+            logSampleCount % 5 == 0 ||
+            lower.Contains("blocker") ||
+            lower.Contains("error") ||
+            lower.Contains("fail") ||
+            lower.Contains("warn") ||
+            lower.Contains("shutdown") ||
+            lower.Contains("runtime validation summary") ||
+            lower.Contains("confirmed main tid");
+        if (!shouldRefreshVisuals)
+        {
+            return;
+        }
 
         ApplyMetricValues();
         CpuDetail.Text = cpuMs.HasValue ? $"처리 속도 {cpuMs.GetValueOrDefault():0.0}ms 수준" : "안정적인 속도 유지 중";
