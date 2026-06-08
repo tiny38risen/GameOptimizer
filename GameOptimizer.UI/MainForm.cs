@@ -6,6 +6,8 @@ namespace GameOptimizer.UI;
 public sealed partial class MainForm : Form
 {
     private const int FormWidth = 1180;
+    private const int MaxHiddenLogLines = 2000;
+    private const int MaxLogLinesPerUiFlush = 32;
 
     private readonly ComboBox targetCombo = new();
     private readonly Button refreshButton = new();
@@ -48,8 +50,12 @@ public sealed partial class MainForm : Form
     private readonly Label heroTitleValue = new();
     private readonly Label heroDescriptionValue = new();
     private readonly List<string> hiddenLogLines = new();
+    private readonly Queue<string> pendingLogLines = new();
+    private readonly object pendingLogLock = new();
 
     private Process? runningProcess;
+    private bool stopInProgress;
+    private bool logFlushScheduled;
     private bool settingsExpanded;
     private bool detailsExpanded;
     private int warningCount;
@@ -1163,7 +1169,7 @@ public sealed partial class MainForm : Form
     {
         if (runningProcess is not null)
         {
-            StopEngine();
+            await StopEngineAsync();
             return;
         }
 
@@ -1216,21 +1222,11 @@ public sealed partial class MainForm : Form
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         process.OutputDataReceived += (_, e) => AppendLogLine(e.Data);
         process.ErrorDataReceived += (_, e) => AppendLogLine(e.Data);
-        process.Exited += (_, _) => BeginInvoke(new Action(() =>
-        {
-            var exitCode = process.ExitCode;
-            process.Dispose();
-            runningProcess = null;
-            UpdateControlState(false);
-            UpdateSummaryState("대기", exitCode == 0 ? DesignSystem.Success : DesignSystem.Danger, exitCode == 0 ? "최적화 완료" : "최적화 중단");
-            visualSummaryValue.Text = exitCode == 0 ? "최종 상태 안정" : "최종 상태 점검 필요";
-            AppendLogLine(exitCode == 0
-                ? "[PASS] UI: 엔진 실행이 정상 종료되었습니다."
-                : $"[BLOCKER] UI: 엔진 종료 코드 {exitCode}");
-        }));
+        process.Exited += (_, _) => RunOnUiThread(() => CompleteEngineExit(process));
 
         try
         {
+            stopInProgress = false;
             runningProcess = process;
             process.Start();
             process.BeginOutputReadLine();
@@ -1322,24 +1318,142 @@ public sealed partial class MainForm : Form
         return "\"" + value.Replace("\"", "\\\"") + "\"";
     }
 
-    private void StopEngine()
+    private async Task StopEngineAsync()
     {
-        if (runningProcess is null)
+        var process = runningProcess;
+        if (process is null)
         {
             UpdateSummaryState("대기", DesignSystem.Success, "종료 완료");
             AppendLogLine("[INFO] UI: 실행 중인 엔진이 없어 상태만 복구 완료로 표시했습니다.");
             return;
         }
+        if (stopInProgress)
+        {
+            AppendLogLine("[INFO] UI: 이미 종료 요청을 처리 중입니다.");
+            return;
+        }
+
+        stopInProgress = true;
+        UpdateSummaryState("종료중", DesignSystem.Warning, "종료 실행 중");
+        visualSummaryValue.Text = "엔진 종료 확인 중";
+        UpdatePrimaryButtonText(runningOverride: true);
+        AppendLogLine("[WARN] UI: 사용자가 종료를 요청했습니다.");
 
         try
         {
-            runningProcess.Kill(entireProcessTree: true);
-            UpdateSummaryState("종료중", DesignSystem.Warning, "종료 실행 중");
-            AppendLogLine("[WARN] UI: 사용자가 종료를 요청했습니다.");
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+
+            if (await WaitForEngineExitAsync(process, TimeSpan.FromSeconds(5)))
+            {
+                CompleteEngineExit(process);
+                return;
+            }
+
+            stopInProgress = false;
+            UpdateSummaryState("종료 지연", DesignSystem.Warning, "종료 확인 대기 중");
+            visualSummaryValue.Text = "엔진 종료 이벤트를 기다리는 중";
+            AppendLogLine("[WARN] UI: 종료 요청 후 5초 안에 엔진 종료가 확인되지 않았습니다. 종료 버튼을 다시 누를 수 있습니다.");
         }
         catch (Exception ex)
         {
+            stopInProgress = false;
+            if (IsProcessExited(process))
+            {
+                CompleteEngineExit(process);
+                return;
+            }
+
+            UpdateSummaryState("종료 실패", DesignSystem.Danger, "종료 요청 실패");
+            visualSummaryValue.Text = "엔진 종료 요청 실패";
+            UpdateControlState(running: true);
             AppendLogLine($"[WARN] UI: 종료 실패 - {ex.Message}");
+        }
+    }
+
+    private static async Task<bool> WaitForEngineExitAsync(Process process, TimeSpan timeout)
+    {
+        try
+        {
+            using var timeoutCancellation = new CancellationTokenSource(timeout);
+            await process.WaitForExitAsync(timeoutCancellation.Token);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return process.HasExited;
+        }
+        catch (InvalidOperationException)
+        {
+            return true;
+        }
+    }
+
+    private static bool IsProcessExited(Process process)
+    {
+        try
+        {
+            return process.HasExited;
+        }
+        catch (InvalidOperationException)
+        {
+            return true;
+        }
+    }
+
+    private void CompleteEngineExit(Process process)
+    {
+        if (runningProcess != process)
+        {
+            process.Dispose();
+            return;
+        }
+
+        var exitCode = TryGetExitCode(process);
+        process.Dispose();
+        runningProcess = null;
+        stopInProgress = false;
+        UpdateControlState(false);
+        UpdateSummaryState("대기", exitCode == 0 ? DesignSystem.Success : DesignSystem.Danger, exitCode == 0 ? "최적화 완료" : "최적화 중단");
+        visualSummaryValue.Text = exitCode == 0 ? "최종 상태 안정" : "최종 상태 점검 필요";
+        AppendLogLine(exitCode == 0
+            ? "[PASS] UI: 엔진 실행이 정상 종료되었습니다."
+            : $"[BLOCKER] UI: 엔진 종료 코드 {exitCode}");
+    }
+
+    private static int TryGetExitCode(Process process)
+    {
+        try
+        {
+            return process.ExitCode;
+        }
+        catch (InvalidOperationException)
+        {
+            return -1;
+        }
+    }
+
+    private void RunOnUiThread(Action action)
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+        if (!IsHandleCreated)
+        {
+            return;
+        }
+        try
+        {
+            BeginInvoke(action);
+        }
+        catch (Exception ex) when (
+            ex is InvalidOperationException ||
+            ex is ObjectDisposedException ||
+            ex is System.ComponentModel.Win32Exception)
+        {
         }
     }
 
@@ -1350,12 +1464,46 @@ public sealed partial class MainForm : Form
             return;
         }
 
-        if (InvokeRequired)
+        lock (pendingLogLock)
         {
-            BeginInvoke(new Action(() => AppendLogLine(line)));
-            return;
+            pendingLogLines.Enqueue(line);
+            if (logFlushScheduled)
+            {
+                return;
+            }
+
+            logFlushScheduled = true;
         }
 
+        RunOnUiThread(FlushPendingLogLines);
+    }
+
+    private void FlushPendingLogLines()
+    {
+        var processed = 0;
+        while (processed < MaxLogLinesPerUiFlush)
+        {
+            string line;
+            lock (pendingLogLock)
+            {
+                if (pendingLogLines.Count == 0)
+                {
+                    logFlushScheduled = false;
+                    return;
+                }
+
+                line = pendingLogLines.Dequeue();
+            }
+
+            ProcessLogLine(line);
+            ++processed;
+        }
+
+        RunOnUiThread(FlushPendingLogLines);
+    }
+
+    private void ProcessLogLine(string line)
+    {
         UpdateVisualMetrics(line);
 
         if (line.Contains("[BLOCKER]", StringComparison.OrdinalIgnoreCase) ||
@@ -1374,11 +1522,20 @@ public sealed partial class MainForm : Form
         }
 
         hiddenLogLines.Add(line);
+        if (hiddenLogLines.Count > MaxHiddenLogLines)
+        {
+            hiddenLogLines.RemoveRange(0, hiddenLogLines.Count - MaxHiddenLogLines);
+        }
     }
 
     private void ClearLog()
     {
         hiddenLogLines.Clear();
+        lock (pendingLogLock)
+        {
+            pendingLogLines.Clear();
+            logFlushScheduled = false;
+        }
         ResetVisualMetrics();
     }
 
@@ -1480,6 +1637,21 @@ public sealed partial class MainForm : Form
             : warningCount > 0
                 ? Smooth(safetyScore, Math.Max(55, 92 - warningCount * 8))
                 : Smooth(safetyScore, 94);
+
+        var shouldRefreshVisuals =
+            logSampleCount <= 3 ||
+            logSampleCount % 5 == 0 ||
+            lower.Contains("blocker") ||
+            lower.Contains("error") ||
+            lower.Contains("fail") ||
+            lower.Contains("warn") ||
+            lower.Contains("shutdown") ||
+            lower.Contains("runtime validation summary") ||
+            lower.Contains("confirmed main tid");
+        if (!shouldRefreshVisuals)
+        {
+            return;
+        }
 
         cpuTrend.Push(cpuScore);
         networkTrend.Push(networkScore);
