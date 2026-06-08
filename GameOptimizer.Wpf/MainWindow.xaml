@@ -53,6 +53,7 @@
             <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="16" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
@@ -165,7 +166,7 @@
                                             VerticalAlignment="Center"
                                             HorizontalAlignment="Center">
                                     <TextBlock x:Name="TxtHealthScore"
-                                               Text="68"
+                                               Text="--"
                                                FontSize="48"
                                                FontWeight="Bold"
                                                Foreground="{StaticResource TitleBrush}"
@@ -215,7 +216,7 @@
 
                                 <Button x:Name="BtnOptimize"
                                         Grid.Column="2"
-                                        Content="[ 최적화 시작 ]"
+                                        Content="최적화 시작"
                                         Style="{StaticResource PrimaryButtonStyle}"
                                         Click="BtnOptimize_Click" />
                             </Grid>
@@ -225,22 +226,22 @@
                             <Border Background="White" CornerRadius="16" Margin="0,0,12,0" Padding="20">
                                 <StackPanel>
                                     <TextBlock Text="CPU 쾌적도" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
-                                    <ProgressBar x:Name="CpuBar" Value="55" Maximum="100" Margin="0,0,0,12" />
-                                    <TextBlock x:Name="CpuDetail" Text="상태 확인 대기 중" Style="{StaticResource HelpTextStyle}" />
+                                    <ProgressBar x:Name="CpuBar" Value="0" Maximum="100" Margin="0,0,0,12" />
+                                    <TextBlock x:Name="CpuDetail" Text="점검 시작 후 표시됩니다" Style="{StaticResource HelpTextStyle}" />
                                 </StackPanel>
                             </Border>
                             <Border Background="White" CornerRadius="16" Margin="12,0,12,0" Padding="20">
                                 <StackPanel>
                                     <TextBlock Text="자원 집중도" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
-                                    <ProgressBar x:Name="ThreadBar" Value="72" Maximum="100" Margin="0,0,0,12" />
-                                    <TextBlock x:Name="ThreadDetail" Text="게임 실행 상태 확인 대기" Style="{StaticResource HelpTextStyle}" />
+                                    <ProgressBar x:Name="ThreadBar" Value="0" Maximum="100" Margin="0,0,0,12" />
+                                    <TextBlock x:Name="ThreadDetail" Text="점검 시작 후 표시됩니다" Style="{StaticResource HelpTextStyle}" />
                                 </StackPanel>
                             </Border>
                             <Border Background="White" CornerRadius="16" Margin="12,0,0,0" Padding="20">
                                 <StackPanel>
                                     <TextBlock Text="네트워크 반응" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,16" />
-                                    <ProgressBar x:Name="NetworkBar" Value="70" Maximum="100" Margin="0,0,0,12" />
-                                    <TextBlock x:Name="NetworkDetail" Text="통신 상태 확인 대기" Style="{StaticResource HelpTextStyle}" />
+                                    <ProgressBar x:Name="NetworkBar" Value="0" Maximum="100" Margin="0,0,0,12" />
+                                    <TextBlock x:Name="NetworkDetail" Text="점검 시작 후 표시됩니다" Style="{StaticResource HelpTextStyle}" />
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
@@ -283,28 +284,28 @@
                                     <Border Grid.Row="0" Grid.Column="0" Background="#F8FAFC" CornerRadius="12" Padding="18" Margin="0,0,12,12">
                                         <StackPanel>
                                             <TextBlock Text="CPU (연산 속도)" FontWeight="Bold" Foreground="{StaticResource TitleBrush}" />
-                                            <ProgressBar x:Name="CpuMonitorBar" Value="55" Maximum="100" Margin="0,18,0,8" />
+                                            <ProgressBar x:Name="CpuMonitorBar" Value="0" Maximum="100" Margin="0,18,0,8" />
                                             <TextBlock Text="게임이 PC 두뇌를 막힘없이 사용하는지 보여줍니다." Style="{StaticResource HelpTextStyle}" />
                                         </StackPanel>
                                     </Border>
                                     <Border Grid.Row="0" Grid.Column="1" Background="#F8FAFC" CornerRadius="12" Padding="18" Margin="12,0,0,12">
                                         <StackPanel>
                                             <TextBlock Text="네트워크 (반응 속도)" FontWeight="Bold" Foreground="{StaticResource TitleBrush}" />
-                                            <ProgressBar x:Name="NetworkMonitorBar" Value="70" Maximum="100" Margin="0,18,0,8" />
+                                            <ProgressBar x:Name="NetworkMonitorBar" Value="0" Maximum="100" Margin="0,18,0,8" />
                                             <TextBlock Text="서버와의 통신 지연이 없는지 확인합니다." Style="{StaticResource HelpTextStyle}" />
                                         </StackPanel>
                                     </Border>
                                     <Border Grid.Row="1" Grid.Column="0" Background="#F8FAFC" CornerRadius="12" Padding="18" Margin="0,12,12,0">
                                         <StackPanel>
                                             <TextBlock Text="자원 집중도" FontWeight="Bold" Foreground="{StaticResource TitleBrush}" />
-                                            <ProgressBar x:Name="ThreadMonitorBar" Value="72" Maximum="100" Margin="0,18,0,8" />
+                                            <ProgressBar x:Name="ThreadMonitorBar" Value="0" Maximum="100" Margin="0,18,0,8" />
                                             <TextBlock Text="다른 프로그램의 방해 없이 게임이 우선 처리되는지 보여줍니다." Style="{StaticResource HelpTextStyle}" />
                                         </StackPanel>
                                     </Border>
                                     <Border Grid.Row="1" Grid.Column="1" Background="#F8FAFC" CornerRadius="12" Padding="18" Margin="12,12,0,0">
                                         <StackPanel>
                                             <TextBlock Text="시스템 안전성" FontWeight="Bold" Foreground="{StaticResource TitleBrush}" />
-                                            <ProgressBar x:Name="SafetyMonitorBar" Value="92" Maximum="100" Margin="0,18,0,8" />
+                                            <ProgressBar x:Name="SafetyMonitorBar" Value="0" Maximum="100" Margin="0,18,0,8" />
                                             <TextBlock Text="문제 발생 시 원래 설정으로 복원될 준비 상태입니다." Style="{StaticResource HelpTextStyle}" />
                                         </StackPanel>
                                     </Border>

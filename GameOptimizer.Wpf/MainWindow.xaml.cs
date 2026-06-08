@@ -20,6 +20,8 @@ public partial class MainWindow : Window
     private double networkScore = 70;
     private double threadScore = 72;
     private double safetyScore = 92;
+    private bool uiReady;
+    private Process? stoppingProcess;
 
     private sealed class ProcessListItem
     {
@@ -44,6 +46,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        uiReady = true;
         BackgroundFilterText.Text = FindDefaultBackgroundFilter();
         RefreshProcessList();
         UpdateEnginePathLabel();
@@ -82,6 +85,11 @@ public partial class MainWindow : Window
 
     private void ModeRadio_Checked(object sender, RoutedEventArgs e)
     {
+        if (!uiReady)
+        {
+            return;
+        }
+
         UpdateModeDescription();
         if (ApplyRadio.IsChecked == true && runningProcess is null)
         {
@@ -91,6 +99,11 @@ public partial class MainWindow : Window
 
     private void RuntimeLimitCheck_Changed(object sender, RoutedEventArgs e)
     {
+        if (!uiReady)
+        {
+            return;
+        }
+
         UpdateRuntimeLimitState();
     }
 
@@ -277,19 +290,33 @@ public partial class MainWindow : Window
         process.ErrorDataReceived += (_, e) => AppendLogLine(e.Data);
         process.Exited += (_, _) => Dispatcher.Invoke(() =>
         {
+            var wasUserStop = ReferenceEquals(process, stoppingProcess);
             var exitCode = process.ExitCode;
             process.Dispose();
-            runningProcess = null;
+            if (ReferenceEquals(process, runningProcess))
+            {
+                runningProcess = null;
+            }
+            if (wasUserStop)
+            {
+                stoppingProcess = null;
+            }
             UpdateControlState(false);
-            UpdateSummaryState("대기", exitCode == 0 ? Brushes.SeaGreen : Brushes.Firebrick, exitCode == 0 ? "최적화 정상 종료됨" : "오류로 인해 중단됨");
-            TxtMonitorSummary.Text = exitCode == 0 ? "PC 상태 매우 안정적" : "시스템 불안정으로 보호 중";
-            AppendLogLine(exitCode == 0
+            UpdateSummaryState(
+                "대기",
+                wasUserStop || exitCode == 0 ? Brushes.SeaGreen : Brushes.Firebrick,
+                wasUserStop ? "최적화 종료 및 복구 완료" : exitCode == 0 ? "최적화 정상 종료됨" : "오류로 인해 중단됨");
+            TxtMonitorSummary.Text = wasUserStop || exitCode == 0 ? "PC 상태 매우 안정적" : "시스템 불안정으로 보호 중";
+            AppendLogLine(wasUserStop
+                ? "[PASS] UI: 사용자가 최적화를 종료했고 상태를 복구했습니다."
+                : exitCode == 0
                 ? "[PASS] UI: 최적화 작업이 안전하게 마무리되었습니다."
                 : $"[BLOCKER] UI: 시스템 보호를 위해 비정상 종료되었습니다. (코드 {exitCode})");
         });
 
         try
         {
+            stoppingProcess = null;
             runningProcess = process;
             process.Start();
             process.BeginOutputReadLine();
@@ -374,21 +401,31 @@ public partial class MainWindow : Window
 
     private void StopEngine()
     {
-        if (runningProcess is null)
+        var process = runningProcess;
+        if (process is null)
         {
             UpdateSummaryState("대기", Brushes.SeaGreen, "원래 상태 복구 완료");
             AppendLogLine("[INFO] UI: 실행 중인 엔진이 없어 상태만 복구 완료로 표시했습니다.");
             return;
         }
 
+        stoppingProcess = process;
+        runningProcess = null;
+        UpdateControlState(false);
+        UpdateSummaryState("대기", Brushes.SeaGreen, "최적화 종료 요청됨");
+        TxtMonitorSummary.Text = "종료 요청 완료 · 복구 상태 확인 중";
+        AppendLogLine("[WARN] UI: 사용자가 종료를 요청했습니다.");
+
         try
         {
-            runningProcess.Kill(entireProcessTree: true);
-            UpdateSummaryState("종료중", Brushes.DarkGoldenrod, "최적화 취소 및 복원 중");
-            AppendLogLine("[WARN] UI: 사용자가 종료를 요청했습니다.");
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
         }
         catch (Exception ex)
         {
+            stoppingProcess = null;
             AppendLogLine($"[WARN] UI: 종료 실패 - {ex.Message}");
         }
     }
@@ -438,10 +475,13 @@ public partial class MainWindow : Window
         networkScore = 70;
         threadScore = 72;
         safetyScore = 92;
-        ApplyMetricValues();
-        CpuDetail.Text = "상태 확인 대기 중";
-        ThreadDetail.Text = "게임 실행 상태 확인 대기";
-        NetworkDetail.Text = "통신 상태 확인 대기";
+        DisplayPendingMetrics();
+        TxtHealthScore.Text = "--";
+        TxtHeroTitle.Text = "최적화가 권장됩니다";
+        TxtHeroDesc.Text = "최적화를 시작하면 엔진 점검 기록을 바탕으로 실제 상태 점수가 계산됩니다.";
+        CpuDetail.Text = "점검 시작 후 표시됩니다";
+        ThreadDetail.Text = "점검 시작 후 표시됩니다";
+        NetworkDetail.Text = "점검 시작 후 표시됩니다";
         TxtMonitorSummary.Text = "점검 기록 대기 중";
     }
 
@@ -534,6 +574,17 @@ public partial class MainWindow : Window
         SafetyMonitorBar.Value = Math.Clamp(safetyScore, 0, 100);
     }
 
+    private void DisplayPendingMetrics()
+    {
+        CpuBar.Value = 0;
+        ThreadBar.Value = 0;
+        NetworkBar.Value = 0;
+        CpuMonitorBar.Value = 0;
+        ThreadMonitorBar.Value = 0;
+        NetworkMonitorBar.Value = 0;
+        SafetyMonitorBar.Value = 0;
+    }
+
     private void UpdateSummaryState(string state, Brush color, string optimizeText)
     {
         TxtStatus.Text = $"현재 상태 : {state}";
@@ -544,7 +595,7 @@ public partial class MainWindow : Window
 
     private void UpdateControlState(bool running)
     {
-        BtnOptimize.Content = running ? "[ 최적화 종료 ]" : "[ 최적화 시작 ]";
+        BtnOptimize.Content = running ? "최적화 종료" : "최적화 시작";
         TargetCombo.IsEnabled = !running;
         RefreshButton.IsEnabled = !running;
         DryRunRadio.IsEnabled = !running;
@@ -554,7 +605,7 @@ public partial class MainWindow : Window
 
     private void UpdateModeDescription()
     {
-        if (!IsInitialized)
+        if (!uiReady)
         {
             return;
         }
@@ -588,7 +639,7 @@ public partial class MainWindow : Window
 
     private void UpdateRuntimeLimitState()
     {
-        if (!IsInitialized)
+        if (!uiReady)
         {
             return;
         }
