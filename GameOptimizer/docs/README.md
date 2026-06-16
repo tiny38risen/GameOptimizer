@@ -19,6 +19,7 @@
 8. `docs/contracts/`
 9. `docs/validation/`
 10. `docs/release/`
+11. `docs/implementation/`
 
 ## 3. 문서별 역할
 
@@ -29,9 +30,11 @@
 | `docs/performance/` | 성능 엔진/정책 | Active |
 | `docs/architecture/` | 전체 구조 | Active |
 | `docs/contracts/` | 안전 계약 | Active |
-| `docs/modules/` | 모듈 상세 설계 | Planned |
-| `docs/validation/` | 검증 계획 | Planned |
+| `docs/modules/` | 모듈 상세 설계 | Active |
+| `docs/validation/` | 검증 계획 | Active |
+| `docs/evidence/` | 증거 구조/분류 기준 | Active |
 | `docs/release/` | 릴리즈 기준 | Active |
+| `docs/implementation/` | 구현 계획 | Active |
 | `docs/adr/` | 개별 ADR 분리 문서 | Planned |
 | `docs/design/` | 기존 설계 노트 | Active |
 | `docs/governance/` | 기존 거버넌스 체계 | Active |
@@ -59,33 +62,59 @@
 
 ## 6. Active Documents
 
+- `docs/Markdown_Collection_v3.1.md`
 - `docs/vision/PVD_v1.0.md`
 - `docs/performance/PerformanceEngineSpec.md`
+- `docs/performance/GameProfileSpecification.md`
+- `docs/performance/PolicySpecification.md`
 - `docs/architecture/Architecture_Decision_Record.md`
 - `docs/architecture/Contract_Enforcement_Matrix.md`
 - `docs/architecture/Contract_Enforcement_Status.md`
 - `docs/architecture/Module_Ownership_Matrix.md`
+- `docs/architecture/SAD_v1.0.md`
+- `docs/architecture/RuntimeStateMachine.md`
 - `docs/architecture/Source_Bands.md`
 - `docs/contracts/Safety_Contract.md`
 - `docs/contracts/Runtime_Contract.md`
 - `docs/release/Release_Gate_Spec.md`
+- `docs/release/ReleaseChecklist_v3.1.md`
 - `docs/release/Evidence_Schema.md`
 - `docs/release/RC_Runbook.md`
+- `docs/release/RC_Runbook_v3.1.md`
+- `docs/release/RC_Report_Template_v3.1.md`
 - `docs/release/Release_Blocker_List.md`
 - `docs/release/Release_Regression_Matrix.md`
 - `docs/release/Release_Performance_Checklist.md`
 - `docs/release/Operational_Runbook.md`
 - `docs/release/Real_Game_Validation_Runbook.md`
 - `docs/release/Game_Verification_Matrix.md`
+- `docs/modules/MDS-001_ThreadTracker.md`
+- `docs/modules/MDS-002_MainThreadConfidenceAnalyzer.md`
+- `docs/modules/MDS-003_TopologyAnalyzer.md`
+- `docs/modules/MDS-004_SchedulerController.md`
+- `docs/modules/MDS-005_RollbackManager.md`
+- `docs/modules/MDS-006_BackgroundController.md`
+- `docs/modules/MDS-007_PerformanceEvidencePlanner.md`
+- `docs/modules/MDS-008_PolicyDispatcher.md`
+- `docs/modules/MDS-009_RuntimeOrchestrator.md`
+- `docs/validation/PerformanceValidationPlan.md`
+- `docs/evidence/EvidenceSpecification.md`
+- `docs/implementation/ImplementationPlan_v3.1.md`
+- `docs/implementation/DevelopmentExecutionPlan_v3.1.md`
+- `docs/implementation/PatchPlan_Phase1.md`
+- `docs/implementation/PatchPlan_Phase2.md`
+- `docs/implementation/PatchPlan_Phase3.md`
+- `docs/implementation/PatchPlan_Phase4.md`
+- `docs/implementation/PatchPlan_Phase5.md`
+- `docs/implementation/PatchPlan_Phase6.md`
+- `docs/implementation/PatchPlan_Phase7.md`
+- `docs/implementation/PatchPlan_Phase8.md`
+- `docs/implementation/PatchPlan_Phase9.md`
+- `docs/implementation/PatchPlan_Phase10.md`
 
 ## 7. Planned Documents
 
 - `docs/requirements/SRS_Rev1_3.md`
-- `docs/performance/PolicySpecification.md`
-- `docs/performance/PerformanceValidationPlan.md`
-- `docs/performance/GameProfileSpecification.md`
-- `docs/architecture/SAD_v1.0.md`
-- `docs/architecture/RuntimeStateMachine.md`
 - `docs/contracts/Rollback_Contract.md`
 - `docs/contracts/Expected_Usage_Contract.md`
 - `docs/validation/TestPlan.md`
