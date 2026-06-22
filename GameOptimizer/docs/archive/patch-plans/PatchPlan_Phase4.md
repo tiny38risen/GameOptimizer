@@ -1,4 +1,5 @@
-# GameOptimizer v3.1 Patch Plan — Phase 4: SchedulerController Safety Hardening
+﻿# GameOptimizer v3.1 Patch Plan — Phase 4: SchedulerController Safety Hardening
+> Archive notice: This Phase Patch Plan is historical. Active implementation work and execution status are tracked in GitHub Issues. This file is not a current source of truth for work ordering, completion status, or release approval.
 
 ## 1. 문서 개요
 
@@ -34,15 +35,15 @@
 상위 문서:
 
 - `docs/implementation/ImplementationPlan_v3.1.md`
-- `docs/implementation/PatchPlan_Phase1.md`
-- `docs/implementation/PatchPlan_Phase2.md`
-- `docs/implementation/PatchPlan_Phase3.md`
+- `docs/archive/patch-plans/PatchPlan_Phase1.md`
+- `docs/archive/patch-plans/PatchPlan_Phase2.md`
+- `docs/archive/patch-plans/PatchPlan_Phase3.md`
 - `docs/modules/MDS-003_TopologyAnalyzer.md`
 - `docs/modules/MDS-004_SchedulerController.md`
 - `docs/modules/MDS-005_RollbackManager.md`
 - `docs/modules/MDS-008_PolicyDispatcher.md`
-- `docs/performance/PolicySpecification.md`
-- `docs/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
 - `docs/evidence/EvidenceSpecification.md`
 - `docs/validation/PerformanceValidationPlan.md`
 - `docs/architecture/SAD_v1.0.md`
@@ -54,7 +55,7 @@
 
 후속 문서:
 
-- `docs/implementation/PatchPlan_Phase5.md`
+- `docs/archive/patch-plans/PatchPlan_Phase5.md`
 
 문서 경로 기준: `GameOptimizer/docs/`
 
@@ -1449,7 +1450,7 @@ Phase 4는 SchedulerController scheduling mutation 경로를 안전하게 만드
 7. Processor Group unsafe 상태에서 affinity apply 금지가 명확하다.
 8. Phase 4 BLOCKER 조건이 정의되어 있다.
 9. 패치 순서가 정의되어 있다.
-10. 후속 `docs/implementation/PatchPlan_Phase5.md` 작성에 필요한 기준이 충분하다.
+10. 후속 `docs/archive/patch-plans/PatchPlan_Phase5.md` 작성에 필요한 기준이 충분하다.
 
 ## 25. Open Questions
 

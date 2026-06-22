@@ -1,4 +1,4 @@
-# GameOptimizer v3.1 Performance Validation Plan
+﻿# GameOptimizer v3.1 Performance Validation Plan
 
 ## 1. 문서 개요
 
@@ -34,8 +34,8 @@
 상위 문서:
 
 - `docs/vision/PVD_v1.0.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
 - `docs/architecture/SAD_v1.0.md`
 - `docs/architecture/RuntimeStateMachine.md`
 - `docs/modules/MDS-001_ThreadTracker.md`

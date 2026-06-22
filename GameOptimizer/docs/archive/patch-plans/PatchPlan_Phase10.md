@@ -1,4 +1,5 @@
-# GameOptimizer v3.1 Patch Plan — Phase 10: RC Gate Integration
+﻿# GameOptimizer v3.1 Patch Plan — Phase 10: RC Gate Integration
+> Archive notice: This Phase Patch Plan is historical. Active implementation work and execution status are tracked in GitHub Issues. This file is not a current source of truth for work ordering, completion status, or release approval.
 
 ## 1. 문서 개요
 
@@ -49,23 +50,23 @@
 상위 문서:
 
 - `docs/implementation/ImplementationPlan_v3.1.md`
-- `docs/implementation/PatchPlan_Phase1.md`
-- `docs/implementation/PatchPlan_Phase2.md`
-- `docs/implementation/PatchPlan_Phase3.md`
-- `docs/implementation/PatchPlan_Phase4.md`
-- `docs/implementation/PatchPlan_Phase5.md`
-- `docs/implementation/PatchPlan_Phase6.md`
-- `docs/implementation/PatchPlan_Phase7.md`
-- `docs/implementation/PatchPlan_Phase8.md`
-- `docs/implementation/PatchPlan_Phase9.md`
+- `docs/archive/patch-plans/PatchPlan_Phase1.md`
+- `docs/archive/patch-plans/PatchPlan_Phase2.md`
+- `docs/archive/patch-plans/PatchPlan_Phase3.md`
+- `docs/archive/patch-plans/PatchPlan_Phase4.md`
+- `docs/archive/patch-plans/PatchPlan_Phase5.md`
+- `docs/archive/patch-plans/PatchPlan_Phase6.md`
+- `docs/archive/patch-plans/PatchPlan_Phase7.md`
+- `docs/archive/patch-plans/PatchPlan_Phase8.md`
+- `docs/archive/patch-plans/PatchPlan_Phase9.md`
 - `docs/release/ReleaseChecklist_v3.1.md`
 - `docs/release/RC_Runbook_v3.1.md`
 - `docs/release/Release_Gate_Spec.md`
 - `docs/validation/PerformanceValidationPlan.md`
 - `docs/validation/RegressionMatrix_v3.1.md`
 - `docs/evidence/EvidenceSpecification.md`
-- `docs/performance/GameProfileSpecification.md`
-- `docs/performance/PolicySpecification.md`
+- `docs/proposals/performance/GameProfileSpecification.md`
+- `docs/proposals/performance/PolicySpecification.md`
 - `docs/architecture/SAD_v1.0.md`
 - `docs/architecture/RuntimeStateMachine.md`
 - `docs/contracts/Safety_Contract.md`
@@ -268,7 +269,7 @@ Gate owner 정의
 수정 가능 파일:
 
 ```text
-docs/implementation/PatchPlan_Phase10.md
+docs/archive/patch-plans/PatchPlan_Phase10.md
 docs/implementation/MIGRATION_NOTES_Phase10.md
 release 관련 문서
 release script 계약 문서

@@ -1,4 +1,4 @@
-# GameOptimizer v3.1 RC Runbook
+﻿# GameOptimizer v3.1 RC Runbook
 
 ## 1. 문서 개요
 
@@ -31,9 +31,9 @@
 상위 문서:
 
 - `docs/vision/PVD_v1.0.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
-- `docs/performance/GameProfileSpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
+- `docs/proposals/performance/GameProfileSpecification.md`
 - `docs/validation/PerformanceValidationPlan.md`
 - `docs/evidence/EvidenceSpecification.md`
 - `docs/release/ReleaseChecklist_v3.1.md`
@@ -203,9 +203,9 @@ ReleaseChecklist_v3.1.md
 
 ```text
 docs/vision/PVD_v1.0.md
-docs/performance/PerformanceEngineSpec.md
-docs/performance/PolicySpecification.md
-docs/performance/GameProfileSpecification.md
+docs/proposals/performance/PerformanceEngineSpec.md
+docs/proposals/performance/PolicySpecification.md
+docs/proposals/performance/GameProfileSpecification.md
 docs/validation/PerformanceValidationPlan.md
 docs/evidence/EvidenceSpecification.md
 docs/release/ReleaseChecklist_v3.1.md

@@ -19,19 +19,18 @@ Required order:
 5. Release x64 MSVC build
 6. full regression
 7. release smoke
+8. evidence bundle generation
+9. `verify-rc`
 
-The static release gate verifies this draft order through the `[RC-1]` through `[RC-7]` markers in `run_rc_gate.bat`; within `[RC-3]`, `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py`.
+The static release gate verifies this order through the `[RC-1]` through `[RC-9]` markers in `run_rc_gate.bat`; within `[RC-3]`, `run_release_gate_static_checks_selftest.py` must run before `run_release_gate_static_checks.py`.
 
-Draft exclusions:
+Required validation outside the single entry point:
 
 - 30m dry-run soak
 - 60m soft-apply soak
-- `verify-rc`
 - real-game validation
-- RC candidate verification
-- final evidence bundle generation
 
-The excluded steps remain required before tagging `v3.0-rc1`; they are intentionally outside the repeatable draft entry point.
+The standalone soak and real-game validation records remain required before tagging `v3.0-rc1`; they are intentionally prepared outside the single repeatable RC gate entry point and consumed by evidence bundle generation and `verify-rc`.
 
 Run the standalone soak gates before final candidate verification:
 

@@ -1,4 +1,5 @@
-# GameOptimizer v3.1 Patch Plan — Phase 6: Evidence & Runtime Validation Integration
+﻿# GameOptimizer v3.1 Patch Plan — Phase 6: Evidence & Runtime Validation Integration
+> Archive notice: This Phase Patch Plan is historical. Active implementation work and execution status are tracked in GitHub Issues. This file is not a current source of truth for work ordering, completion status, or release approval.
 
 ## 1. 문서 개요
 
@@ -35,11 +36,11 @@
 상위 문서:
 
 - `docs/implementation/ImplementationPlan_v3.1.md`
-- `docs/implementation/PatchPlan_Phase1.md`
-- `docs/implementation/PatchPlan_Phase2.md`
-- `docs/implementation/PatchPlan_Phase3.md`
-- `docs/implementation/PatchPlan_Phase4.md`
-- `docs/implementation/PatchPlan_Phase5.md`
+- `docs/archive/patch-plans/PatchPlan_Phase1.md`
+- `docs/archive/patch-plans/PatchPlan_Phase2.md`
+- `docs/archive/patch-plans/PatchPlan_Phase3.md`
+- `docs/archive/patch-plans/PatchPlan_Phase4.md`
+- `docs/archive/patch-plans/PatchPlan_Phase5.md`
 - `docs/evidence/EvidenceSpecification.md`
 - `docs/validation/PerformanceValidationPlan.md`
 - `docs/release/ReleaseChecklist_v3.1.md`
@@ -54,7 +55,7 @@
 
 후속 문서:
 
-- `docs/implementation/PatchPlan_Phase7.md`
+- `docs/archive/patch-plans/PatchPlan_Phase7.md`
 
 문서 경로 기준: `GameOptimizer/docs/`
 
@@ -210,7 +211,7 @@ Release Evidence 필드 매핑
 수정 가능 파일:
 
 ```text
-docs/implementation/PatchPlan_Phase6.md
+docs/archive/patch-plans/PatchPlan_Phase6.md
 docs/implementation/MIGRATION_NOTES_Phase6.md
 Evidence 관련 문서
 Evidence recorder placeholder
@@ -1602,7 +1603,7 @@ Phase 6은 Evidence와 RuntimeValidation 체계를 릴리즈 판정 가능하게
 8. Shutdown Evidence Flush 기준이 정의되어 있다.
 9. Phase 6 BLOCKER 조건이 정의되어 있다.
 10. 패치 순서가 정의되어 있다.
-11. 후속 `docs/implementation/PatchPlan_Phase7.md` 작성에 필요한 기준이 충분하다.
+11. 후속 `docs/archive/patch-plans/PatchPlan_Phase7.md` 작성에 필요한 기준이 충분하다.
 
 ## 25. Open Questions
 

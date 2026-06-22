@@ -1,5 +1,12 @@
 # GameOptimizer RC Evidence Schema
 
+Status: Active
+Authority: Current machine-enforced RC evidence contract
+TargetVersion: v3.0-rc1
+ImplementationStatus: Implemented by `release_gate_evidence.py`, `verify_rc_candidate.py`, and `create_rc_evidence_bundle.py`
+VerificationStatus: Static gate and RC evidence validators
+Owner: Release gate
+
 ## Purpose
 
 This document freezes the `v3.0-rc1` release evidence contract. A release is approved only when the evidence schema matches this document, required fields exist, identity hashes match, and `BLOCKER` count is zero.

@@ -1,4 +1,4 @@
-# GameOptimizer v3.1 Implementation Plan
+﻿# GameOptimizer v3.1 Implementation Plan
 
 ## 1. 문서 개요
 
@@ -33,9 +33,9 @@
 상위 문서:
 
 - `docs/vision/PVD_v1.0.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
-- `docs/performance/GameProfileSpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
+- `docs/proposals/performance/GameProfileSpecification.md`
 - `docs/validation/PerformanceValidationPlan.md`
 - `docs/evidence/EvidenceSpecification.md`
 - `docs/release/ReleaseChecklist_v3.1.md`
@@ -57,7 +57,8 @@
 
 후속 문서:
 
-- `docs/implementation/PatchPlan_Phase1.md`
+- GitHub Issues
+- `docs/archive/patch-plans/PatchPlan_Phase1.md` (archived historical reference)
 - `docs/validation/RegressionMatrix_v3.1.md`
 
 문서 경로 기준: `GameOptimizer/docs/`
@@ -992,7 +993,7 @@ DLL Injection 구현
 Game Memory Patch 구현
 ```
 
-이 문서는 구현 계획(Implementation Plan)이며, 실제 patch 작성은 후속 `docs/implementation/PatchPlan_Phase1.md` 이후 진행한다.
+이 문서는 구현 계획(Implementation Plan)이며, 실제 patch 작업 단위와 진행 상태는 GitHub Issues에서 관리한다. `docs/archive/patch-plans/`의 Phase Patch Plans는 과거 계획 보존용이며 현재 실행 source of truth가 아니다.
 
 ## 19. Acceptance Criteria
 
@@ -1006,11 +1007,11 @@ Game Memory Patch 구현
 6. Rollback / ApplyGuard / Evidence / RuntimeValidation이 최우선 구현 기준으로 정의되어 있다.
 7. 패치 단위 원칙이 정의되어 있다.
 8. 개발 중단 조건이 정의되어 있다.
-9. 후속 `docs/implementation/PatchPlan_Phase1.md` 작성에 필요한 기준이 충분하다.
+9. GitHub Issues로 실행 단위를 만들 수 있을 만큼 phase, gate, evidence 기준이 충분하다.
 
 ## 20. Open Questions
 
-다음 질문은 후속 Patch Plan 또는 구현 전 설계 확정 단계에서 결정한다.
+다음 질문은 GitHub Issues 또는 구현 전 설계 확정 단계에서 결정한다.
 
 ```text
 1. Phase 1 구현 전에 기존 ThreadTracker 정적 검사부터 강화할 것인가?

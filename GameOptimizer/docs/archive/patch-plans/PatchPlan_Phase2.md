@@ -1,4 +1,5 @@
-# GameOptimizer v3.1 Patch Plan — Phase 2: Main Thread Confidence Engine
+﻿# GameOptimizer v3.1 Patch Plan — Phase 2: Main Thread Confidence Engine
+> Archive notice: This Phase Patch Plan is historical. Active implementation work and execution status are tracked in GitHub Issues. This file is not a current source of truth for work ordering, completion status, or release approval.
 
 ## 1. 문서 개요
 
@@ -33,12 +34,12 @@
 상위 문서:
 
 - `docs/implementation/ImplementationPlan_v3.1.md`
-- `docs/implementation/PatchPlan_Phase1.md`
+- `docs/archive/patch-plans/PatchPlan_Phase1.md`
 - `docs/modules/MDS-001_ThreadTracker.md`
 - `docs/modules/MDS-002_MainThreadConfidenceAnalyzer.md`
 - `docs/modules/MDS-003_TopologyAnalyzer.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
 - `docs/evidence/EvidenceSpecification.md`
 - `docs/validation/PerformanceValidationPlan.md`
 - `docs/architecture/SAD_v1.0.md`
@@ -50,7 +51,7 @@
 
 후속 문서:
 
-- `docs/implementation/PatchPlan_Phase3.md`
+- `docs/archive/patch-plans/PatchPlan_Phase3.md`
 
 문서 경로 기준: `GameOptimizer/docs/`
 
@@ -188,7 +189,7 @@ Phase 2에서 분리할 범위 정의
 수정 가능 파일:
 
 ```text
-docs/implementation/PatchPlan_Phase2.md
+docs/archive/patch-plans/PatchPlan_Phase2.md
 docs/implementation/MIGRATION_NOTES_Phase2.md
 MainThreadConfidenceAnalyzer 관련 문서 또는 placeholder 파일
 ```
@@ -1143,7 +1144,7 @@ Phase 2는 메인 스레드 신뢰도(Main Thread Confidence) 판단 체계를 �
 7. VeryHigh와 Aggressive Mode 즉시 활성화가 구분된다.
 8. Phase 2 BLOCKER 조건이 정의되어 있다.
 9. 패치 순서가 정의되어 있다.
-10. 후속 `docs/implementation/PatchPlan_Phase3.md` 작성에 필요한 기준이 충분하다.
+10. 후속 `docs/archive/patch-plans/PatchPlan_Phase3.md` 작성에 필요한 기준이 충분하다.
 
 ## 22. Open Questions
 

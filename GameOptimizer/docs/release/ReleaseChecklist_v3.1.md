@@ -1,4 +1,4 @@
-# GameOptimizer v3.1 Release Checklist
+﻿# GameOptimizer v3.1 Release Checklist
 
 ## 1. 문서 개요
 
@@ -30,9 +30,9 @@
 상위 문서:
 
 - `docs/vision/PVD_v1.0.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
-- `docs/performance/GameProfileSpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
+- `docs/proposals/performance/GameProfileSpecification.md`
 - `docs/validation/PerformanceValidationPlan.md`
 - `docs/evidence/EvidenceSpecification.md`
 - `docs/architecture/SAD_v1.0.md`
@@ -114,9 +114,9 @@ v3.1 릴리즈 기준 문서가 충분히 준비되었는지 확인한다.
 
 ```text
 docs/vision/PVD_v1.0.md
-docs/performance/PerformanceEngineSpec.md
-docs/performance/PolicySpecification.md
-docs/performance/GameProfileSpecification.md
+docs/proposals/performance/PerformanceEngineSpec.md
+docs/proposals/performance/PolicySpecification.md
+docs/proposals/performance/GameProfileSpecification.md
 docs/validation/PerformanceValidationPlan.md
 docs/evidence/EvidenceSpecification.md
 docs/architecture/SAD_v1.0.md

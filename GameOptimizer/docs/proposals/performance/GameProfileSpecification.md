@@ -1,4 +1,11 @@
-# GameOptimizer v3.1 Game Profile Specification
+﻿# GameOptimizer v3.1 Game Profile Specification
+
+Status: Proposal
+Authority: Proposed game profile design, not current implementation contract
+TargetVersion: v3.1 proposal
+ImplementationStatus: Not implemented
+VerificationStatus: Not verified/manual design review
+Owner: Performance proposal
 
 ## 1. 문서 개요
 
@@ -28,8 +35,8 @@
 상위 문서:
 
 - `docs/vision/PVD_v1.0.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
 - `docs/validation/PerformanceValidationPlan.md`
 - `docs/evidence/EvidenceSpecification.md`
 - `docs/architecture/SAD_v1.0.md`
@@ -741,7 +748,7 @@ Selection Flow의 기본 원칙:
 
 ## 10. Policy 적용 규칙
 
-Profile은 `docs/performance/PolicySpecification.md`의 policy type을 제한할 수 있어야 한다.
+Profile은 `docs/proposals/performance/PolicySpecification.md`의 policy type을 제한할 수 있어야 한다.
 
 규칙:
 

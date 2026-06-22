@@ -1,4 +1,4 @@
-# GameOptimizer Documentation Migration Notes
+﻿# GameOptimizer Documentation Migration Notes
 
 ## 기준
 
@@ -9,6 +9,9 @@
 
 - `../docs/vision/PVD_v1.0.md` -> `docs/vision/PVD_v1.0.md`
 - `../docs/performance/PerformanceEngineSpec.md` -> `docs/performance/PerformanceEngineSpec.md`
+- `docs/performance/PerformanceEngineSpec.md` -> `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/performance/PolicySpecification.md` -> `docs/proposals/performance/PolicySpecification.md`
+- `docs/performance/GameProfileSpecification.md` -> `docs/proposals/performance/GameProfileSpecification.md`
 
 ## 이번 작업에서 이동하지 않은 문서
 
@@ -33,6 +36,6 @@
 ## 향후 정리 제안
 
 1. repository root의 legacy `docs/architecture/*` 중복 문서를 제거할지 별도 승인 후 결정한다.
-2. Release Gate 스크립트가 참조하는 모든 문서 경로를 유지한 상태에서 v3.1 문서만 `docs/vision`, `docs/performance`, `docs/modules`로 확장한다.
-3. `docs/requirements/SRS_Rev1_3.md`는 기존 SRS 원본 위치와 형식이 확인된 뒤 Markdown 변환본으로 추가한다.
+2. Release Gate 스크립트가 참조하는 모든 문서 경로를 유지한 상태에서 구현 완료 전 v3.1 performance 문서는 `docs/proposals/performance/`에 둔다.
+3. `docs/requirements/SRS_Rev1_3.md`는 외부 기준 문서 `GameOptimizer_v3_SRS_Rev1_3_CPP23_Safety_Update.docx`의 위치와 내용을 확인한 뒤 Markdown 변환본으로 추가한다.
 4. `docs/adr/` 개별 ADR 분리는 기존 `docs/architecture/Architecture_Decision_Record.md`의 static gate 의존성이 분리된 뒤 진행한다.

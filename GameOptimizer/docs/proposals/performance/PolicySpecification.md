@@ -1,4 +1,11 @@
-# GameOptimizer v3.1 Policy Specification
+﻿# GameOptimizer v3.1 Policy Specification
+
+Status: Proposal
+Authority: Proposed policy design, not current implementation contract
+TargetVersion: v3.1 proposal
+ImplementationStatus: Not implemented
+VerificationStatus: Not verified/manual design review
+Owner: Performance proposal
 
 ## 1. 문서 개요
 
@@ -26,7 +33,7 @@
 - Evidence JSON schema 최종 확정
 - RC Gate 구현 변경
 
-상위 문서: `docs/performance/PerformanceEngineSpec.md`
+상위 문서: `docs/proposals/performance/PerformanceEngineSpec.md`
 
 후속 문서:
 
@@ -42,7 +49,7 @@
 기준 문서:
 
 - `docs/vision/PVD_v1.0.md`
-- `docs/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
 - `docs/architecture/Architecture_Decision_Record.md`
 - `docs/contracts/Safety_Contract.md`
 - `docs/contracts/Runtime_Contract.md`

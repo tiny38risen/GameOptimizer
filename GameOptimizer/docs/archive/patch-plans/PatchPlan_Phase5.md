@@ -1,4 +1,5 @@
-# GameOptimizer v3.1 Patch Plan — Phase 5: Rollback / ApplyGuard Contract Hardening
+﻿# GameOptimizer v3.1 Patch Plan — Phase 5: Rollback / ApplyGuard Contract Hardening
+> Archive notice: This Phase Patch Plan is historical. Active implementation work and execution status are tracked in GitHub Issues. This file is not a current source of truth for work ordering, completion status, or release approval.
 
 ## 1. 문서 개요
 
@@ -34,10 +35,10 @@
 상위 문서:
 
 - `docs/implementation/ImplementationPlan_v3.1.md`
-- `docs/implementation/PatchPlan_Phase1.md`
-- `docs/implementation/PatchPlan_Phase2.md`
-- `docs/implementation/PatchPlan_Phase3.md`
-- `docs/implementation/PatchPlan_Phase4.md`
+- `docs/archive/patch-plans/PatchPlan_Phase1.md`
+- `docs/archive/patch-plans/PatchPlan_Phase2.md`
+- `docs/archive/patch-plans/PatchPlan_Phase3.md`
+- `docs/archive/patch-plans/PatchPlan_Phase4.md`
 - `docs/modules/MDS-004_SchedulerController.md`
 - `docs/modules/MDS-005_RollbackManager.md`
 - `docs/modules/MDS-006_BackgroundController.md`
@@ -52,7 +53,7 @@
 
 후속 문서:
 
-- `docs/implementation/PatchPlan_Phase6.md`
+- `docs/archive/patch-plans/PatchPlan_Phase6.md`
 
 문서 경로 기준: `GameOptimizer/docs/`
 
@@ -1383,7 +1384,7 @@ Phase 5는 rollback/apply transaction 계약을 강화하는 문서다.
 7. identity revalidation과 failed state preservation 기준이 명확하다.
 8. Phase 5 BLOCKER 조건이 정의되어 있다.
 9. 패치 순서가 정의되어 있다.
-10. 후속 `docs/implementation/PatchPlan_Phase6.md` 작성에 필요한 기준이 충분하다.
+10. 후속 `docs/archive/patch-plans/PatchPlan_Phase6.md` 작성에 필요한 기준이 충분하다.
 
 ## 24. Open Questions
 

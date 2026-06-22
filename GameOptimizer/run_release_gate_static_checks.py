@@ -1003,6 +1003,8 @@ def check_rc_gate_contract() -> list[str]:
         "echo [RC-5] Release x64 MSVC build",
         "echo [RC-6] full regression",
         "echo [RC-7] release smoke",
+        "echo [RC-8] evidence bundle generation",
+        "echo [RC-9] verify-rc",
     ]
     failures.extend(validate_ordered_markers("RC gate", rc_text, ordered_steps))
     failures.extend(validate_ordered_markers("RC static gate selftest", rc_text, [

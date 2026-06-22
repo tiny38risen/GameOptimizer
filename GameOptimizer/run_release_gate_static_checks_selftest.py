@@ -16,6 +16,8 @@ ORDERED_MARKERS = [
     "echo [RC-5] Release x64 MSVC build",
     "echo [RC-6] full regression",
     "echo [RC-7] release smoke",
+    "echo [RC-8] evidence bundle generation",
+    "echo [RC-9] verify-rc",
 ]
 
 

@@ -1,4 +1,5 @@
-# GameOptimizer v3.1 Patch Plan — Phase 3: Policy Candidate & Dispatch Layer
+﻿# GameOptimizer v3.1 Patch Plan — Phase 3: Policy Candidate & Dispatch Layer
+> Archive notice: This Phase Patch Plan is historical. Active implementation work and execution status are tracked in GitHub Issues. This file is not a current source of truth for work ordering, completion status, or release approval.
 
 ## 1. 문서 개요
 
@@ -34,16 +35,16 @@
 상위 문서:
 
 - `docs/implementation/ImplementationPlan_v3.1.md`
-- `docs/implementation/PatchPlan_Phase1.md`
-- `docs/implementation/PatchPlan_Phase2.md`
+- `docs/archive/patch-plans/PatchPlan_Phase1.md`
+- `docs/archive/patch-plans/PatchPlan_Phase2.md`
 - `docs/modules/MDS-002_MainThreadConfidenceAnalyzer.md`
 - `docs/modules/MDS-004_SchedulerController.md`
 - `docs/modules/MDS-006_BackgroundController.md`
 - `docs/modules/MDS-007_PerformanceEvidencePlanner.md`
 - `docs/modules/MDS-008_PolicyDispatcher.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
-- `docs/performance/GameProfileSpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
+- `docs/proposals/performance/GameProfileSpecification.md`
 - `docs/evidence/EvidenceSpecification.md`
 - `docs/validation/PerformanceValidationPlan.md`
 - `docs/architecture/SAD_v1.0.md`
@@ -55,7 +56,7 @@
 
 후속 문서:
 
-- `docs/implementation/PatchPlan_Phase4.md`
+- `docs/archive/patch-plans/PatchPlan_Phase4.md`
 
 문서 경로 기준: `GameOptimizer/docs/`
 
@@ -1272,7 +1273,7 @@ Phase 3은 PolicyCandidate와 PolicyDispatcher 경계를 고정하는 문서다.
 7. Confidence gate와 Game Profile restriction이 policy 전달 전에 적용된다는 원칙이 명확하다.
 8. Phase 3 BLOCKER 조건이 정의되어 있다.
 9. 패치 순서가 정의되어 있다.
-10. 후속 `docs/implementation/PatchPlan_Phase4.md` 작성에 필요한 기준이 충분하다.
+10. 후속 `docs/archive/patch-plans/PatchPlan_Phase4.md` 작성에 필요한 기준이 충분하다.
 
 ## 23. Open Questions
 

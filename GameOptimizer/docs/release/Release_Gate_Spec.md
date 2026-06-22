@@ -29,12 +29,14 @@ This single command must run, in order:
 5. Release x64 MSVC build
 6. full regression
 7. release smoke
+8. evidence bundle generation
+9. `verify-rc`
 
-The draft gate captures step output automatically under `artifacts/rc/<timestamp>/`.
+The RC gate captures step output automatically under `artifacts/rc/<timestamp>/`.
 
-The static release gate must reject `run_rc_gate.bat` if any `[RC-1]` through `[RC-7]` step marker is missing or out of order. `run_rc_gate.bat` must run `run_release_gate_static_checks_selftest.py` before `run_release_gate_static_checks.py`, and the selftest must cover pass, missing-marker, and out-of-order-marker cases.
+The static release gate must reject `run_rc_gate.bat` if any `[RC-1]` through `[RC-9]` step marker is missing or out of order. `run_rc_gate.bat` must run `run_release_gate_static_checks_selftest.py` before `run_release_gate_static_checks.py`, and the selftest must cover pass, missing-marker, and out-of-order-marker cases.
 
-Draft exclusions are intentional: 30m dry-run soak, 60m soft-apply soak, `verify-rc`, real-game validation, RC candidate verification, and final evidence bundle generation remain outside this initial repeatable entry point.
+Intentional exclusions from the single command are limited to prerequisite evidence collection that must already exist when the gate runs: 30m dry-run soak, 60m soft-apply soak, and real-game validation records.
 
 The excluded soak runs have standalone repeatable entry points:
 
@@ -47,7 +49,7 @@ Each standalone soak entry point must validate shutdown reason, runtime validati
 
 Standalone 30m-only or 60m-only soak reports are operational evidence only. They must not satisfy final `verify-rc`; final RC verification still requires a combined soak evidence report containing both `soak_30m_dry_run` and `soak_60m_soft_apply`.
 
-Do not create the `v3.0-rc1` tag until the draft gate plus the excluded final soak, real-game validation, candidate verification, and bundle creation all pass.
+Do not create the `v3.0-rc1` tag until the 9-step RC gate passes and the prerequisite soak plus real-game validation evidence consumed by the gate is current for the candidate.
 
 ## RC candidate required artifacts
 
@@ -137,8 +139,8 @@ Do not approve a release if either script fails, even when the executable itself
 Before tagging:
 
 1. `run_rc_gate.bat <target.exe>` passes.
-2. `verify_rc_candidate.py --target <target.exe> --regression-log <log>` passes as part of the gate.
-3. `create_rc_evidence_bundle.py --target <target.exe> --regression-log <log>` writes `RC_CANDIDATE_PASS` as part of the gate.
+2. `create_rc_evidence_bundle.py --target <target.exe> --regression-log <log>` writes `RC_CANDIDATE_PASS` as `[RC-8]` in the gate.
+3. `release_gate_evidence.py verify-rc --target <target.exe>` passes as `[RC-9]` in the gate.
 4. Smoke and soak `rc_evidence_report.json` files match the current git commit.
 5. `GameOptimizer.exe` SHA-256 matches the evidence report.
 6. The final regression log reports `failed=0`.

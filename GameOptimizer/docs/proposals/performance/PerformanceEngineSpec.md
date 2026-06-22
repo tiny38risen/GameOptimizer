@@ -1,4 +1,11 @@
-# GameOptimizer v3.1 Performance Engine Specification
+﻿# GameOptimizer v3.1 Performance Engine Specification
+
+Status: Proposal
+Authority: Proposed performance design, not current implementation contract
+TargetVersion: v3.1 proposal
+ImplementationStatus: Not implemented
+VerificationStatus: Not verified/manual design review
+Owner: Performance proposal
 
 ## 1. 문서 개요
 
@@ -27,7 +34,7 @@
 
 상위 문서: `docs/vision/PVD_v1.0.md`
 
-후속 문서: `docs/performance/PolicySpecification.md`
+후속 문서: `docs/proposals/performance/PolicySpecification.md`
 
 기준 문서 경로 기준: 문서 루트. 문서 내부 참조는 `docs/...` 형식을 우선 사용한다.
 
@@ -462,7 +469,7 @@ High: 제한적 affinity/priority 후보
 VeryHigh: Aggressive Single-Core Mode 후보
 ```
 
-이 상태 정의는 구현 enum을 확정하지 않는다. 구체적인 타입 이름과 PolicyCommand 연결은 `docs/performance/PolicySpecification.md`에서 확정한다.
+이 상태 정의는 구현 enum을 확정하지 않는다. 구체적인 타입 이름과 PolicyCommand 연결은 `docs/proposals/performance/PolicySpecification.md`에서 확정한다.
 
 ### 4.4 기본 정책
 

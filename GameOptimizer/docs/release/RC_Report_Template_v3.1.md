@@ -1,4 +1,4 @@
-# GameOptimizer v3.1 RC Report Template
+﻿# GameOptimizer v3.1 RC Report Template
 
 ## 1. 템플릿 개요
 
@@ -39,9 +39,9 @@
 
 - `GameOptimizer_v3_SRS_Rev1_3_CPP23_Safety_Update.docx`
 - `docs/vision/PVD_v1.0.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
-- `docs/performance/GameProfileSpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
+- `docs/proposals/performance/GameProfileSpecification.md`
 - `docs/architecture/SAD_v1.0.md`
 - `docs/architecture/RuntimeStateMachine.md`
 - `docs/contracts/Safety_Contract.md`
@@ -53,16 +53,20 @@
 - `docs/release/RC_Runbook_v3.1.md`
 - `docs/release/Release_Gate_Spec.md`
 - `docs/implementation/ImplementationPlan_v3.1.md`
-- `docs/implementation/PatchPlan_Phase1.md`
-- `docs/implementation/PatchPlan_Phase2.md`
-- `docs/implementation/PatchPlan_Phase3.md`
-- `docs/implementation/PatchPlan_Phase4.md`
-- `docs/implementation/PatchPlan_Phase5.md`
-- `docs/implementation/PatchPlan_Phase6.md`
-- `docs/implementation/PatchPlan_Phase7.md`
-- `docs/implementation/PatchPlan_Phase8.md`
-- `docs/implementation/PatchPlan_Phase9.md`
-- `docs/implementation/PatchPlan_Phase10.md`
+- GitHub Issues
+
+아카이브 참고 문서:
+
+- `docs/archive/patch-plans/PatchPlan_Phase1.md`
+- `docs/archive/patch-plans/PatchPlan_Phase2.md`
+- `docs/archive/patch-plans/PatchPlan_Phase3.md`
+- `docs/archive/patch-plans/PatchPlan_Phase4.md`
+- `docs/archive/patch-plans/PatchPlan_Phase5.md`
+- `docs/archive/patch-plans/PatchPlan_Phase6.md`
+- `docs/archive/patch-plans/PatchPlan_Phase7.md`
+- `docs/archive/patch-plans/PatchPlan_Phase8.md`
+- `docs/archive/patch-plans/PatchPlan_Phase9.md`
+- `docs/archive/patch-plans/PatchPlan_Phase10.md`
 
 출력 형식:
 

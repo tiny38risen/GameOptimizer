@@ -55,9 +55,9 @@ A release candidate fails if exit code is non-zero, unless the scenario explicit
 
 ## RC candidate artifact stop condition
 
-`verify_rc_candidate.py --target <target.exe> --regression-log <log>` is mandatory before `v3.0-rc1`.
+`run_rc_gate.bat <target.exe>` is the mandatory RC entry point before `v3.0-rc1`. It runs the 9-step gate, including evidence bundle generation and `verify-rc`.
 
-`create_rc_evidence_bundle.py --target <target.exe> --regression-log <log>` is mandatory after candidate verification. It creates the final evidence bundle and writes `rc_evidence_bundle_manifest.json` plus `rc_evidence_bundle_manifest.txt`.
+Inside the gate, `create_rc_evidence_bundle.py --target <target.exe> --regression-log <log>` creates the final evidence bundle and writes `rc_evidence_bundle_manifest.json` plus `rc_evidence_bundle_manifest.txt`.
 
 The candidate is blocked when any of the following is missing:
 

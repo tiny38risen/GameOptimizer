@@ -1,4 +1,11 @@
-# GameOptimizer v3.1 Evidence Specification
+﻿# GameOptimizer v3.1 Evidence Specification
+
+Status: Active
+Authority: Future v3.1 evidence design
+TargetVersion: v3.1
+ImplementationStatus: Design only; not the current machine-enforced RC schema
+VerificationStatus: Planned/manual design review
+Owner: Performance evidence design
 
 ## 1. 문서 개요
 
@@ -31,8 +38,8 @@
 상위 문서:
 
 - `docs/validation/PerformanceValidationPlan.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
 - `docs/architecture/SAD_v1.0.md`
 - `docs/architecture/RuntimeStateMachine.md`
 - `docs/modules/MDS-001_ThreadTracker.md`
@@ -53,7 +60,7 @@
 - `docs/release/ReleaseChecklist_v3.1.md`
 - `docs/release/RC_Runbook_v3.1.md`
 - `docs/implementation/ImplementationPlan_v3.1.md`
-- `docs/performance/GameProfileSpecification.md`
+- `docs/proposals/performance/GameProfileSpecification.md`
 
 문서 경로 기준: `GameOptimizer/docs/`. 문서 내부 참조는 `docs/...` 형식을 우선 사용한다.
 

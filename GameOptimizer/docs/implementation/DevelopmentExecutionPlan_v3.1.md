@@ -1,4 +1,4 @@
-# GameOptimizer v3.1 Development Execution Plan
+﻿# GameOptimizer v3.1 Development Execution Plan
 
 ## 1. 문서 개요
 
@@ -6,7 +6,7 @@
 
 버전: v1.0
 
-작성 목적: GameOptimizer v3.1의 Phase 1~10 및 각 Patch Plan을 실제 개발 작업으로 실행하기 위한 개발 실행 계획(Development Execution Plan)을 정의한다.
+작성 목적: GameOptimizer v3.1의 Phase 1~10을 GitHub Issues 기반 개발 작업으로 실행하기 위한 개발 실행 계획(Development Execution Plan)을 정의한다.
 
 Development Execution Plan의 목적은 많은 코드를 빠르게 생성하는 것이 아니라, 각 변경을 검증 가능한 작은 패치로 제한하고 저장소의 실제 상태에 근거해 안전하게 통합하는 것이다.
 
@@ -36,9 +36,9 @@ Development Execution Plan의 목적은 많은 코드를 빠르게 생성하는 
 
 - `GameOptimizer_v3_SRS_Rev1_3_CPP23_Safety_Update.docx`
 - `docs/vision/PVD_v1.0.md`
-- `docs/performance/PerformanceEngineSpec.md`
-- `docs/performance/PolicySpecification.md`
-- `docs/performance/GameProfileSpecification.md`
+- `docs/proposals/performance/PerformanceEngineSpec.md`
+- `docs/proposals/performance/PolicySpecification.md`
+- `docs/proposals/performance/GameProfileSpecification.md`
 - `docs/architecture/SAD_v1.0.md`
 - `docs/architecture/RuntimeStateMachine.md`
 - `docs/contracts/Safety_Contract.md`
@@ -60,7 +60,8 @@ Development Execution Plan의 목적은 많은 코드를 빠르게 생성하는 
 - `docs/release/Release_Gate_Spec.md`
 - `docs/release/RC_Report_Template_v3.1.md`
 - `docs/implementation/ImplementationPlan_v3.1.md`
-- `docs/implementation/PatchPlan_Phase1.md` ~ `docs/implementation/PatchPlan_Phase10.md`
+- GitHub Issues
+- `docs/archive/patch-plans/PatchPlan_Phase1.md` ~ `docs/archive/patch-plans/PatchPlan_Phase10.md` (archived historical reference)
 
 후속 문서:
 
