@@ -19,7 +19,8 @@ public:
     WatchdogCycleRunner(
         RuntimeContext& context,
         std::atomic_bool& runtimeTimeoutRequested,
-        RuntimeShutdownRequest requestShutdown) noexcept;
+        RuntimeShutdownRequest requestShutdown,
+        const RuntimeSignalState& signalState) noexcept;
 
     void runCycle(std::stop_token stopToken) noexcept;
 
@@ -39,9 +40,18 @@ private:
     void dispatchDecisionCommands(
         RuntimeValidationSample& validationSample,
         const RuntimeMetrics& runtimeMetrics) noexcept;
+    [[nodiscard]] bool isShutdownRequested() const noexcept;
+    [[nodiscard]] bool skipMutationWhenShutdownRequested(const char* phase) const noexcept;
 
     RuntimeContext& context_;
     std::atomic_bool& runtimeTimeoutRequested_;
     RuntimeShutdownRequest requestShutdown_ = nullptr;
+    const RuntimeSignalState& signalState_;
     bool threadTrackerResetEventThisCycle_ = false;
+
+#ifdef GAMEOPTIMIZER_ENABLE_WATCHDOG_TEST_HOOKS
+    friend bool watchdogCycleRunnerShutdownGuardTest(
+        WatchdogCycleRunner& runner,
+        RuntimeContext& context) noexcept;
+#endif
 };

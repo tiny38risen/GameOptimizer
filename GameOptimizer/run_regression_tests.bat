@@ -22,6 +22,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [INFO] building WatchdogCycleRunnerTests...
+cl /nologo /std:c++latest /EHsc /W4 /WX /permissive- ^
+    WatchdogCycleRunnerTests.cpp WatchdogCycleRunner.cpp ThreadTracker.cpp SchedulerController.cpp RollbackManager.cpp ApplyGuard.cpp LatencyMetricsCollector.cpp LatencyDecisionLayer.cpp AppliedPolicyTracker.cpp RuntimeValidationMonitor.cpp PolicyDispatcher.cpp BackgroundController.cpp NetworkInterruptController.cpp TimerResolutionController.cpp InputLatencyController.cpp ^
+    /Fe:build_tests\WatchdogCycleRunnerTests.exe ^
+    /Fo:build_tests\ ^
+    Pdh.lib User32.lib
+
+if errorlevel 1 (
+    echo [FAIL] WatchdogCycleRunnerTests build failed
+    exit /b 1
+)
+
 set /a TEST_COUNT+=1
 echo [INFO] running LatencyDecisionLayerTests...
 build_tests\LatencyDecisionLayerTests.exe
@@ -90,6 +102,16 @@ if errorlevel 1 (
     set /a FAILURE_COUNT+=1
 ) else (
     echo [PASS] RollbackManagerTests passed
+)
+
+set /a TEST_COUNT+=1
+echo [INFO] running WatchdogCycleRunnerTests...
+build_tests\WatchdogCycleRunnerTests.exe
+if errorlevel 1 (
+    echo [FAIL] WatchdogCycleRunnerTests failed
+    set /a FAILURE_COUNT+=1
+) else (
+    echo [PASS] WatchdogCycleRunnerTests passed
 )
 
 set /a TEST_COUNT+=1

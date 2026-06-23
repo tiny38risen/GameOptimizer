@@ -160,7 +160,7 @@ int RuntimeOrchestrator::run() noexcept
     context_ = std::move(context);
 
     TrackingWatchdog watchdog;
-    WatchdogCycleRunner cycleRunner(context_, signalState_.runtimeTimeoutRequested, requestShutdown);
+    WatchdogCycleRunner cycleRunner(context_, signalState_.runtimeTimeoutRequested, requestShutdown, signalState_);
     const bool watchdogStarted = watchdog.start(
         [&](std::stop_token stopToken) noexcept
         {

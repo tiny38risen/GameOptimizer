@@ -41,15 +41,23 @@ namespace
 WatchdogCycleRunner::WatchdogCycleRunner(
     RuntimeContext& context,
     std::atomic_bool& runtimeTimeoutRequested,
-    RuntimeShutdownRequest requestShutdown) noexcept
+    RuntimeShutdownRequest requestShutdown,
+    const RuntimeSignalState& signalState) noexcept
     : context_(context),
       runtimeTimeoutRequested_(runtimeTimeoutRequested),
-      requestShutdown_(requestShutdown)
+      requestShutdown_(requestShutdown),
+      signalState_(signalState)
 {
 }
 
 void WatchdogCycleRunner::runCycle(std::stop_token stopToken) noexcept
 {
+    if (isShutdownRequested())
+    {
+        Logger::info("shutdown requested before watchdog cycle; skipping cycle without starting new mutation");
+        return;
+    }
+
     if (!updateThreads(stopToken))
     {
         return;
@@ -189,6 +197,11 @@ void WatchdogCycleRunner::applyMainThreadPolicyIfNeeded(std::optional<DWORD> mai
         return;
     }
 
+    if (skipMutationWhenShutdownRequested("main-thread policy apply"))
+    {
+        return;
+    }
+
     const std::optional<DWORD> previousMainThreadId = context_.lastAppliedThreadId;
     if (previousMainThreadId.has_value())
     {
@@ -284,6 +297,11 @@ void WatchdogCycleRunner::reconcilePolicyIfNeeded(std::optional<DWORD> mainThrea
 
     context_.policyAuditCycleCounter = 0;
 
+    if (skipMutationWhenShutdownRequested("main-thread policy reconcile"))
+    {
+        return;
+    }
+
     const auto reconcileResult =
         context_.schedulerController->reconcileMainThreadPolicy(currentMainThreadId, context_.startupPlan.mainThreadPolicy);
     if (!reconcileResult)
@@ -331,6 +349,11 @@ bool WatchdogCycleRunner::dispatchFeedbackCommands(
     RuntimeValidationSample& validationSample,
     const RuntimeMetrics& runtimeMetrics) noexcept
 {
+    if (skipMutationWhenShutdownRequested("policy feedback dispatch"))
+    {
+        return true;
+    }
+
     const auto feedbackCommands = context_.appliedPolicyTracker->evaluate(runtimeMetrics, runtimeMetrics.timestamp);
     for (PolicyCommand command : feedbackCommands)
     {
@@ -338,6 +361,11 @@ bool WatchdogCycleRunner::dispatchFeedbackCommands(
         if (command == PolicyCommand::Rollback)
         {
             validationSample.rollbackRequested = true;
+        }
+
+        if (skipMutationWhenShutdownRequested("policy feedback command dispatch"))
+        {
+            return true;
         }
 
         const auto dispatchResult = context_.policyDispatcher->dispatch(command);
@@ -377,6 +405,11 @@ void WatchdogCycleRunner::dispatchDecisionCommands(
     RuntimeValidationSample& validationSample,
     const RuntimeMetrics& runtimeMetrics) noexcept
 {
+    if (skipMutationWhenShutdownRequested("policy decision dispatch"))
+    {
+        return;
+    }
+
     const auto commandsResult = context_.latencyDecisionLayer->evaluate(runtimeMetrics, runtimeMetrics.timestamp);
     if (!commandsResult)
     {
@@ -393,6 +426,11 @@ void WatchdogCycleRunner::dispatchDecisionCommands(
         if (command == PolicyCommand::Rollback)
         {
             validationSample.rollbackRequested = true;
+        }
+
+        if (skipMutationWhenShutdownRequested("policy decision command dispatch"))
+        {
+            return;
         }
 
         const auto dispatchResult = context_.policyDispatcher->dispatch(command);
@@ -412,4 +450,22 @@ void WatchdogCycleRunner::dispatchDecisionCommands(
                 toString(dispatchResult.error()));
         }
     }
+}
+
+bool WatchdogCycleRunner::isShutdownRequested() const noexcept
+{
+    return !signalState_.isRunning();
+}
+
+bool WatchdogCycleRunner::skipMutationWhenShutdownRequested(const char* phase) const noexcept
+{
+    if (!isShutdownRequested())
+    {
+        return false;
+    }
+
+    Logger::info(
+        "shutdown requested; skipping watchdog mutation phase: {}",
+        phase);
+    return true;
 }
