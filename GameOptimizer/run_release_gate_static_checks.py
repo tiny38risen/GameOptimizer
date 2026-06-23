@@ -622,6 +622,7 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
     background_text = (ROOT / "BackgroundController.cpp").read_text(encoding="utf-8", errors="replace")
     background_header_text = (ROOT / "BackgroundController.h").read_text(encoding="utf-8", errors="replace")
     rollback_text = (ROOT / "RollbackManager.cpp").read_text(encoding="utf-8", errors="replace")
+    rollback_tests_text = (ROOT / "RollbackManagerTests.cpp").read_text(encoding="utf-8", errors="replace")
     topology_text = (ROOT / "TopologyAnalyzer.cpp").read_text(encoding="utf-8", errors="replace")
     topology_tests_text = (ROOT / "TopologyAnalyzerTests.cpp").read_text(encoding="utf-8", errors="replace")
     processor_group_tests_text = (ROOT / "ProcessorGroupHedtEvidenceTests.cpp").read_text(encoding="utf-8", errors="replace")
@@ -643,6 +644,7 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         background_text,
         background_header_text,
         rollback_text,
+        rollback_tests_text,
         topology_text,
         topology_tests_text,
         processor_group_tests_text,
@@ -695,7 +697,14 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         "running ProcessorGroupHedtEvidenceTests",
         "ProcessorGroup/HEDT evidence tests completed",
         "processorGroup == 1",
-        "targetAffinity.Group = state.originalProcessorGroup.value_or(0);",
+        "RollbackManagerTests.cpp",
+        "RollbackManagerTests.exe",
+        "running RollbackManagerTests",
+        "RollbackManager tests completed",
+        "rollbackThreadFailsWhenOriginalProcessorGroupIsMissing",
+        "saved processor group evidence is missing",
+        "refusing group 0 fallback",
+        "targetAffinity.Group = originalProcessorGroup;",
         "rollback audit passed for TID {} (group={}",
         "expected(group={}",
     ]
@@ -718,6 +727,29 @@ def check_background_processor_group_policy_is_explicit() -> list[str]:
         if support_guard_index >= 0 and affinity_apply_index >= 0 and support_guard_index > affinity_apply_index:
             failures.append(
                 "[FAIL] BackgroundController processor-group gate: SetProcessAffinityMask appears before group support guard")
+    return failures
+
+
+def check_processor_group_rollback_no_group_zero_fallback() -> list[str]:
+    failures: list[str] = []
+    rollback_text = strip_comments_and_strings(
+        (ROOT / "RollbackManager.cpp").read_text(encoding="utf-8", errors="replace"))
+
+    for line_number, line in enumerate(rollback_text.splitlines(), start=1):
+        mentions_processor_group = "ProcessorGroup" in line or "processorGroup" in line
+        if not mentions_processor_group:
+            continue
+
+        if re.search(r"\.value_or\s*\(\s*0\s*\)", line):
+            failures.append(
+                f"[FAIL] P0: Processor Group must not silently fallback to group 0. "
+                f"RollbackManager.cpp:{line_number}")
+
+        if re.search(r"\?\s*[^:\n]*\.value\s*\(\s*\)\s*:\s*0\b", line):
+            failures.append(
+                f"[FAIL] P0: Processor Group must not silently fallback to group 0. "
+                f"RollbackManager.cpp:{line_number}")
+
     return failures
 
 
@@ -2050,6 +2082,7 @@ def main() -> int:
     failures.extend(check_dpc_monitoring_is_not_placeholder())
     failures.extend(check_network_irq_unsupported_policy_is_warn_only())
     failures.extend(check_background_processor_group_policy_is_explicit())
+    failures.extend(check_processor_group_rollback_no_group_zero_fallback())
     failures.extend(check_cpp20_runtime_contracts())
     failures.extend(check_project_language_contracts())
     failures.extend(check_timer_input_module_registration())

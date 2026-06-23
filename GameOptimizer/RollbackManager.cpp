@@ -706,6 +706,14 @@ std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::
         return RollbackDisposition::NoState;
     }
 
+    if (state.originalAffinityMask.has_value() && !state.originalProcessorGroup.has_value())
+    {
+        Logger::error(
+            "rollback blocked for TID {}: saved processor group evidence is missing; refusing group 0 fallback and preserving rollback state",
+            state.threadId);
+        return std::unexpected(ErrorCode::RollbackVerificationFailed);
+    }
+
     auto openedThread = openThreadForRollback(state.threadId);
     if (!openedThread)
     {
@@ -751,9 +759,10 @@ std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::
     if (state.originalAffinityMask.has_value())
     {
         const DWORD_PTR originalAffinityMask = state.originalAffinityMask.value();
+        const WORD originalProcessorGroup = state.originalProcessorGroup.value();
         GROUP_AFFINITY targetAffinity{};
         targetAffinity.Mask = static_cast<KAFFINITY>(originalAffinityMask);
-        targetAffinity.Group = state.originalProcessorGroup.value_or(0);
+        targetAffinity.Group = originalProcessorGroup;
 
         if (!SetThreadGroupAffinity(threadHandle.get(), &targetAffinity, nullptr))
         {
@@ -784,7 +793,7 @@ std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::
         const bool affinityMatches =
             !state.originalAffinityMask.has_value() ||
             (currentState.affinityMask == state.originalAffinityMask.value() &&
-             currentState.processorGroup == state.originalProcessorGroup.value_or(currentState.processorGroup));
+             currentState.processorGroup == state.originalProcessorGroup.value());
 
         const bool priorityMatches =
             !state.originalPriority.has_value() ||
@@ -798,7 +807,7 @@ std::expected<RollbackManager::RollbackDisposition, ErrorCode> RollbackManager::
                 static_cast<unsigned int>(currentState.processorGroup),
                 static_cast<unsigned long long>(currentState.affinityMask),
                 currentState.priority,
-                static_cast<unsigned int>(state.originalProcessorGroup.value_or(0)),
+                static_cast<unsigned int>(state.originalProcessorGroup.value()),
                 static_cast<unsigned long long>(state.originalAffinityMask.value_or(0)),
                 state.originalPriority.value_or(THREAD_PRIORITY_ERROR_RETURN));
             return std::unexpected(ErrorCode::RollbackVerificationFailed);

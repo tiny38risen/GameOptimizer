@@ -68,8 +68,15 @@ namespace
 
         REQUIRE(rollbackText.find("originalProcessorGroup") != std::string::npos,
             "rollback state must store original processor group");
-        REQUIRE(rollbackText.find("targetAffinity.Group = state.originalProcessorGroup.value_or(0);") != std::string::npos,
-            "thread rollback must restore saved processor group");
+        REQUIRE(rollbackText.find("saved processor group evidence is missing") != std::string::npos,
+            "thread rollback must fail when saved processor group evidence is missing");
+        REQUIRE(rollbackText.find("refusing group 0 fallback") != std::string::npos,
+            "thread rollback must refuse silent group 0 fallback");
+        REQUIRE(rollbackText.find("targetAffinity.Group = originalProcessorGroup;") != std::string::npos,
+            "thread rollback must restore the explicitly saved processor group");
+        const std::string forbiddenGroupFallback = std::string("originalProcessorGroup.value_") + "or(0)";
+        REQUIRE(rollbackText.find(forbiddenGroupFallback) == std::string::npos,
+            "thread rollback must not silently fallback to group 0");
         REQUIRE(rollbackText.find("rollback state saved for TID {} (group={}") != std::string::npos,
             "thread rollback save log must include group");
         REQUIRE(rollbackText.find("rollback audit passed for TID {} (group={}") != std::string::npos,

@@ -11,6 +11,17 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [INFO] building RollbackManagerTests...
+cl /nologo /std:c++latest /EHsc /W4 /WX /permissive- ^
+    RollbackManagerTests.cpp RollbackManager.cpp ^
+    /Fe:build_tests\RollbackManagerTests.exe ^
+    /Fo:build_tests\
+
+if errorlevel 1 (
+    echo [FAIL] RollbackManagerTests build failed
+    exit /b 1
+)
+
 set /a TEST_COUNT+=1
 echo [INFO] running LatencyDecisionLayerTests...
 build_tests\LatencyDecisionLayerTests.exe
@@ -69,6 +80,16 @@ if errorlevel 1 (
     set /a FAILURE_COUNT+=1
 ) else (
     echo [PASS] ProcessorGroupHedtEvidenceTests passed
+)
+
+set /a TEST_COUNT+=1
+echo [INFO] running RollbackManagerTests...
+build_tests\RollbackManagerTests.exe
+if errorlevel 1 (
+    echo [FAIL] RollbackManagerTests failed
+    set /a FAILURE_COUNT+=1
+) else (
+    echo [PASS] RollbackManagerTests passed
 )
 
 set /a TEST_COUNT+=1
