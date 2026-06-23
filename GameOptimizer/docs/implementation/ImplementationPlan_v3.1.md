@@ -1,4 +1,7 @@
-﻿# GameOptimizer v3.1 Implementation Plan
+> Status: Proposal  
+> 이 문서는 제안 또는 미래 설계를 설명합니다. `docs/DOCUMENT_REGISTER.md`에서 승격되기 전까지 현재 구현 동작으로 간주하지 않습니다.
+
+# GameOptimizer v3.1 Implementation Plan
 
 ## 1. 문서 개요
 

@@ -1,3 +1,5 @@
+> Status: Archived  
+> 이 문서는 과거 기록입니다. 현재 기준 문서가 아닙니다.
 File | Production build | Test build
 BackgroundController.cpp | included | included when testing BackgroundController
 docs/architecture/Architecture_Decision_Record.md | contract documentation | static gate contract input

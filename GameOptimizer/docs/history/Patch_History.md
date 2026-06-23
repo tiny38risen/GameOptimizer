@@ -1,3 +1,6 @@
+> Status: Archived  
+> 이 문서는 과거 기록입니다. 현재 기준 문서가 아닙니다.
+
 # GameOptimizer Patch History
 
 ## Purpose

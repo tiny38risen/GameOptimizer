@@ -1,3 +1,6 @@
+> Status: Superseded  
+> 이 문서는 현재 활성 기준 문서로 대체되었습니다. 현재 기준은 `docs/DOCUMENT_REGISTER.md`를 확인합니다.
+
 # Release Gate Spec
 
 ## Governance Role

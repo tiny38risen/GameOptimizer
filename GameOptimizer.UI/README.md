@@ -1,3 +1,6 @@
+> Status: Reference  
+> 이 문서는 WPF UI 구현 참고 문서입니다. 현재 UI 기준 문서는 `GameOptimizer/docs/UI_SPEC.md`입니다.
+
 # GameOptimizer 한국어 UI
 
 이 프로젝트는 기존 C++ `GameOptimizer.exe`를 직접 수정하지 않는 얇은 WinForms 런처입니다.

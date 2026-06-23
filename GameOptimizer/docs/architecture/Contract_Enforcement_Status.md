@@ -1,3 +1,6 @@
+> Status: NeedsReview  
+> 이 문서는 권위, 자동 생성 경로, 또는 현재 기준 여부 확인이 필요합니다. 현재 기준은 `docs/DOCUMENT_REGISTER.md`를 따릅니다.
+
 # Contract Enforcement Status
 
 This document records how far the current `Contract_Enforcement_Matrix.md` contracts are connected to executable gates.

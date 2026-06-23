@@ -1,4 +1,7 @@
-﻿# MDS-008 PolicyDispatcher
+> Status: Reference  
+> 이 문서는 설계 배경과 세부 내용을 보존하기 위한 참고 문서입니다. 현재 개인 프로젝트 기준의 핵심 요약은 `docs/PROJECT_SPEC.md`와 `docs/ARCHITECTURE_AND_SAFETY.md`를 따릅니다.
+
+# MDS-008 PolicyDispatcher
 
 Status: Active
 Authority: Module implementation contract

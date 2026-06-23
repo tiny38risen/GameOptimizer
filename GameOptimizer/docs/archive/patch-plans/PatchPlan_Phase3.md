@@ -1,4 +1,7 @@
-﻿# GameOptimizer v3.1 Patch Plan — Phase 3: Policy Candidate & Dispatch Layer
+> Status: Archived  
+> 이 문서는 과거 기록입니다. 현재 기준 문서가 아닙니다.
+
+# GameOptimizer v3.1 Patch Plan — Phase 3: Policy Candidate & Dispatch Layer
 > Archive notice: This Phase Patch Plan is historical. Active implementation work and execution status are tracked in GitHub Issues. This file is not a current source of truth for work ordering, completion status, or release approval.
 
 ## 1. 문서 개요
